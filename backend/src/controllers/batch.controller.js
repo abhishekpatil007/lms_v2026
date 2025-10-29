@@ -98,9 +98,11 @@ export const listBatches = async (req, res) => {
         const instructorId = req.user.user.id; 
         const where = {
             is_active: true,
-            instructor_id: instructorId,
         };
-
+        if (req.user.user.role == "instructor") {
+            where.instructor_id = instructorId;
+        }
+        
         if (status) where.status = status;
         if (course_id) where.course_id = course_id;
 
@@ -108,8 +110,8 @@ export const listBatches = async (req, res) => {
             where,
             include: [
                 { model: User, as: 'instructor' },
-                { model: User, as: 'createdBy' },
-                { model: User, as: 'students' },
+                { model: User, as: 'createdBy', attributes: ['id', 'name', 'email'], },
+                // { model: User, as: 'students' },
                 { model: Course, as: 'course' },
             ],
             order: [['createdAt', 'DESC']],

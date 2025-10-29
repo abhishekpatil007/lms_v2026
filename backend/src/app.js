@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
@@ -10,22 +12,22 @@ import authRoutes from './routes/auth.routes.js';
 import batchRoutes from './routes/batch.routes.js';
 import courseRoutes from './routes/course.routes.js';
 // import attendanceRoutes from './routes/attendance.routes.js';
-// import liveRoutes from './routes/live.routes.js';
+import liveClassRoutes from './routes/liveClass.routes.js';
+import zoomRoutes from './routes/zoom.routes.js';
 // import { handleClosePollJob } from './jobs/pollClosure.job.js';
-import dotenv from 'dotenv';
-dotenv.config();
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const server = http.createServer(app);
-const io = new IOServer(server, {
-    cors: { origin: '*' } 
-});
+// const io = new IOServer(server, {
+//     cors: { origin: '*' } 
+// });
 
 // set io on app so controllers can use it
-app.set('io', io);
+// app.set('io', io);
 
 // Redis connection for BullMQ
 // const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
@@ -56,8 +58,9 @@ app.get('/', (req, res) => res.json({ message: 'LMS Backend running' }));
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/batches', authLimiter, batchRoutes);
 app.use('/api/courses', authLimiter, courseRoutes);
+app.use('/api/live-class', authLimiter, liveClassRoutes);
+app.use("/api/zoom", zoomRoutes);
 // app.use('/api/attendance', attendanceRoutes);
-// app.use('/api/live', liveRoutes);
 
 // Socket.IO connection: JWT-based auth and server-side batch validation
 // import { verifySocketToken } from './utils/socketAuth.js';
