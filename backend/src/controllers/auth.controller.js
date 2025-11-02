@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
 import User from '../models/user.js';
 import RefreshToken from '../models/refreshToken.js';
 import { sha256Hex } from '../utils/hash.js';
@@ -7,6 +8,8 @@ import generateInvoicePDF from '../services/invoice.service.js';
 import sendPasswordResetEmail from '../services/passwordResetEmail.service.js';
 import crypto from 'crypto';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, refreshTokenExpiryDate } from '../utils/jwt.js';
+
+dotenv.config();
 
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
 const sendEmail = false;
@@ -241,7 +244,8 @@ export async function requestPasswordReset(req, res) {
 
 export async function resetPassword(req, res) {
     try {
-        const { email, token, newPassword } = req.body;
+        const { email, token } = req.query;
+        const { newPassword } = req.body;
         if (!email || !token || !newPassword) return res.status(400).json({ message: 'Email, token and newPassword required' });
 
         const user = await User.findOne({ where: { email, reset_token: token } });
