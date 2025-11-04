@@ -251,3 +251,38 @@ export const getStudentBatches = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+// --------------------------
+// Admin: Get all instructors
+// --------------------------
+export const getAllInstructors = async (req, res) => {
+    try {
+        const instructors = await User.findAll({
+            where: { role: 'instructor', is_active: true },
+            attributes: ['id', 'name', 'email'],
+            order: [['name', 'ASC']],
+        });
+
+        res.json({ instructors });
+    } catch (err) {
+        console.error('getAllInstructors', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// --------------------------
+// Admin: Get all students
+// --------------------------
+export const getAllStudents = async (req, res) => {
+    try {
+        const students = await User.findAll({
+            where: { role: 'student', is_active: true },
+            attributes: ['id', 'name', 'email'],
+            order: [['name', 'ASC']],
+        });
+
+        res.json({ students });
+    } catch (err) {
+        console.error('getAllStudents', err);
+        res.status(500).json({ message: err.message });
+    }
+};
