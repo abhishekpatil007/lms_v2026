@@ -15,7 +15,8 @@ const createZoomWebinar = async (topic, startTime, duration, description) => {
     const token = await getZoomAccessToken();
 
     const response = await axios.post(
-        'https://api.zoom.us/v2/users/me/webinars',
+        // 'https://api.zoom.us/v2/users/me/webinars',
+        'https://api.zoom.us/v2/users/me/meetings',
         {
             topic,
             type: 5, // Scheduled webinar
@@ -47,7 +48,7 @@ const createZoomWebinar = async (topic, startTime, duration, description) => {
 export const createWebinar = async (req, res) => {
     try {
         const { topic, description = 'NA', start_time, duration = 60 } = req.body;
-        const instructor_id = req.user.user.id;
+        const instructor_id = req.user.user.role === 'instructor' ? req.user.user.id : null;
 
         const zoomWebinar = await createZoomWebinar(topic, start_time, duration, description);
 
@@ -69,7 +70,10 @@ export const createWebinar = async (req, res) => {
         });
     } catch (error) {
         console.error('Create Webinar Error:', error.response?.data || error);
-        return res.status(500).json({ message: 'Failed to create webinar', error: error.message });
+        return res.status(500).json({
+            message: 'Failed to create webinar',
+            error: error.message
+        });
     }
 };
 

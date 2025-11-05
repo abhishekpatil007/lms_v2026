@@ -1,10 +1,14 @@
-// src/models/webinars.model.js
+// src/models/Webinar.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.js';
 
 const Webinar = sequelize.define('Webinar', {
-    id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
-    instructor_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+    id: {         
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true, 
+    },
+    instructor_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     topic: { type: DataTypes.STRING, allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     start_time: { type: DataTypes.DATE, allowNull: false },
@@ -16,12 +20,16 @@ const Webinar = sequelize.define('Webinar', {
         type: DataTypes.ENUM('scheduled', 'live', 'completed', 'cancelled'),
         defaultValue: 'scheduled'
     },
-    registration_required: { type: DataTypes.BOOLEAN, defaultValue: true },
-    recording_url: { type: DataTypes.TEXT, allowNull: true },
+    recording_url: { type: DataTypes.TEXT, allowNull: true }
 }, {
     tableName: 'webinars',
     underscored: true,
     timestamps: true,
 });
+
+Webinar.associate = (models) => {
+    Webinar.belongsTo(models.User, { foreignKey: 'instructor_id', as: 'instructor' });
+    Webinar.hasMany(models.WebinarRegistration, { foreignKey: 'webinar_id', as: 'webinar_registrations' });
+};
 
 export default Webinar;

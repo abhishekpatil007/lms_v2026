@@ -4,7 +4,7 @@ import { sequelize } from '../config/db.js';
 
 const WebinarRegistration = sequelize.define('WebinarRegistration', {
     id: { type: DataTypes.BIGINT.UNSIGNED, primaryKey: true, autoIncrement: true },
-    webinar_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
+    webinar_id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, allowNull: false },
     user_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     name: { type: DataTypes.STRING, allowNull: false },
     email: { type: DataTypes.STRING, allowNull: false },
