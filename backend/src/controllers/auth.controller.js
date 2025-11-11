@@ -4,14 +4,14 @@ import User from '../models/user.js';
 import RefreshToken from '../models/refreshToken.js';
 import { sha256Hex } from '../utils/hash.js';
 import sendWelcomeEmail from '../services/email.service.js';
-import generateInvoicePDF from '../services/invoice.service.js';
+import { generateInvoicePDF } from '../services/invoice.service.js';
 import sendPasswordResetEmail from '../services/passwordResetEmail.service.js';
 import crypto from 'crypto';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, refreshTokenExpiryDate } from '../utils/jwt.js';
 
 dotenv.config();
 
-const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
+const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 12);
 const sendEmail = false;
 
 // export async function register(req, res) {

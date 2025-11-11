@@ -17,6 +17,7 @@ import zoomRoutes from './routes/zoom.routes.js';
 import documentRoutes from './routes/document.routes.js';
 import videoRoutes from './routes/video.routes.js';
 import webinarRoutes from './routes/webinar.routes.js';
+import invoiceRoutes from './routes/invoice.routes.js';
 // import { handleClosePollJob } from './jobs/pollClosure.job.js';
 
 
@@ -66,6 +67,7 @@ app.use("/api/zoom", authLimiter, zoomRoutes);
 app.use("/api/documents", authLimiter, documentRoutes);
 app.use("/api/videos", authLimiter, videoRoutes);
 app.use("/api/webinars", authLimiter, webinarRoutes);
+app.use('/api/invoices', authLimiter, invoiceRoutes);
 // app.use('/api/attendance', attendanceRoutes);
 
 // Socket.IO connection: JWT-based auth and server-side batch validation
