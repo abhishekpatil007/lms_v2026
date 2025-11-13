@@ -3,6 +3,7 @@ import { Op } from 'sequelize';;
 import db from '../models/index.js';
 const { Course, Batch, User, BatchStudent } = db;
 import { sendWelcomeEmail, notifyInstructor } from '../services/batchEmail.service.js';
+import batchLogger from '../utils/logger/individualLogger/batchLogger.js';
 
 // --------------------------
 // Helper: Auto-update batch status
@@ -35,11 +36,13 @@ export const createBatch = async (req, res) => {
     try {
         const { batch_name, course_id, start_date, end_date, instructor_id, description } = req.body;
         if (!batch_name || !course_id || !start_date || !end_date) {
+            batchLogger.warn('Create Batch - Required fields missing');
             return res.status(400).json({ message: 'Required fields missing' });
         }
 
         const course = await Course.findByPk(course_id);
         if (!course) {
+            batchLogger.warn(`Create Batch - Course not found: ${course_id}`);
             return res.status(400).json({ message: 'Course not found' });
         }
 
@@ -57,9 +60,10 @@ export const createBatch = async (req, res) => {
             await notifyInstructor(batch, instructor_id);
         }
 
+        batchLogger.info(`Batch created successfully - Batch ID: ${batch.id}, Name: ${batch_name}`);
         res.status(201).json({ message: 'Batch created successfully', batch });
     } catch (err) {
-        console.error('createBatch', err);
+        batchLogger.error(`Error in createBatch: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -71,7 +75,10 @@ export const createBatch = async (req, res) => {
 export const updateBatch = async (req, res) => {
     try {
         const batch = await Batch.findByPk(req.params.id);
-        if (!batch) return res.status(404).json({ message: 'Batch not found' });
+        if (!batch) {
+            batchLogger.warn(`Update Batch - Batch not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Batch not found' });
+        }
 
         const prevInstructor = batch.instructor_id;
 
@@ -80,11 +87,13 @@ export const updateBatch = async (req, res) => {
         // Notify new instructor if changed
         if (req.body.instructor_id && req.body.instructor_id !== prevInstructor) {
             await notifyInstructor(batch, req.body.instructor_id);
+            batchLogger.info(`Batch updated with new instructor - Batch ID: ${batch.id}, Instructor ID: ${req.body.instructor_id}`);
         }
 
+        batchLogger.info(`Batch updated successfully - Batch ID: ${batch.id}`);
         res.json({ message: 'Batch updated successfully', batch });
     } catch (err) {
-        console.error('updateBatch', err);
+        batchLogger.error(`Error in updateBatch: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -119,9 +128,10 @@ export const listBatches = async (req, res) => {
 
         await Promise.all(batches.map(updateBatchStatusIfNeeded));
 
+        batchLogger.info(`Batches listed - Count: ${batches.length}, Role: ${req.user.user.role}`);
         res.json({ batches });
     } catch (err) {
-        console.error('listBatches', err);
+        batchLogger.error(`Error in listBatches: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -145,11 +155,15 @@ export const getBatchById = async (req, res) => {
             ],
         });
 
-        if (!batch) return res.status(404).json({ message: 'Batch not found' });
+        if (!batch) {
+            batchLogger.warn(`Get Batch - Batch not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Batch not found' });
+        }
 
+        batchLogger.info(`Batch retrieved - Batch ID: ${batch.id}`);
         res.json({ batch });
     } catch (err) {
-        console.error('getBatchById', err);
+        batchLogger.error(`Error in getBatchById: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -161,13 +175,17 @@ export const getBatchById = async (req, res) => {
 export const deactivateBatch = async (req, res) => {
     try {
         const batch = await Batch.findByPk(req.params.id);
-        if (!batch) return res.status(404).json({ message: 'Batch not found' });
+        if (!batch) {
+            batchLogger.warn(`Deactivate Batch - Batch not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Batch not found' });
+        }
 
         await batch.update({ is_active: false, status: 'inactive' });
 
+        batchLogger.info(`Batch deactivated - Batch ID: ${batch.id}`);
         res.json({ message: 'Batch deactivated successfully' });
     } catch (err) {
-        console.error('deactivateBatch', err);
+        batchLogger.error(`Error in deactivateBatch: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -179,14 +197,18 @@ export const assignInstructor = async (req, res) => {
     try {
         const { instructor_id } = req.body;
         const batch = await Batch.findByPk(req.params.id);
-        if (!batch) return res.status(404).json({ message: 'Batch not found' });
+        if (!batch) {
+            batchLogger.warn(`Assign Instructor - Batch not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Batch not found' });
+        }
 
         await batch.update({ instructor_id });
         await notifyInstructor(batch, instructor_id);
 
+        batchLogger.info(`Instructor assigned - Batch ID: ${batch.id}, Instructor ID: ${instructor_id}`);
         res.json({ message: 'Instructor assigned successfully' });
     } catch (err) {
-        console.error('assignInstructor', err);
+        batchLogger.error(`Error in assignInstructor: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -197,8 +219,10 @@ export const assignInstructor = async (req, res) => {
 export const enrollStudents = async (req, res) => {
     try {
         const { studentIds } = req.body; // array of student IDs
-        if (!studentIds || !studentIds.length)
+        if (!studentIds || !studentIds.length) {
+            batchLogger.warn('Enroll Students - No students provided');
             return res.status(400).json({ message: 'No students provided' });
+        }
 
         const enrollments = studentIds.map((id) => ({ batch_id: req.params.id, student_id: id }));
         await BatchStudent.bulkCreate(enrollments, { ignoreDuplicates: true });
@@ -208,9 +232,10 @@ export const enrollStudents = async (req, res) => {
             await sendWelcomeEmail(studentId, req.params.id);
         }
 
+        batchLogger.info(`Students enrolled - Batch ID: ${req.params.id}, Count: ${studentIds.length}`);
         res.json({ message: `${studentIds.length} students enrolled successfully` });
     } catch (err) {
-        console.error('enrollStudents', err);
+        batchLogger.error(`Error in enrollStudents: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -223,9 +248,10 @@ export const getInstructorBatches = async (req, res) => {
         const batches = await Batch.findAll({
             where: { instructor_id: req.user.user.id, status: { [Op.not]: 'completed' }, is_active : true },
         });
+        batchLogger.info(`Instructor batches retrieved - Instructor ID: ${req.user.user.id}, Count: ${batches.length}`);
         res.json({ batches });
     } catch (err) {
-        console.error('getInstructorBatches', err);
+        batchLogger.error(`Error in getInstructorBatches: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -245,9 +271,10 @@ export const getStudentBatches = async (req, res) => {
             ],
             where: { status: { [Op.not]: 'completed' } },
         });
+        batchLogger.info(`Student batches retrieved - Student ID: ${req.user.id}, Count: ${batches.length}`);
         res.json({ batches });
     } catch (err) {
-        console.error('getStudentBatches', err);
+        batchLogger.error(`Error in getStudentBatches: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -262,9 +289,10 @@ export const getAllInstructors = async (req, res) => {
             order: [['name', 'ASC']],
         });
 
+        batchLogger.info(`All instructors retrieved - Count: ${instructors.length}`);
         res.json({ instructors });
     } catch (err) {
-        console.error('getAllInstructors', err);
+        batchLogger.error(`Error in getAllInstructors: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -280,9 +308,10 @@ export const getAllStudents = async (req, res) => {
             order: [['name', 'ASC']],
         });
 
+        batchLogger.info(`All students retrieved - Count: ${students.length}`);
         res.json({ students });
     } catch (err) {
-        console.error('getAllStudents', err);
+        batchLogger.error(`Error in getAllStudents: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };

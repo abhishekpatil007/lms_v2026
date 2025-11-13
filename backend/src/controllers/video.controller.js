@@ -3,6 +3,7 @@ import Mux from '@mux/mux-node';
 import db from '../models/index.js';
 import dotenv from 'dotenv';
 import { Op } from 'sequelize';
+import videoLogger from '../utils/logger/individualLogger/videoLogger.js';
 dotenv.config();
 
 const Video = db.Video;
@@ -28,6 +29,7 @@ export const createDirectUpload = async (req, res) => {
     try {
         const user = ensureUser(req);
         if (!['instructor', 'admin'].includes(user.user.role)) {
+            videoLogger.warn(`Create Direct Upload - Forbidden for role: ${user.user.role}`);
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -56,13 +58,14 @@ export const createDirectUpload = async (req, res) => {
         entry.mux_upload_id = upload.id;
         await entry.save();
 
+        videoLogger.info(`Direct upload created - Video ID: ${entry.id}, Upload ID: ${upload.id}`);
         return res.status(201).json({
             id: entry.id,
             upload_id: upload.id,
             upload_url: upload.url,
         });
     } catch (err) {
-        console.error('createDirectUpload error', err);
+        videoLogger.error(`Error in createDirectUpload: ${err.message}`);
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
@@ -89,10 +92,10 @@ export const muxWebhookHandler = async (req, res) => {
             } else {
                 // fallback: attempt to parse JSON (no verification) — not recommended for prod
                 event = JSON.parse(rawBody.toString());
-                console.warn('Warning: Mux webhook verification not performed (SDK method missing).');
+                videoLogger.warn('Mux webhook verification not performed (SDK method missing)');
             }
         } catch (e) {
-            console.warn('Mux webhook signature verification failed:', e.message || e);
+            videoLogger.warn(`Mux webhook signature verification failed: ${e.message}`);
             return res.status(400).json({ message: 'Invalid webhook signature' });
         }
 
@@ -111,6 +114,7 @@ export const muxWebhookHandler = async (req, res) => {
                         mux_asset_id: assetId,
                         upload_status: 'pending',
                     }, { where: { id: passthrough } });
+                    videoLogger.info(`Asset created - Video ID: ${passthrough}, Asset ID: ${assetId}`);
                 } else if (assetId) {
                     await Video.update({ mux_asset_id: assetId, upload_status: 'pending' }, { where: { mux_asset_id: assetId } });
                 }
@@ -129,6 +133,7 @@ export const muxWebhookHandler = async (req, res) => {
                         mux_playback_id: playbackId,
                         upload_status: 'ready',
                     }, { where: { id: passthrough } });
+                    videoLogger.info(`Asset ready - Video ID: ${passthrough}, Playback ID: ${playbackId}`);
                 } else if (assetId) {
                     await Video.update({
                         mux_asset_id: assetId,
@@ -143,10 +148,12 @@ export const muxWebhookHandler = async (req, res) => {
             case 'video.asset.errored': {
                 if (passthrough) {
                     await Video.update({ upload_status: 'failed' }, { where: { id: passthrough } });
+                    videoLogger.warn(`Asset error - Video ID: ${passthrough}`);
                 } else {
                     const uploadId = data?.id || data?.upload_id;
                     if (uploadId) {
                         await Video.update({ upload_status: 'failed' }, { where: { mux_upload_id: uploadId } });
+                        videoLogger.warn(`Asset error - Upload ID: ${uploadId}`);
                     }
                 }
                 break;
@@ -155,6 +162,7 @@ export const muxWebhookHandler = async (req, res) => {
             case 'video.upload.cancelled': {
                 if (passthrough) {
                     await Video.update({ upload_status: 'cancelled' }, { where: { id: passthrough } });
+                    videoLogger.info(`Upload cancelled - Video ID: ${passthrough}`);
                 }
                 break;
             }
@@ -166,7 +174,7 @@ export const muxWebhookHandler = async (req, res) => {
 
         return res.status(200).json({ received: true });
     } catch (err) {
-        console.error('muxWebhookHandler error', err);
+        videoLogger.error(`Error in muxWebhookHandler: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });
     }
 };
@@ -182,20 +190,26 @@ export const assignBatches = async (req, res) => {
         const { batch_ids } = req.body;
 
         if (!Array.isArray(batch_ids) || batch_ids.length === 0) {
+            videoLogger.warn('Assign Batches - batch_ids must be a non-empty array');
             return res.status(400).json({ message: 'batch_ids must be a non-empty array' });
         }
 
         const video = await Video.findByPk(videoId);
-        if (!video) return res.status(404).json({ message: 'Video not found' });
+        if (!video) {
+            videoLogger.warn(`Assign Batches - Video not found: ${videoId}`);
+            return res.status(404).json({ message: 'Video not found' });
+        }
 
         // Permission: admin OR instructor owning any of the target batches
         if (user.user.role === 'instructor') {
             // ensure the instructor owns all provided batches (or at least one? choose strict approach)
             const owned = await Batch.count({ where: { id: { [Op.in]: batch_ids }, instructor_id: user.user.id } });
             if (owned !== batch_ids.length) {
+                videoLogger.warn(`Assign Batches - Forbidden for instructor: ${user.user.id}, Video: ${videoId}`);
                 return res.status(403).json({ message: 'Forbidden: you can only assign videos to your own batches' });
             }
         } else if (user.user.role !== 'admin') {
+            videoLogger.warn(`Assign Batches - Forbidden for role: ${user.user.role}`);
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -203,9 +217,10 @@ export const assignBatches = async (req, res) => {
         await video.setBatches(batch_ids);
 
         const updated = await Video.findByPk(videoId, { include: [{ model: Batch, as: 'batches' }] });
+        videoLogger.info(`Video assigned to batches - Video ID: ${videoId}, Batch Count: ${batch_ids.length}`);
         return res.json({ message: 'Assigned to batches', video: updated });
     } catch (err) {
-        console.error('assignBatches error', err);
+        videoLogger.error(`Error in assignBatches: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });
     }
 };
@@ -228,6 +243,7 @@ export const listVideos = async (req, res) => {
         if (role === 'admin') {
             // admin sees all videos (optionally filter)
             const videos = await Video.findAll({ where: filters, order: [['created_at', 'DESC']] });
+            videoLogger.info(`Videos listed by admin - Count: ${videos.length}`);
             return res.json(videos);
         }
 
@@ -252,6 +268,7 @@ export const listVideos = async (req, res) => {
 
         if (accessibleBatchIds.length === 0) {
             // no batches -> return empty
+            videoLogger.info(`Videos listed by ${role} - No accessible batches`);
             return res.json([]);
         }
 
@@ -263,15 +280,19 @@ export const listVideos = async (req, res) => {
         });
 
         const videoIds = [...new Set(bvRows.map(r => r.video_id))];
-        if (videoIds.length === 0) return res.json([]);
+        if (videoIds.length === 0) {
+            videoLogger.info(`Videos listed by ${role} - No videos found`);
+            return res.json([]);
+        }
 
         // apply video-level filters and restrict to videoIds
         const where = { ...filters, id: { [Op.in]: videoIds } };
 
         const videos = await Video.findAll({ where, order: [['created_at', 'DESC']] });
+        videoLogger.info(`Videos listed by ${role} - Count: ${videos.length}`);
         return res.json(videos);
     } catch (err) {
-        console.error('listVideos error', err);
+        videoLogger.error(`Error in listVideos: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });
     }
 };
@@ -286,17 +307,27 @@ export const getVideo = async (req, res) => {
         const userId = user.user.id;
 
         const video = await Video.findByPk(req.params.id, { include: [{ model: Batch, as: 'batches', through: { attributes: [] } }] });
-        if (!video) return res.status(404).json({ message: 'Not found' });
+        if (!video) {
+            videoLogger.warn(`Get Video - Video not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Not found' });
+        }
 
         // Get the list of batch ids associated with the video
         const videoBatchIds = (video.batches || []).map(b => b.id);
 
-        if (role === 'admin') return res.json(video);
+        if (role === 'admin') {
+            videoLogger.info(`Video retrieved by admin - Video ID: ${req.params.id}`);
+            return res.json(video);
+        }
 
         if (role === 'instructor') {
             // ensure instructor owns at least one of the batches the video is assigned to
             const owns = await Batch.count({ where: { id: { [Op.in]: videoBatchIds }, instructor_id: userId } });
-            if (owns === 0) return res.status(403).json({ message: 'Access denied' });
+            if (owns === 0) {
+                videoLogger.warn(`Get Video - Access denied for instructor: ${userId}, Video: ${req.params.id}`);
+                return res.status(403).json({ message: 'Access denied' });
+            }
+            videoLogger.info(`Video retrieved by instructor - Video ID: ${req.params.id}`);
             return res.json(video);
         }
 
@@ -308,13 +339,18 @@ export const getVideo = async (req, res) => {
                     batch_id: { [Op.in]: videoBatchIds },
                 },
             });
-            if (!enrolled) return res.status(403).json({ message: 'Access denied' });
+            if (!enrolled) {
+                videoLogger.warn(`Get Video - Access denied for student: ${userId}, Video: ${req.params.id}`);
+                return res.status(403).json({ message: 'Access denied' });
+            }
+            videoLogger.info(`Video retrieved by student - Video ID: ${req.params.id}`);
             return res.json(video);
         }
 
+        videoLogger.warn(`Get Video - Access denied for unknown role: ${role}`);
         return res.status(403).json({ message: 'Access denied' });
     } catch (err) {
-        console.error('getVideo error', err);
+        videoLogger.error(`Error in getVideo: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });
     }
 };
@@ -325,13 +361,17 @@ export const getVideo = async (req, res) => {
 export const getPlaybackUrl = async (req, res) => {
     try {
         const video = await Video.findByPk(req.params.id);
-        if (!video || !video.mux_playback_id) return res.status(404).json({ message: 'Playback not available' });
+        if (!video || !video.mux_playback_id) {
+            videoLogger.warn(`Get Playback - Playback not available for Video: ${req.params.id}`);
+            return res.status(404).json({ message: 'Playback not available' });
+        }
 
         // Use public playback. If you use signed playback, implement token signing here.
         const playbackUrl = `https://stream.mux.com/${video.mux_playback_id}.m3u8`;
+        videoLogger.info(`Playback URL generated - Video ID: ${req.params.id}`);
         return res.json({ playback_url: playbackUrl, mux_playback_id: video.mux_playback_id });
     } catch (err) {
-        console.error('getPlaybackUrl error', err);
+        videoLogger.error(`Error in getPlaybackUrl: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });
     }
 };
@@ -343,14 +383,21 @@ export const deleteVideo = async (req, res) => {
     try {
         const user = ensureUser(req);
         const video = await Video.findByPk(req.params.id, { include: [{ model: Batch, as: 'batches', through: { attributes: [] } }] });
-        if (!video) return res.status(404).json({ message: 'Not found' });
+        if (!video) {
+            videoLogger.warn(`Delete Video - Video not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Not found' });
+        }
 
         // permission: admin OR instructor owning at least one assigned batch
         if (user.user.role === 'instructor') {
             const videoBatchIds = (video.batches || []).map(b => b.id);
             const owns = await Batch.count({ where: { id: { [Op.in]: videoBatchIds }, instructor_id: user.user.id } });
-            if (owns === 0) return res.status(403).json({ message: 'Forbidden' });
+            if (owns === 0) {
+                videoLogger.warn(`Delete Video - Forbidden for instructor: ${user.user.id}, Video: ${req.params.id}`);
+                return res.status(403).json({ message: 'Forbidden' });
+            }
         } else if (user.user.role !== 'admin') {
+            videoLogger.warn(`Delete Video - Forbidden for role: ${user.user.role}`);
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -359,7 +406,7 @@ export const deleteVideo = async (req, res) => {
             try {
                 await mux.video.assets.del(video.mux_asset_id);
             } catch (e) {
-                console.warn('Mux delete asset warning', e.message || e);
+                videoLogger.warn(`Mux delete asset warning: ${e.message}`);
             }
         }
 
@@ -367,9 +414,10 @@ export const deleteVideo = async (req, res) => {
         await video.setBatches([]); // cleanup pivot
         await video.destroy();
 
+        videoLogger.info(`Video deleted successfully - Video ID: ${req.params.id}`);
         return res.json({ message: 'Deleted' });
     } catch (err) {
-        console.error('deleteVideo error', err);
+        videoLogger.error(`Error in deleteVideo: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });
     }
 };

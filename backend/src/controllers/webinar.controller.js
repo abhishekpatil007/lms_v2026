@@ -5,6 +5,7 @@ import axios from 'axios';
 import db from '../models/index.js';
 import jwt from 'jsonwebtoken';
 import { getZoomAccessToken } from '../services/zoomAuth.service.js';
+import webinarLogger from '../utils/logger/individualLogger/webinarLogger.js';
 
 const { Webinar, WebinarRegistration, User } = db;
 
@@ -64,12 +65,13 @@ export const createWebinar = async (req, res) => {
             status: 'scheduled'
         });
 
+        webinarLogger.info(`Webinar created successfully - Webinar ID: ${webinar.id}, Topic: ${topic}`);
         return res.status(201).json({
             message: 'Webinar created successfully.',
             data: webinar
         });
     } catch (error) {
-        console.error('Create Webinar Error:', error.response?.data || error);
+        webinarLogger.error(`Error in createWebinar: ${error.message}`);
         return res.status(500).json({
             message: 'Failed to create webinar',
             error: error.message
@@ -87,9 +89,10 @@ export const getAllWebinars = async (req, res) => {
             order: [['start_time', 'ASC']]
         });
 
+        webinarLogger.info(`All webinars retrieved - Count: ${webinars.length}`);
         return res.json({ message: 'Webinars fetched successfully.', data: webinars });
     } catch (error) {
-        console.error('Get All Webinars Error:', error);
+        webinarLogger.error(`Error in getAllWebinars: ${error.message}`);
         return res.status(500).json({ message: 'Failed to fetch webinars', error: error.message });
     }
 };
@@ -107,11 +110,15 @@ export const getWebinarById = async (req, res) => {
             ]
         });
 
-        if (!webinar) return res.status(404).json({ message: 'Webinar not found' });
+        if (!webinar) {
+            webinarLogger.warn(`Get Webinar - Webinar not found: ${id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
 
+        webinarLogger.info(`Webinar retrieved - Webinar ID: ${id}`);
         return res.json({ message: 'Webinar fetched successfully.', data: webinar });
     } catch (error) {
-        console.error('Get Webinar Error:', error);
+        webinarLogger.error(`Error in getWebinarById: ${error.message}`);
         return res.status(500).json({ message: 'Failed to fetch webinar', error: error.message });
     }
 };
@@ -125,10 +132,14 @@ export const updateWebinar = async (req, res) => {
         const { topic, start_time, duration, description } = req.body;
 
         const webinar = await Webinar.findByPk(id);
-        if (!webinar) return res.status(404).json({ message: 'Webinar not found' });
+        if (!webinar) {
+            webinarLogger.warn(`Update Webinar - Webinar not found: ${id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
 
         // Permission check
         if (req.user.user.role !== 'admin' && webinar.instructor_id !== req.user.user.id) {
+            webinarLogger.warn(`Update Webinar - Unauthorized for user: ${req.user.user.id}, Webinar: ${id}`);
             return res.status(403).json({ message: 'Unauthorized to edit this webinar' });
         }
 
@@ -143,9 +154,10 @@ export const updateWebinar = async (req, res) => {
         // Update local DB
         await webinar.update({ topic, start_time, duration, description });
 
+        webinarLogger.info(`Webinar updated successfully - Webinar ID: ${id}`);
         return res.json({ message: 'Webinar updated successfully.', data: webinar });
     } catch (error) {
-        console.error('Update Webinar Error:', error.response?.data || error);
+        webinarLogger.error(`Error in updateWebinar: ${error.message}`);
         return res.status(500).json({ message: 'Failed to update webinar', error: error.message });
     }
 };
@@ -158,9 +170,13 @@ export const deleteWebinar = async (req, res) => {
         const { id } = req.params;
 
         const webinar = await Webinar.findByPk(id);
-        if (!webinar) return res.status(404).json({ message: 'Webinar not found' });
+        if (!webinar) {
+            webinarLogger.warn(`Delete Webinar - Webinar not found: ${id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
 
         if (req.user.user.role !== 'admin' && webinar.instructor_id !== req.user.user.id) {
+            webinarLogger.warn(`Delete Webinar - Unauthorized for user: ${req.user.user.id}, Webinar: ${id}`);
             return res.status(403).json({ message: 'Unauthorized to delete this webinar' });
         }
 
@@ -172,9 +188,10 @@ export const deleteWebinar = async (req, res) => {
 
         await webinar.update({ status: 'cancelled' });
 
+        webinarLogger.info(`Webinar deleted successfully - Webinar ID: ${id}`);
         return res.json({ message: 'Webinar cancelled successfully.' });
     } catch (error) {
-        console.error('Delete Webinar Error:', error.response?.data || error);
+        webinarLogger.error(`Error in deleteWebinar: ${error.message}`);
         return res.status(500).json({ message: 'Failed to cancel webinar', error: error.message });
     }
 };
@@ -187,10 +204,16 @@ export const registerForWebinar = async (req, res) => {
         const { webinar_id, name, email } = req.body;
 
         const webinar = await Webinar.findByPk(webinar_id);
-        if (!webinar) return res.status(404).json({ message: 'Webinar not found' });
+        if (!webinar) {
+            webinarLogger.warn(`Register for Webinar - Webinar not found: ${webinar_id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
 
         const existing = await WebinarRegistration.findOne({ where: { webinar_id, email } });
-        if (existing) return res.status(400).json({ message: 'Already registered for this webinar' });
+        if (existing) {
+            webinarLogger.warn(`Register for Webinar - Already registered: ${email}, Webinar: ${webinar_id}`);
+            return res.status(400).json({ message: 'Already registered for this webinar' });
+        }
 
         const registration = await WebinarRegistration.create({
             webinar_id,
@@ -199,12 +222,13 @@ export const registerForWebinar = async (req, res) => {
             email
         });
 
+        webinarLogger.info(`User registered for webinar - Webinar ID: ${webinar_id}, Email: ${email}`);
         return res.status(201).json({
             message: 'Registered successfully for the webinar.',
             data: registration
         });
     } catch (error) {
-        console.error('Webinar Registration Error:', error);
+        webinarLogger.error(`Error in registerForWebinar: ${error.message}`);
         return res.status(500).json({ message: 'Failed to register', error: error.message });
     }
 };
@@ -217,9 +241,13 @@ export const getWebinarRegistrations = async (req, res) => {
         const { webinar_id } = req.params;
 
         const webinar = await Webinar.findByPk(webinar_id);
-        if (!webinar) return res.status(404).json({ message: 'Webinar not found' });
+        if (!webinar) {
+            webinarLogger.warn(`Get Registrations - Webinar not found: ${webinar_id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
 
         if (req.user.user.role !== 'admin' && webinar.instructor_id !== req.user.user.id) {
+            webinarLogger.warn(`Get Registrations - Unauthorized for user: ${req.user.user.id}, Webinar: ${webinar_id}`);
             return res.status(403).json({ message: 'Unauthorized' });
         }
 
@@ -228,12 +256,13 @@ export const getWebinarRegistrations = async (req, res) => {
             order: [['created_at', 'ASC']]
         });
 
+        webinarLogger.info(`Webinar registrations retrieved - Webinar ID: ${webinar_id}, Count: ${registrations.length}`);
         return res.json({
             message: 'Webinar registrations fetched successfully.',
             data: registrations
         });
     } catch (error) {
-        console.error('Get Webinar Registrations Error:', error);
+        webinarLogger.error(`Error in getWebinarRegistrations: ${error.message}`);
         return res.status(500).json({ message: 'Failed to fetch registrations', error: error.message });
     }
 };
@@ -246,7 +275,10 @@ export const joinWebinar = async (req, res) => {
         const { id } = req.params;
 
         const webinar = await Webinar.findByPk(id);
-        if (!webinar) return res.status(404).json({ message: 'Webinar not found' });
+        if (!webinar) {
+            webinarLogger.warn(`Join Webinar - Webinar not found: ${id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
 
         const userEmail = req.user?.user?.email;
         const isRegistered = await WebinarRegistration.findOne({
@@ -254,13 +286,15 @@ export const joinWebinar = async (req, res) => {
         });
 
         if (!isRegistered) {
+            webinarLogger.warn(`Join Webinar - User not registered: ${userEmail}, Webinar: ${id}`);
             return res.status(403).json({ message: 'You are not registered for this webinar.' });
         }
 
         const joinUrl = webinar.zoom_join_url;
+        webinarLogger.info(`User joined webinar - Webinar ID: ${id}, Email: ${userEmail}`);
         return res.json({ message: 'Join link generated successfully.', join_url: joinUrl });
     } catch (error) {
-        console.error('Join Webinar Error:', error);
+        webinarLogger.error(`Error in joinWebinar: ${error.message}`);
         return res.status(500).json({ message: 'Failed to join webinar', error: error.message });
     }
 };
@@ -281,8 +315,8 @@ export const sendWebinarReminders = async () => {
             // Example: await sendEmailReminder(registrations, webinar);
         }
 
-        console.log(`Reminders sent for ${upcomingWebinars.length} webinars`);
+        webinarLogger.info(`Reminders sent for ${upcomingWebinars.length} webinars`);
     } catch (error) {
-        console.error('Send Webinar Reminder Error:', error);
+        webinarLogger.error(`Error in sendWebinarReminders: ${error.message}`);
     }
 };

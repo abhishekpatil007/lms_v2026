@@ -4,6 +4,7 @@ import fs from 'fs';
 import { STORAGE_TYPE } from '../config/storage.config.js';
 import db from '../models/index.js';
 import dotenv from 'dotenv';
+import documentLogger from '../utils/logger/individualLogger/documentLogger.js';
 import {
     S3Client,
     DeleteObjectCommand,
@@ -34,7 +35,10 @@ if (process.env.STORAGE_TYPE === 'aws') {
 export const uploadDocument = async (req, res) => {
     try {
         const file = req.file;
-        if (!file) return res.status(400).json({ message: 'No file uploaded' });
+        if (!file) {
+            documentLogger.warn('Upload Document - No file uploaded');
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
 
         const filePath = file.location || file.path;
         const fileType = path.extname(file.originalname).replace('.', '');
@@ -51,9 +55,10 @@ export const uploadDocument = async (req, res) => {
             is_active: true,
         });
 
+        documentLogger.info(`Document uploaded successfully - Document ID: ${doc.id}, File: ${file.originalname}`);
         return res.status(201).json({ message: 'Uploaded', document: doc });
     } catch (err) {
-        console.error('uploadDocument error', err);
+        documentLogger.error(`Error in uploadDocument: ${err.message}`);
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
@@ -97,9 +102,10 @@ export const listDocuments = async (req, res) => {
             order: [['created_at', 'DESC']],
         });
 
+        documentLogger.info(`Documents listed - Count: ${docs.length}, Role: ${role}`);
         res.json(docs);
     } catch (err) {
-        console.error('Error listing documents:', err);
+        documentLogger.error(`Error in listDocuments: ${err.message}`);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -114,19 +120,32 @@ export const getDocument = async (req, res) => {
         const userId = req.user?.id;
 
         const doc = await Document.findByPk(req.params.id);
-        if (!doc) return res.status(404).json({ message: 'Document not found' });
+        if (!doc) {
+            documentLogger.warn(`Get Document - Document not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Document not found' });
+        }
 
         // Global documents (no batch)
-        if (!doc.batch_id) return res.json(doc);
+        if (!doc.batch_id) {
+            documentLogger.info(`Document retrieved - Document ID: ${doc.id}`);
+            return res.json(doc);
+        }
 
-        if (role === 'admin') return res.json(doc);
+        if (role === 'admin') {
+            documentLogger.info(`Document retrieved by admin - Document ID: ${doc.id}`);
+            return res.json(doc);
+        }
 
         // Instructor → check if they own the batch
         if (role === 'instructor') {
             const ownsBatch = await db.Batch.findOne({
                 where: { id: doc.batch_id, instructor_id: userId },
             });
-            if (!ownsBatch) return res.status(403).json({ message: 'Access denied (not your batch)' });
+            if (!ownsBatch) {
+                documentLogger.warn(`Get Document - Access denied for instructor: ${userId}, Document: ${doc.id}`);
+                return res.status(403).json({ message: 'Access denied (not your batch)' });
+            }
+            documentLogger.info(`Document retrieved by instructor - Document ID: ${doc.id}`);
             return res.json(doc);
         }
 
@@ -135,13 +154,18 @@ export const getDocument = async (req, res) => {
             const enrolled = await db.BatchStudent.findOne({
                 where: { student_id: userId, batch_id: doc.batch_id },
             });
-            if (!enrolled) return res.status(403).json({ message: 'Access denied (not your batch)' });
+            if (!enrolled) {
+                documentLogger.warn(`Get Document - Access denied for student: ${userId}, Document: ${doc.id}`);
+                return res.status(403).json({ message: 'Access denied (not your batch)' });
+            }
+            documentLogger.info(`Document retrieved by student - Document ID: ${doc.id}`);
             return res.json(doc);
         }
 
+        documentLogger.warn(`Get Document - Access denied for unknown role: ${role}`);
         res.status(403).json({ message: 'Access denied' });
     } catch (err) {
-        console.error('Error getting document:', err);
+        documentLogger.error(`Error in getDocument: ${err.message}`);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -153,17 +177,22 @@ export const getDocument = async (req, res) => {
 export const downloadDocument = async (req, res) => {
     try {
         const doc = await Document.findByPk(req.params.id);
-        if (!doc) return res.status(404).json({ message: 'Not found' });
+        if (!doc) {
+            documentLogger.warn(`Download Document - Document not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Not found' });
+        }
 
         const inline = req.query.inline === 'true';
 
         if (process.env.STORAGE_TYPE === 'aws' && s3) {
             if (!process.env.AWS_BUCKET_NAME) {
+                documentLogger.error('Download Document - S3 not configured');
                 return res.status(500).json({ message: 'S3 not configured' });
             }
 
             // Public URL
             if (doc.file_path && doc.file_path.startsWith('http')) {
+                documentLogger.info(`Document downloaded from S3 - Document ID: ${doc.id}`);
                 if (inline) return res.redirect(doc.file_path);
                 res.setHeader(
                     'Content-Disposition',
@@ -186,6 +215,7 @@ export const downloadDocument = async (req, res) => {
                 expiresIn: Number(process.env.SIGNED_URL_EXPIRES || 60),
             });
 
+            documentLogger.info(`Signed URL generated - Document ID: ${doc.id}`);
             return res.redirect(signedUrl);
         } else {
             // Local file handling
@@ -194,6 +224,7 @@ export const downloadDocument = async (req, res) => {
                 : path.join(process.cwd(), doc.file_path);
 
             if (!fs.existsSync(absolutePath)) {
+                documentLogger.warn(`Download Document - File not found on server: ${absolutePath}`);
                 return res.status(404).json({ message: 'File not found on server' });
             }
 
@@ -202,11 +233,12 @@ export const downloadDocument = async (req, res) => {
                 ? 'inline'
                 : `attachment; filename="${filename}"`;
 
+            documentLogger.info(`Local document downloaded - Document ID: ${doc.id}`);
             res.setHeader('Content-Disposition', disposition);
             return res.sendFile(absolutePath);
         }
     } catch (err) {
-        console.error(err);
+        documentLogger.error(`Error in downloadDocument: ${err.message}`);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -217,7 +249,10 @@ export const downloadDocument = async (req, res) => {
 export const deleteDocument = async (req, res) => {
     try {
         const doc = await Document.findByPk(req.params.id);
-        if (!doc) return res.status(404).json({ message: 'Document not found' });
+        if (!doc) {
+            documentLogger.warn(`Delete Document - Document not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Document not found' });
+        }
 
         if (process.env.STORAGE_TYPE !== 'aws') {
             // Local deletion
@@ -237,14 +272,15 @@ export const deleteDocument = async (req, res) => {
             try {
                 await s3.send(command);
             } catch (e) {
-                console.warn('S3 delete warning:', e.message || e);
+                documentLogger.warn(`S3 delete warning: ${e.message || e}`);
             }
         }
 
         await doc.destroy();
+        documentLogger.info(`Document deleted successfully - Document ID: ${doc.id}`);
         res.json({ message: 'Document deleted' });
     } catch (err) {
-        console.error(err);
+        documentLogger.error(`Error in deleteDocument: ${err.message}`);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -271,13 +307,14 @@ export const getUniqueLanguages = async (req, res) => {
             .filter(Boolean)
             .sort();
 
+        documentLogger.info(`Unique languages retrieved - Count: ${uniqueLanguages.length}`);
         res.status(200).json({
             success: true,
             count: uniqueLanguages.length,
             languages: uniqueLanguages,
         });
     } catch (error) {
-        console.error("Error fetching unique languages:", error);
+        documentLogger.error(`Error in getUniqueLanguages: ${error.message}`);
         res.status(500).json({
             success: false,
             message: "Server error while fetching unique languages",

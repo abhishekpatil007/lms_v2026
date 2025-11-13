@@ -4,6 +4,7 @@ import axios from "axios";
 import db from "../models/index.js";
 import jwt from 'jsonwebtoken';
 import { getZoomAccessToken } from "../services/zoomAuth.service.js";
+import liveClassLogger from '../utils/logger/individualLogger/liveClassLogger.js';
 // import { notifyLiveClass } from "../services/liveClassEmail.service.js";
 
 const { LiveClass } = db;
@@ -63,12 +64,13 @@ export const createLiveClass = async (req, res) => {
         // Step 3: Notify participants
         // await notifyLiveClass(liveClass);
 
+        liveClassLogger.info(`Live class created successfully - Live Class ID: ${liveClass.id}, Batch ID: ${batch_id}, Topic: ${topic}`);
         return res.status(201).json({
             message: "Live class created successfully.",
             data: liveClass,
         });
     } catch (error) {
-        console.error("Create Live Class Error:", error.response?.data || error);
+        liveClassLogger.error(`Error in createLiveClass: ${error.message}`);
         return res
             .status(500)
             .json({ message: "Failed to create live class", error: error.message });
@@ -87,12 +89,13 @@ export const getBatchLiveClasses = async (req, res) => {
             order: [["start_time", "ASC"]],
         });
 
+        liveClassLogger.info(`Batch live classes retrieved - Batch ID: ${batch_id}, Count: ${classes.length}`);
         res.status(200).json({
             message: "Live classes fetched successfully.",
             data: classes,
         });
     } catch (error) {
-        console.error("Get Batch Classes Error:", error);
+        liveClassLogger.error(`Error in getBatchLiveClasses: ${error.message}`);
         res
             .status(500)
             .json({ message: "Failed to fetch live classes", error: error.message });
@@ -107,7 +110,10 @@ export const getLiveClassSignature = async (req, res) => {
     try {
         const { id } = req.params;
         const classData = await LiveClass.findByPk(id);
-        if (!classData) return res.status(404).json({ message: 'Live class not found' });
+        if (!classData) {
+            liveClassLogger.warn(`Get Signature - Live class not found: ${id}`);
+            return res.status(404).json({ message: 'Live class not found' });
+        }
 
         const meetingNumber = classData.zoom_meeting_id;
         const role = req.user.role === 'instructor' ? 1 : 0; // 1 = host, 0 = participant
@@ -126,6 +132,7 @@ export const getLiveClassSignature = async (req, res) => {
 
         const token = jwt.sign(payload, process.env.ZOOM_SDK_SECRET, { algorithm: 'HS256' });
 
+        liveClassLogger.info(`Zoom signature generated - Live Class ID: ${id}, Role: ${role}`);
         return res.json({
             success: true,
             signature: token,
@@ -133,7 +140,7 @@ export const getLiveClassSignature = async (req, res) => {
             meetingNumber,
         });
     } catch (err) {
-        console.error('getLiveClassSignature error:', err);
+        liveClassLogger.error(`Error in getLiveClassSignature: ${err.message}`);
         res.status(500).json({ message: 'Failed to generate Zoom signature' });
     }
 };
@@ -148,14 +155,17 @@ export const updateLiveClass = async (req, res) => {
         const { topic, start_time, duration, description } = req.body;
 
         const liveClass = await LiveClass.findByPk(id);
-        if (!liveClass)
+        if (!liveClass) {
+            liveClassLogger.warn(`Update Live Class - Live class not found: ${id}`);
             return res.status(404).json({ message: "Live class not found" });
+        }
 
         // Check permission (instructor owns it or admin)
         if (
             req.user.user.role !== "admin" &&
             liveClass.instructor_id !== req.user.user.id
         ) {
+            liveClassLogger.warn(`Update Live Class - Unauthorized for user: ${req.user.user.id}, Live Class: ${id}`);
             return res.status(403).json({ message: "Unauthorized to edit this class" });
         }
 
@@ -177,12 +187,13 @@ export const updateLiveClass = async (req, res) => {
         // Update local DB
         await liveClass.update({ topic, start_time, duration, description });
 
+        liveClassLogger.info(`Live class updated successfully - Live Class ID: ${id}`);
         return res.json({
             message: "Live class updated successfully.",
             data: liveClass,
         });
     } catch (error) {
-        console.error("Update Live Class Error:", error.response?.data || error);
+        liveClassLogger.error(`Error in updateLiveClass: ${error.message}`);
         res
             .status(500)
             .json({ message: "Failed to update live class", error: error.message });
@@ -197,14 +208,17 @@ export const deleteLiveClass = async (req, res) => {
         const { id } = req.params;
 
         const liveClass = await LiveClass.findByPk(id);
-        if (!liveClass)
+        if (!liveClass) {
+            liveClassLogger.warn(`Delete Live Class - Live class not found: ${id}`);
             return res.status(404).json({ message: "Live class not found" });
+        }
 
         // Only admin or class instructor can delete
         if (
             req.user.user.role !== "admin" &&
             liveClass.instructor_id !== req.user.user.id
         ) {
+            liveClassLogger.warn(`Delete Live Class - Unauthorized for user: ${req.user.user.id}, Live Class: ${id}`);
             return res.status(403).json({ message: "Unauthorized to delete this class" });
         }
 
@@ -220,9 +234,10 @@ export const deleteLiveClass = async (req, res) => {
         // Update local DB
         await liveClass.update({ status: "cancelled" });
 
+        liveClassLogger.info(`Live class deleted successfully - Live Class ID: ${id}`);
         return res.json({ message: "Live class cancelled successfully." });
     } catch (error) {
-        console.error("Delete Live Class Error:", error.response?.data || error);
+        liveClassLogger.error(`Error in deleteLiveClass: ${error.message}`);
         res
             .status(500)
             .json({ message: "Failed to cancel live class", error: error.message });
@@ -243,15 +258,18 @@ export const getLiveClassById = async (req, res) => {
             ],
         });
 
-        if (!liveClass)
+        if (!liveClass) {
+            liveClassLogger.warn(`Get Live Class - Live class not found: ${id}`);
             return res.status(404).json({ message: "Live class not found" });
+        }
 
+        liveClassLogger.info(`Live class retrieved - Live Class ID: ${id}`);
         return res.json({
             message: "Live class fetched successfully.",
             data: liveClass,
         });
     } catch (error) {
-        console.error("Get Live Class Error:", error);
+        liveClassLogger.error(`Error in getLiveClassById: ${error.message}`);
         res
             .status(500)
             .json({ message: "Failed to get live class", error: error.message });
@@ -266,8 +284,10 @@ export const joinLiveClass = async (req, res) => {
         const { id } = req.params;
         const liveClass = await LiveClass.findByPk(id);
 
-        if (!liveClass)
+        if (!liveClass) {
+            liveClassLogger.warn(`Join Live Class - Live class not found: ${id}`);
             return res.status(404).json({ message: "Live class not found" });
+        }
 
         // Simple role-based redirect logic
         const joinUrl =
@@ -275,12 +295,13 @@ export const joinLiveClass = async (req, res) => {
                 ? liveClass.zoom_start_url
                 : liveClass.zoom_join_url;
 
+        liveClassLogger.info(`Join link generated - Live Class ID: ${id}, User Role: ${req.user.user.role}`);
         return res.json({
             message: "Join link generated successfully.",
             join_url: joinUrl,
         });
     } catch (error) {
-        console.error("Join Live Class Error:", error);
+        liveClassLogger.error(`Error in joinLiveClass: ${error.message}`);
         res
             .status(500)
             .json({ message: "Failed to join live class", error: error.message });

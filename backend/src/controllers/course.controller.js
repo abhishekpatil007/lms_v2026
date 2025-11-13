@@ -1,16 +1,21 @@
 import db from '../models/index.js';
+import courseLogger from '../utils/logger/individualLogger/courseLogger.js';
 const { Course, Batch, User } = db;
 
 // Create a course
 export const createCourse = async (req, res) => {
     try {
         const { title, description } = req.body;
-        if (!title) return res.status(400).json({ message: 'Title is required' });
+        if (!title) {
+            courseLogger.warn('Create Course - Title is required');
+            return res.status(400).json({ message: 'Title is required' });
+        }
 
         const course = await Course.create({ title, description, created_by : req.user.user.id });
+        courseLogger.info(`Course created successfully - Course ID: ${course.id}, Title: ${title}`);
         res.status(201).json({ message: 'Course created', course });
     } catch (err) {
-        console.error('createCourse', err);
+        courseLogger.error(`Error in createCourse: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -19,12 +24,16 @@ export const createCourse = async (req, res) => {
 export const updateCourse = async (req, res) => {
     try {
         const course = await Course.findByPk(req.params.id);
-        if (!course) return res.status(404).json({ message: 'Course not found' });
+        if (!course) {
+            courseLogger.warn(`Update Course - Course not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Course not found' });
+        }
 
         await course.update(req.body);
+        courseLogger.info(`Course updated successfully - Course ID: ${course.id}`);
         res.json({ message: 'Course updated', course });
     } catch (err) {
-        console.error('updateCourse', err);
+        courseLogger.error(`Error in updateCourse: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -39,9 +48,10 @@ export const listCourses = async (req, res) => {
             ],
             order: [['createdAt', 'DESC']]
         });
+        courseLogger.info(`Courses listed successfully - Count: ${courses.length}`);
         res.json({ courses });
     } catch (err) {
-        console.error('listCourses', err);
+        courseLogger.error(`Error in listCourses: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -55,10 +65,14 @@ export const getCourseById = async (req, res) => {
                 as: 'batches'
             }]
         });
-        if (!course) return res.status(404).json({ message: 'Course not found' });
+        if (!course) {
+            courseLogger.warn(`Get Course - Course not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Course not found' });
+        }
+        courseLogger.info(`Course retrieved - Course ID: ${course.id}`);
         res.json({ course });
     } catch (err) {
-        console.error('getCourseById', err);
+        courseLogger.error(`Error in getCourseById: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
@@ -67,12 +81,16 @@ export const getCourseById = async (req, res) => {
 export const deactivateCourse = async (req, res) => {
     try {
         const course = await Course.findByPk(req.params.id);
-        if (!course) return res.status(404).json({ message: 'Course not found' });
+        if (!course) {
+            courseLogger.warn(`Deactivate Course - Course not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Course not found' });
+        }
 
         await course.update({ status: 'inactive' });
+        courseLogger.info(`Course deactivated - Course ID: ${course.id}`);
         res.json({ message: 'Course deactivated' });
     } catch (err) {
-        console.error('deactivateCourse', err);
+        courseLogger.error(`Error in deactivateCourse: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };

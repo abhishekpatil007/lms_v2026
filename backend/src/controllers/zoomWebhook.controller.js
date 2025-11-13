@@ -1,5 +1,6 @@
 // src/controllers/zoomWebhook.controller.js
 import db from "../models/index.js";
+import zoomWebhookLogger from "../utils/logger/individualLogger/zoomWebhookLogger.js";
 const { LiveClass } = db;
 
 export const handleZoomWebhook = async (req, res) => {
@@ -8,6 +9,7 @@ export const handleZoomWebhook = async (req, res) => {
         const payload = req.body.payload;
 
         if (!event || !payload?.object?.id) {
+            zoomWebhookLogger.warn('Zoom Webhook - Invalid webhook payload');
             return res.status(400).json({ message: "Invalid webhook payload" });
         }
 
@@ -19,27 +21,27 @@ export const handleZoomWebhook = async (req, res) => {
         });
 
         if (!liveClass) {
-            console.warn(`⚠️ No LiveClass found for meeting ID: ${meetingId}`);
+            zoomWebhookLogger.warn(`Zoom Webhook - No LiveClass found for meeting ID: ${meetingId}`);
             return res.status(200).send();
         }
 
         switch (event) {
             case "meeting.started":
                 await liveClass.update({ status: "live" });
-                console.log(`🎥 Live class ${liveClass.id} started`);
+                zoomWebhookLogger.info(`Meeting started - Live Class ID: ${liveClass.id}, Meeting ID: ${meetingId}`);
                 break;
             case "meeting.ended":
                 await liveClass.update({ status: "completed" });
-                console.log(`✅ Live class ${liveClass.id} completed`);
+                zoomWebhookLogger.info(`Meeting ended - Live Class ID: ${liveClass.id}, Meeting ID: ${meetingId}`);
                 break;
             default:
-                console.log(`ℹ️ Unhandled Zoom event: ${event}`);
+                zoomWebhookLogger.info(`Unhandled Zoom event: ${event}`);
                 break;
         }
 
         res.status(200).json({ received: true });
     } catch (error) {
-        console.error("Webhook Error:", error);
+        zoomWebhookLogger.error(`Error in handleZoomWebhook: ${error.message}`);
         res.status(500).json({ message: "Failed to handle Zoom webhook" });
     }
 };
