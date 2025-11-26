@@ -4,8 +4,7 @@ import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import { Server as IOServer } from 'socket.io';
-import { Queue, Worker } from 'bullmq';
-import IORedis from 'ioredis';
+
 import rateLimit from 'express-rate-limit';
 import { sequelize } from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
@@ -18,7 +17,15 @@ import documentRoutes from './routes/document.routes.js';
 import videoRoutes from './routes/video.routes.js';
 import webinarRoutes from './routes/webinar.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
+import testRoutes from './routes/test.routes.js';
+import attemptRoutes from './routes/attempt.routes.js';
+import evaluationRoutes from './routes/evaluation.routes.js';
+
+import { initAutoSubmitWorker } from './services/autoSubmit.worker.js';
+import { createModuleLogger } from './utils/logger/logger.js';
 // import { handleClosePollJob } from './jobs/pollClosure.job.js';
+
+const logger = createModuleLogger('app');
 
 
 const app = express();
@@ -68,6 +75,9 @@ app.use("/api/documents", authLimiter, documentRoutes);
 app.use("/api/videos", authLimiter, videoRoutes);
 app.use("/api/webinars", authLimiter, webinarRoutes);
 app.use('/api/invoices', authLimiter, invoiceRoutes);
+app.use('/api/tests', authLimiter, testRoutes);
+app.use('/api/attempts', authLimiter, attemptRoutes);
+app.use('/api/evaluation', authLimiter, evaluationRoutes);
 // app.use('/api/attendance', attendanceRoutes);
 
 // Socket.IO connection: JWT-based auth and server-side batch validation
