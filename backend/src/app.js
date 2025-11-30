@@ -60,7 +60,7 @@ const server = http.createServer(app);
 
 const authLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 20,
+    max: 200, // Increased from 20 to 200 for development
     message: { message: "Too many requests, try later." }
 });
 
