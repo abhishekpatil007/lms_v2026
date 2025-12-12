@@ -1,0 +1,10 @@
+export { authApi } from './endpoints/auth';
+export { coursesApi } from './endpoints/courses';
+export { batchesApi } from './endpoints/batches';
+export { usersApi } from './endpoints/users';
+export { videosApi } from './endpoints/videos';
+export { documentsApi } from './endpoints/documents';
+export { liveClassesApi } from './endpoints/liveClasses';
+export { webinarsApi } from './endpoints/webinars';
+export { testsApi } from './endpoints/tests';
+export { default as apiClient } from './client';

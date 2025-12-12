@@ -160,3 +160,30 @@ export const publishTest = async (req, res) => {
         res.status(500).json({ message: 'Error publishing test', error: error.message });
     }
 };
+
+export const listTests = async (req, res) => {
+    try {
+        const { batch_id } = req.query;
+        const where = {};
+
+        if (batch_id) where.batch_id = batch_id;
+
+        // If student, only show published tests
+        if (req.user.user.role === 'student') {
+            where.status = 'published';
+        }
+
+        const tests = await Test.findAll({
+            where,
+            include: [
+                { model: Batch, as: 'batch', attributes: ['id', 'batch_name'] },
+                { model: User, as: 'creator', attributes: ['id', 'name'] }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.json({ tests });
+    } catch (error) {
+        res.status(500).json({ message: 'Error listing tests', error: error.message });
+    }
+};
