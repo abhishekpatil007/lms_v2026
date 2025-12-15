@@ -16,6 +16,7 @@ import { VideosPage } from './pages/admin/VideosPage';
 import { DocumentsPage } from './pages/admin/DocumentsPage';
 import { LiveClassesPage } from './pages/admin/LiveClassesPage';
 import { CoursesPage } from './pages/admin/CoursesPage';
+import { InvoicesPage } from './pages/admin/InvoicesPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
 import { BatchDetailPage } from './pages/instructor/BatchDetailPage';
@@ -68,6 +69,7 @@ function App() {
           <Route path="webinars" element={<WebinarsPage />} />
           <Route path="tests" element={<TestsPage />} />
           <Route path="tests/:testId/builder" element={<TestBuilderPage />} />
+          <Route path="invoices" element={<InvoicesPage />} />
           <Route path="settings" element={<AdminSettingsPage />} />
         </Route>
 

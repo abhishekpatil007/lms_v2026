@@ -55,8 +55,10 @@ export const addBlock = async (req, res) => {
 export const addQuestion = async (req, res) => {
     try {
         const { block_id } = req.params;
-        const { content, type, marks, options, order_index } = req.body;
-        const file = req.file;
+        const { content, type, marks, options, order_index, model_answer } = req.body;
+        const files = req.files || {};
+        const referenceMedia = files['reference_media'] ? files['reference_media'][0] : null;
+        const optionMediaFiles = files['option_media'] || [];
 
         // Transaction for question + options
         const result = await db.sequelize.transaction(async (t) => {
@@ -66,7 +68,9 @@ export const addQuestion = async (req, res) => {
                 type,
                 marks,
                 order_index,
-                reference_media_url: file ? getFileUrl(file) : null
+                order_index,
+                reference_media_url: referenceMedia ? getFileUrl(referenceMedia) : null,
+                model_answer: type === 'SHORT_ANSWER' ? model_answer : null
             }, { transaction: t });
 
             if (type === 'MCQ') {
@@ -86,12 +90,33 @@ export const addQuestion = async (req, res) => {
                 }
 
                 if (parsedOptions.length > 0) {
-                    const optionData = parsedOptions.map(opt => ({
-                        question_id: question.id,
-                        content: opt.content,
-                        is_correct: opt.is_correct,
-                        order_index: opt.order_index
-                    }));
+                    const optionData = parsedOptions.map((opt, index) => {
+                        // Find if there's an image for this option index
+                        // We assume options are sent in order and files are named or ordered accordingly
+                        // But since we can't easily map file to index via array input, we might rely on order
+                        // OR we can check if the option object has a media_index or similar if we were advanced.
+                        // For now, let's assume the frontend sends option_media in the same order as options that need images.
+
+                        // Better approach: Frontend sends options as JSON string. 
+                        // If we want to map specific files, we might need a more complex structure.
+                        // Simplified approach: If option has `has_media: true`, we take the next available file.
+
+                        let mediaUrl = null;
+                        if (opt.has_media && optionMediaFiles.length > 0) {
+                            // This is a simple FIFO assignment. 
+                            // Ideally, frontend should send a unique ID to map, but for now this works if order is preserved.
+                            const file = optionMediaFiles.shift();
+                            if (file) mediaUrl = getFileUrl(file);
+                        }
+
+                        return {
+                            question_id: question.id,
+                            content: opt.content,
+                            is_correct: opt.is_correct,
+                            order_index: opt.order_index,
+                            media_url: mediaUrl
+                        };
+                    });
 
                     await Option.bulkCreate(optionData, { transaction: t });
                 }

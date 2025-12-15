@@ -16,6 +16,9 @@ router.put('/:id/publish', requireRole(['instructor', 'admin']), publishTest);
 
 router.post('/:test_id/blocks', requireRole(['instructor', 'admin']), addBlock);
 
-router.post('/blocks/:block_id/questions', requireRole(['instructor', 'admin']), upload.single('reference_media'), addQuestion);
+router.post('/blocks/:block_id/questions', requireRole(['instructor', 'admin']), upload.fields([
+    { name: 'reference_media', maxCount: 1 },
+    { name: 'option_media', maxCount: 10 } // Allow up to 10 option images
+]), addQuestion);
 
 export default router;

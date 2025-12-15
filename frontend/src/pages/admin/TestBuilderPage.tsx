@@ -27,11 +27,12 @@ export const TestBuilderPage = () => {
         type: "MCQ" as "MCQ" | "SHORT_ANSWER" | "FILE_UPLOAD",
         marks: 1,
         reference_image: null as File | null,
+        model_answer: "",
         options: [
-            { content: "", is_correct: false },
-            { content: "", is_correct: false },
-            { content: "", is_correct: false },
-            { content: "", is_correct: false },
+            { content: "", is_correct: false, media: null as File | null },
+            { content: "", is_correct: false, media: null as File | null },
+            { content: "", is_correct: false, media: null as File | null },
+            { content: "", is_correct: false, media: null as File | null },
         ],
     });
 
@@ -89,11 +90,29 @@ export const TestBuilderPage = () => {
             formData.append('order_index', '0');
 
             if (questionData.reference_image) {
-                formData.append('file', questionData.reference_image);
+                formData.append('reference_media', questionData.reference_image);
             }
 
             if (questionData.type === 'MCQ') {
-                formData.append('options', JSON.stringify(questionData.options));
+                // Prepare options with has_media flag
+                const optionsToSend = questionData.options.map(opt => ({
+                    content: opt.content,
+                    is_correct: opt.is_correct,
+                    order_index: 0, // Backend handles order if needed, or we can pass it
+                    has_media: !!opt.media
+                }));
+                formData.append('options', JSON.stringify(optionsToSend));
+
+                // Append option images
+                questionData.options.forEach((opt) => {
+                    if (opt.media) {
+                        formData.append('option_media', opt.media);
+                    }
+                });
+            }
+
+            if (questionData.type === 'SHORT_ANSWER' && questionData.model_answer) {
+                formData.append('model_answer', questionData.model_answer);
             }
 
             await testsApi.addQuestion(parseInt(blockId), formData);
@@ -103,11 +122,12 @@ export const TestBuilderPage = () => {
                 type: "MCQ",
                 marks: 1,
                 reference_image: null,
+                model_answer: "",
                 options: [
-                    { content: "", is_correct: false },
-                    { content: "", is_correct: false },
-                    { content: "", is_correct: false },
-                    { content: "", is_correct: false },
+                    { content: "", is_correct: false, media: null },
+                    { content: "", is_correct: false, media: null },
+                    { content: "", is_correct: false, media: null },
+                    { content: "", is_correct: false, media: null },
                 ],
             });
             fetchTestDetails();
@@ -225,6 +245,13 @@ export const TestBuilderPage = () => {
                                             </div>
                                             <p className="text-gray-900 font-medium mb-3">{question.content}</p>
 
+                                            {question.model_answer && (
+                                                <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                                                    <span className="text-xs font-semibold text-green-700 uppercase tracking-wider">Model Answer</span>
+                                                    <p className="text-sm text-green-800 mt-1">{question.model_answer}</p>
+                                                </div>
+                                            )}
+
                                             {question.reference_media_url && (
                                                 <div className="mb-3">
                                                     <img
@@ -248,6 +275,9 @@ export const TestBuilderPage = () => {
                                                             )}
                                                         >
                                                             {opt.content}
+                                                            {opt.media_url && (
+                                                                <img src={opt.media_url} alt="Option" className="mt-2 h-20 rounded border" />
+                                                            )}
                                                             {opt.is_correct && <IconCheck className="inline-block w-3 h-3 ml-2" />}
                                                         </div>
                                                     ))}
@@ -339,6 +369,19 @@ export const TestBuilderPage = () => {
                                         </div>
                                     </div>
 
+                                    {questionData.type === 'SHORT_ANSWER' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Model Answer (Optional)</label>
+                                            <textarea
+                                                value={questionData.model_answer}
+                                                onChange={(e) => setQuestionData({ ...questionData, model_answer: e.target.value })}
+                                                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                                rows={3}
+                                                placeholder="Enter the expected answer or key points..."
+                                            />
+                                        </div>
+                                    )}
+
                                     {questionData.type === 'MCQ' && (
                                         <div className="space-y-2">
                                             <label className="block text-sm font-medium text-gray-700">Options</label>
@@ -356,17 +399,53 @@ export const TestBuilderPage = () => {
                                                         }}
                                                         className="text-blue-600 focus:ring-blue-500"
                                                     />
-                                                    <input
-                                                        type="text"
-                                                        value={opt.content}
-                                                        onChange={(e) => {
-                                                            const newOptions = [...questionData.options];
-                                                            newOptions[idx].content = e.target.value;
-                                                            setQuestionData({ ...questionData, options: newOptions });
-                                                        }}
-                                                        placeholder={`Option ${idx + 1} `}
-                                                        className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                                    />
+                                                    <div className="flex-1 space-y-2">
+                                                        <input
+                                                            type="text"
+                                                            value={opt.content}
+                                                            onChange={(e) => {
+                                                                const newOptions = [...questionData.options];
+                                                                newOptions[idx].content = e.target.value;
+                                                                setQuestionData({ ...questionData, options: newOptions });
+                                                            }}
+                                                            placeholder={`Option ${idx + 1} `}
+                                                            className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                                        />
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="cursor-pointer flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs text-gray-600">
+                                                                <IconPhoto className="w-3 h-3" />
+                                                                {opt.media ? "Change Image" : "Add Image"}
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    className="hidden"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            const newOptions = [...questionData.options];
+                                                                            newOptions[idx].media = file;
+                                                                            setQuestionData({ ...questionData, options: newOptions });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                            {opt.media && (
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-xs text-blue-600 truncate max-w-[100px]">{opt.media.name}</span>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newOptions = [...questionData.options];
+                                                                            newOptions[idx].media = null;
+                                                                            setQuestionData({ ...questionData, options: newOptions });
+                                                                        }}
+                                                                        className="text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        <IconX className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>

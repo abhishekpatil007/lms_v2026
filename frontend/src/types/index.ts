@@ -235,12 +235,13 @@ export interface WebinarJoinResponse {
 
 // Test Module Types
 export type TestStatus = 'draft' | 'published' | 'archived';
-export type QuestionType = 'MCQ' | 'TRUE_FALSE' | 'SUBJECTIVE';
+export type QuestionType = 'MCQ' | 'SHORT_ANSWER' | 'FILE_UPLOAD';
 
 export interface Option {
   id: number;
   question_id: number;
   content: string;
+  media_url?: string;
   is_correct: boolean;
   order_index: number;
 }
@@ -253,6 +254,7 @@ export interface Question {
   marks: number;
   order_index: number;
   reference_media_url?: string;
+  model_answer?: string;
   options?: Option[];
 }
 
@@ -285,6 +287,34 @@ export interface Test {
   createdAt: string;
   updatedAt: string;
   blocks?: Block[];
+  batch?: {
+    id: string;
+    batch_name: string;
+  };
+}
+
+// Invoice Module Types
+export interface Invoice {
+  id: number;
+  invoice_number: string;
+  user_id: number;
+  batch_id: string;
+  amount: number;
+  gst_rate: number;
+  is_gst_inclusive: boolean;
+  gst_amount: number;
+  total: number;
+  payment_method: 'online' | 'offline';
+  status: 'pending' | 'paid' | 'cancelled';
+  payment_id?: string;
+  issued_at: string;
+  paid_at?: string;
+  notes?: string;
+  student?: {
+    id: number;
+    name: string;
+    email: string;
+  };
   batch?: {
     id: string;
     batch_name: string;

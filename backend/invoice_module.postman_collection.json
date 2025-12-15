@@ -1,0 +1,211 @@
+{
+    "info": {
+        "_postman_id": "invoice-module-collection",
+        "name": "LMS Portal - Invoice Module",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Invoices",
+            "item": [
+                {
+                    "name": "List Invoices",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{BASE_URL}}/invoices?page=1&limit=10&status=paid",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "invoices"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "paid",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "INV-123",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Invoice Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{BASE_URL}}/invoices/:id",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "invoices",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "1"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Offline Enroll (Create Invoice & Enroll)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"studentId\": 1,\n    \"batchId\": 1,\n    \"amount\": 5000,\n    \"gst_rate\": 18,\n    \"is_gst_inclusive\": true,\n    \"notes\": \"Paid via Cash\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{BASE_URL}}/invoices/offline-enroll",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "invoices",
+                                "offline-enroll"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Request Payment (Online)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"studentId\": 1,\n    \"batchId\": 1,\n    \"amount\": 5000,\n    \"gst_rate\": 18,\n    \"is_gst_inclusive\": true,\n    \"notes\": \"Online Payment Request\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{BASE_URL}}/invoices/request-payment",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "invoices",
+                                "request-payment"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Send Manual Invoice",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"fullName\": \"John Doe\",\n    \"email\": \"john@example.com\",\n    \"courseName\": \"React Mastery\",\n    \"batchName\": \"Batch A\",\n    \"amount\": 10000,\n    \"method\": \"Bank Transfer\",\n    \"transactionId\": \"TXN123456\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{BASE_URL}}/invoices/manual",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "invoices",
+                                "manual"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Bulk Invoice Upload",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{BASE_URL}}/invoices/bulk",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "invoices",
+                                "bulk"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ]
+}

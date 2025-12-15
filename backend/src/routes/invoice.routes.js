@@ -2,7 +2,7 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
-import { offlineEnroll, requestPayment, handleWebhook, sendBulkInvoices, sendManualInvoiceAPI } from '../controllers/invoice.controller.js';
+import { offlineEnroll, requestPayment, handleWebhook, sendBulkInvoices, sendManualInvoiceAPI, listInvoices, getInvoiceDetails } from '../controllers/invoice.controller.js';
 import multer from 'multer';
 const router = express.Router();
 const upload = multer({ dest: 'uploads/excel/' });
@@ -10,6 +10,12 @@ const upload = multer({ dest: 'uploads/excel/' });
 // Admin routes
 router.post('/offline-enroll', verifyToken, requireRole(['admin']), offlineEnroll);
 router.post('/request-payment', verifyToken, requireRole(['admin']), requestPayment);
+
+// List Invoices
+router.get('/', verifyToken, requireRole(['admin']), listInvoices);
+
+// Get Invoice Details
+router.get('/:id', verifyToken, requireRole(['admin']), getInvoiceDetails);
 
 // Razorpay webhook (no auth)
 router.post('/payment-webhook', express.json({ type: '*/*' }), handleWebhook);

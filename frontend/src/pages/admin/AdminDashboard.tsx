@@ -11,6 +11,7 @@ import {
   IconFile,
   IconBrandZoom,
   IconChecklist,
+  IconFileInvoice,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,13 @@ export const AdminDashboard = () => {
       href: "/admin/webinars",
       icon: (
         <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
+      ),
+    },
+    {
+      label: "Invoices",
+      href: "/admin/invoices",
+      icon: (
+        <IconFileInvoice className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
       ),
     },
     {

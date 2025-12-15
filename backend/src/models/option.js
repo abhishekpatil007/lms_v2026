@@ -6,6 +6,7 @@ const Option = sequelize.define('Option', {
     question_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
 
     content: { type: DataTypes.TEXT, allowNull: false },
+    media_url: { type: DataTypes.STRING, allowNull: true }, // For Image MCQs
     is_correct: { type: DataTypes.BOOLEAN, defaultValue: false },
 
     order_index: { type: DataTypes.INTEGER, defaultValue: 0 }
