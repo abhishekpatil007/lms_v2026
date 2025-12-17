@@ -1,7 +1,7 @@
 import db from '../models/index.js';
 import { createModuleLogger } from '../utils/logger/logger.js';
 
-const { Attempt, AttemptAnswer, Question, User, Test } = db;
+const { Attempt, AttemptAnswer, Question, User, Test, Option } = db;
 const logger = createModuleLogger('evaluationController');
 
 export const getPendingEvaluations = async (req, res) => {
@@ -34,7 +34,13 @@ export const getAttemptDetails = async (req, res) => {
                 {
                     model: AttemptAnswer,
                     as: 'answers',
-                    include: [{ model: Question, as: 'question' }]
+                    include: [
+                        {
+                            model: Question,
+                            as: 'question',
+                            include: [{ model: Option, as: 'options', attributes: ['id', 'content', 'is_correct'] }]
+                        }
+                    ]
                 }
             ]
         });

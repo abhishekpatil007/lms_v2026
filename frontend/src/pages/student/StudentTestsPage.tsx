@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
     IconSchool,
     IconChecklist,
@@ -7,15 +8,20 @@ import {
     IconArrowRight,
     IconSearch,
     IconFilter,
+    IconTrophy,
+    IconPlayerPlay
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
+import { attemptsApi } from "@/api/endpoints/attempts";
 import type { Test, Batch } from "@/types";
 
 export const StudentTestsPage = () => {
+    const navigate = useNavigate();
     const [tests, setTests] = useState<Test[]>([]);
     const [batches, setBatches] = useState<Batch[]>([]);
+    const [attempts, setAttempts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedBatchId, setSelectedBatchId] = useState<string>("all");
@@ -27,12 +33,14 @@ export const StudentTestsPage = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [testsData, batchesData] = await Promise.all([
+            const [testsData, batchesData, attemptsData] = await Promise.all([
                 testsApi.list(),
-                batchesApi.getStudentBatches()
+                batchesApi.getStudentBatches(),
+                attemptsApi.getMyAttempts()
             ]);
             setTests(testsData.tests);
             setBatches(batchesData.batches);
+            setAttempts(attemptsData);
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
@@ -40,22 +48,17 @@ export const StudentTestsPage = () => {
         }
     };
 
+    const getTestStatus = (testId: number) => {
+        const attempt = attempts.find(a => a.test_id === testId);
+        if (!attempt) return { status: 'not_started', attempt: null };
+        return { status: attempt.status, attempt };
+    };
+
     const filteredTests = tests.filter((test) => {
         const matchesSearch = test.title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesBatch = selectedBatchId === "all" || test.batch_id === selectedBatchId;
         return matchesSearch && matchesBatch;
     });
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "published":
-                return { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" };
-            case "draft":
-                return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
-            default:
-                return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
-        }
-    };
 
     return (
         <div className="px-4 sm:px-0">
@@ -123,7 +126,8 @@ export const StudentTestsPage = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filteredTests.map((test, idx) => {
-                        const statusColor = getStatusColor(test.status);
+                        const { status, attempt } = getTestStatus(test.id);
+
                         return (
                             <motion.div
                                 key={test.id}
@@ -138,11 +142,17 @@ export const StudentTestsPage = () => {
                                     </div>
                                     <span className={cn(
                                         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
-                                        statusColor.bg,
-                                        statusColor.text
+                                        status === 'completed' ? "bg-green-100 text-green-700" :
+                                            status === 'in_progress' ? "bg-blue-100 text-blue-700" :
+                                                "bg-gray-100 text-gray-700"
                                     )}>
-                                        <span className={cn("w-1.5 h-1.5 rounded-full", statusColor.dot)}></span>
-                                        {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
+                                        <span className={cn("w-1.5 h-1.5 rounded-full",
+                                            status === 'completed' ? "bg-green-500" :
+                                                status === 'in_progress' ? "bg-blue-500" :
+                                                    "bg-gray-500"
+                                        )}></span>
+                                        {status === 'not_started' ? 'Not Started' :
+                                            status === 'in_progress' ? 'In Progress' : 'Completed'}
                                     </span>
                                 </div>
 
@@ -150,8 +160,8 @@ export const StudentTestsPage = () => {
                                     {test.title}
                                 </h3>
 
-                                <div className="mb-4">
-                                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+                                <div className="mb-4 space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-gray-500">
                                         <IconSchool className="w-4 h-4" strokeWidth={2} />
                                         <span>{test.batch?.batch_name}</span>
                                     </div>
@@ -159,15 +169,34 @@ export const StudentTestsPage = () => {
                                         <IconClock className="w-4 h-4" strokeWidth={2} />
                                         <span>{test.duration_minutes} mins</span>
                                     </div>
+                                    {attempt && attempt.score !== null && (
+                                        <div className="flex items-center gap-2 text-sm text-green-600 font-bold">
+                                            <IconTrophy className="w-4 h-4" strokeWidth={2} />
+                                            <span>Score: {attempt.score}/{attempt.total_marks}</span>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <button
-                                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#2D2D2D] py-3 text-sm font-semibold text-white hover:bg-[#2D2D2D]/90 transition-all"
-                                    onClick={() => alert("Test taking interface coming soon!")}
-                                >
-                                    Start Test
-                                    <IconArrowRight className="w-4 h-4" strokeWidth={2} />
-                                </button>
+                                {status === 'completed' ? (
+                                    <button
+                                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-sm font-semibold text-white hover:bg-green-700 transition-all"
+                                        onClick={() => navigate(`/student/tests/${attempt.id}/result`)}
+                                    >
+                                        View Result
+                                        <IconArrowRight className="w-4 h-4" strokeWidth={2} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        className={cn(
+                                            "w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-all",
+                                            status === 'in_progress' ? "bg-blue-600 hover:bg-blue-700" : "bg-[#2D2D2D] hover:bg-[#2D2D2D]/90"
+                                        )}
+                                        onClick={() => navigate(`/student/tests/${test.id}/take`)}
+                                    >
+                                        {status === 'in_progress' ? 'Resume Test' : 'Start Test'}
+                                        <IconPlayerPlay className="w-4 h-4" strokeWidth={2} />
+                                    </button>
+                                )}
                             </motion.div>
                         );
                     })}

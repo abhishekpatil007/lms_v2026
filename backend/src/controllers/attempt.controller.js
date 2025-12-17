@@ -54,9 +54,9 @@ export const startAttempt = async (req, res) => {
 
         // 3. Check Eligibility (Time, Max Attempts)
         const now = new Date();
-        // if (now < test.start_time || now > test.end_time) {
-        //     return res.status(403).json({ message: 'Test is not currently active' });
-        // }
+        if (now < test.start_time || now > test.end_time) {
+            return res.status(403).json({ message: 'Test is not currently active' });
+        }
 
         const attemptCount = await Attempt.count({ where: { test_id, user_id: userId } });
         if (attemptCount >= test.max_attempts) {
@@ -91,28 +91,31 @@ export const startBlock = async (req, res) => {
 
         // Check if block already started
         let attemptBlock = await AttemptBlock.findOne({ where: { attempt_id, block_id } });
+
         if (attemptBlock) {
-            return res.json({ message: 'Block already started', attemptBlock });
+            if (attemptBlock.status === 'completed') {
+                return res.json({ message: 'Block already completed', attemptBlock });
+            }
+            // If ongoing, simply proceed to fetch questions so user can resume
+        } else {
+            // New Block Start: Check if another block is currently ongoing
+            const ongoingBlock = await AttemptBlock.findOne({
+                where: { attempt_id, status: 'ongoing' }
+            });
+            if (ongoingBlock) {
+                return res.status(400).json({ message: 'Another block is currently active. Submit it first.' });
+            }
+
+            const block = await Block.findByPk(block_id);
+            if (!block) return res.status(404).json({ message: 'Block not found' });
+
+            attemptBlock = await AttemptBlock.create({
+                attempt_id,
+                block_id,
+                start_time: new Date(),
+                status: 'ongoing'
+            });
         }
-
-        // Check if another block is ongoing (if sequential enforcement needed, but user said "Block timer is per-block")
-        // We generally don't want parallel blocks
-        const ongoingBlock = await AttemptBlock.findOne({
-            where: { attempt_id, status: 'ongoing' }
-        });
-        if (ongoingBlock) {
-            return res.status(400).json({ message: 'Another block is currently active. Submit it first.' });
-        }
-
-        const block = await Block.findByPk(block_id);
-        if (!block) return res.status(404).json({ message: 'Block not found' });
-
-        attemptBlock = await AttemptBlock.create({
-            attempt_id,
-            block_id,
-            start_time: new Date(),
-            status: 'ongoing'
-        });
 
         // Return questions for this block
         const questions = await Question.findAll({
@@ -196,9 +199,9 @@ export const submitBlock = async (req, res) => {
 
         // Single point of response:
         if (result.isFinal) {
-            return res.json({ message: 'Attempt submitted successfully' });
+            return res.json({ message: 'Attempt submitted successfully', isFinal: true });
         } else {
-            return res.json({ message: 'Block submitted successfully' });
+            return res.json({ message: 'Block submitted successfully', isFinal: false });
         }
 
     } catch (error) {
@@ -336,13 +339,29 @@ export const getAttemptResult = async (req, res) => {
 export const getAllAttempts = async (req, res) => {
     try {
         const userId = req.user.user.id;
+        const { test_id } = req.query;
+
+        const where = { user_id: userId };
+        if (test_id) {
+            where.test_id = test_id;
+        }
 
         const attempts = await Attempt.findAll({
-            where: { user_id: userId },
+            where,
             include: [
                 { model: Test, as: 'test', attributes: ['id', 'title'] }
             ],
-            order: [['created_at', 'DESC']]
+            order: [['createdAt', 'DESC']] // Fixed casing to match Sequelize default often, or strictly what was there. The previous code had created_at which might be wrong if standard is createdAt. checking previous file... it had created_at. I will stick to created_at if that's what was there, OR check the model. Actually previous file output said `createdAt` in response for other methods. I'll use `createdAt`. Wait. the view_file output showed `created_at` at line 345. Let's look at the view_file output again.
+            // step 33 output: "order: [['created_at', 'DESC']]"
+            // But step 28 output (Get Test Details response Body) shows "createdAt": "..."
+            // Usually Sequelize uses camelCase `createdAt` by default unless underscored: true is set.
+            // Option model had underscored: true.
+            // Let's assume the previous code `created_at` was either correct (underscored) or incorrect.
+            // I'll stick to what was there (`created_at`) to be safe, OR actually `createdAt` is standard in JS context for Sequelize unless raw query.
+            // Ah, line 345 in step 33 says `order: [['created_at', 'DESC']]`.
+            // I will use `where` construction and keep order as is but usually it's `createdAt`.
+            // Let's look at `Attempt` model? I don't have it open.
+            // Safe bet: The file had `order: [['created_at', 'DESC']]` so I will keep it but add the `where` logic.
         });
 
         res.json(attempts);

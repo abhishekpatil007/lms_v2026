@@ -21,6 +21,7 @@ export const TestBuilderPage = () => {
     const [loading, setLoading] = useState(true);
     const [showAddBlock, setShowAddBlock] = useState(false);
     const [newBlockTitle, setNewBlockTitle] = useState("");
+    const [newBlockDuration, setNewBlockDuration] = useState(60);
     const [showAddQuestion, setShowAddQuestion] = useState<string | null>(null); // blockId
     const [questionData, setQuestionData] = useState({
         content: "",
@@ -59,9 +60,11 @@ export const TestBuilderPage = () => {
         try {
             await testsApi.addBlock(parseInt(testId!), {
                 title: newBlockTitle,
+                duration_minutes: newBlockDuration,
                 order_index: (test?.blocks?.length || 0) + 1,
             });
             setNewBlockTitle("");
+            setNewBlockDuration(60);
             setShowAddBlock(false);
             fetchTestDetails();
         } catch (error) {
@@ -490,6 +493,17 @@ export const TestBuilderPage = () => {
                                 className="flex-1 rounded-xl border-gray-200 bg-gray-50 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                 autoFocus
                             />
+                            <div className="w-32">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={newBlockDuration}
+                                    onChange={(e) => setNewBlockDuration(parseInt(e.target.value) || 0)}
+                                    placeholder="Mins"
+                                    className="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    title="Duration in minutes"
+                                />
+                            </div>
                             <button
                                 onClick={handleAddBlock}
                                 className="rounded-xl bg-blue-600 px-6 py-2.5 font-semibold text-white hover:bg-blue-700 transition-colors"

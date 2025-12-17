@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
     IconLayoutDashboard,
@@ -43,6 +44,7 @@ export const LogoIcon = () => {
 
 export const InstructorTestsPage = () => {
     const { user, logout } = useAuthStore();
+    const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [tests, setTests] = useState<Test[]>([]);
@@ -133,9 +135,9 @@ export const InstructorTestsPage = () => {
     const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await testsApi.create(formData);
+            const newTest = await testsApi.create(formData);
             setShowCreateModal(false);
-            fetchTests();
+            navigate(`/instructor/tests/${newTest.id}/builder`);
         } catch (error) {
             console.error("Error creating test:", error);
             alert("Failed to create test. Please try again.");
@@ -280,7 +282,8 @@ export const InstructorTestsPage = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.05 }}
-                                    className="rounded-[24px] bg-white p-5 shadow-lg hover:shadow-xl transition-all group"
+                                    className="rounded-[24px] bg-white p-5 shadow-lg hover:shadow-xl transition-all group cursor-pointer"
+                                    onClick={() => navigate(`/instructor/tests/${test.id}/builder`)}
                                 >
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2.5">

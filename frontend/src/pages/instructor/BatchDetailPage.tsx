@@ -28,7 +28,9 @@ import { documentsApi } from "@/api/endpoints/documents";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
 import type { Batch, Video, Document, LiveClass } from "@/types";
 
-type TabType = "videos" | "documents" | "classes";
+import { BatchTestsTab } from "./tabs/BatchTestsTab";
+
+type TabType = "videos" | "documents" | "classes" | "tests";
 
 export const BatchDetailPage = () => {
   const { batchId } = useParams<{ batchId: string }>();
@@ -72,15 +74,15 @@ export const BatchDetailPage = () => {
     try {
       // Fetch videos
       const { videos: videoData } = await videosApi.list({ batch_id: batchId });
-      setVideos(videoData);
+      setVideos(videoData || []);
 
       // Fetch documents
       const { documents: docData } = await documentsApi.list({ batch_id: batchId });
-      setDocuments(docData);
+      setDocuments(docData || []);
 
       // Fetch live classes
       const { liveClasses: classData } = await liveClassesApi.listByBatch(batchId!);
-      setLiveClasses(classData);
+      setLiveClasses(classData || []);
     } catch (error) {
       console.error("Error fetching content:", error);
     }
@@ -343,7 +345,7 @@ export const BatchDetailPage = () => {
               "ml-1 px-2 py-0.5 rounded-full text-xs font-bold",
               activeTab === "videos" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
             )}>
-              {videos.length}
+              {videos?.length || 0}
             </span>
           </button>
 
@@ -362,7 +364,7 @@ export const BatchDetailPage = () => {
               "ml-1 px-2 py-0.5 rounded-full text-xs font-bold",
               activeTab === "documents" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
             )}>
-              {documents.length}
+              {documents?.length || 0}
             </span>
           </button>
 
@@ -381,8 +383,22 @@ export const BatchDetailPage = () => {
               "ml-1 px-2 py-0.5 rounded-full text-xs font-bold",
               activeTab === "classes" ? "bg-[#2D2D2D]/10 text-[#2D2D2D]" : "bg-gray-100 text-gray-600"
             )}>
-              {liveClasses.length}
+              {liveClasses?.length || 0}
             </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("tests")}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 rounded-[18px] font-semibold transition-all",
+              activeTab === "tests"
+                ? "bg-gradient-to-br from-[#FCD34D] to-[#F59E0B] text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-50"
+            )}
+          >
+            <IconFileText className="w-5 h-5" strokeWidth={2} />
+            <span>Tests</span>
+            {/* TODO: Add count for tests or pending evaluations if available in main fetch */}
           </button>
         </div>
       </motion.div>
@@ -752,6 +768,18 @@ export const BatchDetailPage = () => {
             )}
           </motion.div>
         )}
+        {/* Tests Tab */}
+        {activeTab === "tests" && (
+          <motion.div
+            key="tests"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <BatchTestsTab batchId={batchId!} />
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Video Upload Modal */}
@@ -1028,7 +1056,7 @@ const EditVideoModal: React.FC<EditVideoModalProps> = ({ isOpen, onClose, video 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info("Video editing coming soon!");
+    toast.success("Video editing coming soon!");
     onClose();
   };
 

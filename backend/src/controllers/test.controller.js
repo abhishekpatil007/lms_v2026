@@ -143,23 +143,33 @@ export const addQuestion = async (req, res) => {
 export const getTestDetails = async (req, res) => {
     try {
         const { id } = req.params;
+        const userRole = req.user.user.role;
+
+        const includeOptions = {
+            model: Block,
+            as: 'blocks',
+            include: []
+        };
+
+        // If NOT student, include questions and options
+        if (userRole !== 'student') {
+            includeOptions.include.push({
+                model: Question,
+                as: 'questions',
+                include: [{ model: Option, as: 'options' }]
+            });
+        }
+        // If student, we might want to include questions but SANS model_answer and is_correct?
+        // OR better: Don't include questions at all. Students fetch questions via startBlock.
+        // The plan said: "GET /tests/:id will strictly return Test Metadata + Block Metadata"
+        // So we keep clean: exclude questions entirely for students.
+
         const test = await Test.findByPk(id, {
-            include: [
-                {
-                    model: Block,
-                    as: 'blocks',
-                    include: [
-                        {
-                            model: Question,
-                            as: 'questions',
-                            include: [{ model: Option, as: 'options' }]
-                        }
-                    ]
-                }
-            ],
+            include: [includeOptions],
             order: [
                 [{ model: Block, as: 'blocks' }, 'order_index', 'ASC'],
-                [{ model: Block, as: 'blocks' }, { model: Question, as: 'questions' }, 'order_index', 'ASC']
+                // Only order questions if we are fetching them
+                ...(userRole !== 'student' ? [[{ model: Block, as: 'blocks' }, { model: Question, as: 'questions' }, 'order_index', 'ASC']] : [])
             ]
         });
 

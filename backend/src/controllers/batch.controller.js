@@ -104,23 +104,30 @@ export const updateBatch = async (req, res) => {
 export const listBatches = async (req, res) => {
     try {
         const { status, course_id } = req.query;
-        const instructorId = req.user.user.id; 
+        const instructorId = req.user.user.id;
         const where = {
             is_active: true,
         };
         if (req.user.user.role == "instructor") {
             where.instructor_id = instructorId;
         }
-        
+
         if (status) where.status = status;
         if (course_id) where.course_id = course_id;
 
         const batches = await Batch.findAll({
             where,
             include: [
-                { model: User, as: 'instructor' },
-                { model: User, as: 'createdBy', attributes: ['id', 'name', 'email'], },
-                // { model: User, as: 'students' },
+                { model: User, as: 'instructor', attributes: ['id', 'name', 'email'] },
+                { model: User, as: 'createdBy', attributes: ['id', 'name', 'email'] },
+                {
+                    model: User,
+                    as: 'students',
+                    attributes: ['id', 'name', 'email'],
+                    through: {
+                        attributes: ['enrolled_at'],
+                    },
+                },
                 { model: Course, as: 'course' },
             ],
             order: [['createdAt', 'DESC']],
@@ -246,7 +253,7 @@ export const enrollStudents = async (req, res) => {
 export const getInstructorBatches = async (req, res) => {
     try {
         const batches = await Batch.findAll({
-            where: { instructor_id: req.user.user.id, status: { [Op.not]: 'completed' }, is_active : true },
+            where: { instructor_id: req.user.user.id, status: { [Op.not]: 'completed' }, is_active: true },
         });
         batchLogger.info(`Instructor batches retrieved - Instructor ID: ${req.user.user.id}, Count: ${batches.length}`);
         res.json({ batches });
@@ -262,16 +269,26 @@ export const getInstructorBatches = async (req, res) => {
 export const getStudentBatches = async (req, res) => {
     try {
         const batches = await Batch.findAll({
+            where: {
+                status: { [Op.not]: 'completed' },
+            },
             include: [
                 {
-                    model: BatchStudent,
+                    model: User,
                     as: 'students',
-                    where: { student_id: req.user.id },
+                    where: { id: req.user.user.id },
+                    attributes: ['id', 'name', 'email'],
+                    through: {
+                        attributes: ['enrolled_at'],
+                    },
                 },
             ],
-            where: { status: { [Op.not]: 'completed' } },
         });
-        batchLogger.info(`Student batches retrieved - Student ID: ${req.user.id}, Count: ${batches.length}`);
+
+        batchLogger.info(
+            `Student batches retrieved - Student ID: ${req.user.user.id}, Count: ${batches.length}`
+        );
+
         res.json({ batches });
     } catch (err) {
         batchLogger.error(`Error in getStudentBatches: ${err.message}`);

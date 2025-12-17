@@ -69,7 +69,7 @@ app.get('/', (req, res) => res.json({ message: 'LMS Backend running' }));
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/batches', authLimiter, batchRoutes);
 app.use('/api/courses', authLimiter, courseRoutes);
-app.use('/api/live-class', authLimiter, liveClassRoutes);
+app.use('/api/live-classes', authLimiter, liveClassRoutes);
 app.use("/api/zoom", authLimiter, zoomRoutes);
 app.use("/api/documents", authLimiter, documentRoutes);
 app.use("/api/videos", authLimiter, videoRoutes);

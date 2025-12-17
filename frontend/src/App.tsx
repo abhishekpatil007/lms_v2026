@@ -30,7 +30,11 @@ import { TestsPage } from './pages/admin/TestsPage';
 import { TestBuilderPage } from './pages/admin/TestBuilderPage';
 import { InstructorWebinarsPage } from './pages/instructor/InstructorWebinarsPage';
 import { InstructorTestsPage } from './pages/instructor/InstructorTestsPage';
+import { InstructorEvaluationsPage } from './pages/instructor/InstructorEvaluationsPage';
+import { EvaluationGradingPage } from './pages/instructor/EvaluationGradingPage';
 import { StudentTestsPage } from './pages/student/StudentTestsPage';
+import { TestTakingPage } from './pages/student/TestTakingPage';
+import { TestResultPage } from './pages/student/TestResultPage';
 
 function App() {
   const initialize = useAuthStore((state) => state.initialize);
@@ -85,6 +89,9 @@ function App() {
           <Route path="batches/:batchId" element={<BatchDetailPage />} />
           <Route path="webinars" element={<InstructorWebinarsPage />} />
           <Route path="tests" element={<InstructorTestsPage />} />
+          <Route path="tests/:testId/builder" element={<TestBuilderPage />} />
+          <Route path="evaluations" element={<InstructorEvaluationsPage />} />
+          <Route path="evaluations/:attemptId" element={<EvaluationGradingPage />} />
           <Route path="settings" element={<InstructorSettingsPage />} />
         </Route>
 
@@ -98,6 +105,8 @@ function App() {
         >
           <Route path="batches" element={<StudentDashboard />} />
           <Route path="tests" element={<StudentTestsPage />} />
+          <Route path="tests/:testId/take" element={<TestTakingPage />} />
+          <Route path="tests/:attemptId/result" element={<TestResultPage />} />
           <Route path="settings" element={<StudentSettingsPage />} />
         </Route>
 
