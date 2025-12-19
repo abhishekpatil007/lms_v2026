@@ -3,6 +3,8 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink } from '@/components/ui/sidebar';
 import {
   IconSchool,
+  IconFileText,
+  IconVideo,
   IconLogout,
   IconSettings,
   IconChecklist,
@@ -22,9 +24,19 @@ export const StudentLayout = () => {
 
   const links = [
     {
-      label: 'My Batches',
-      href: '/student/batches',
+      label: 'Dashboard',
+      href: '/student/dashboard',
       icon: <IconSchool className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
+    },
+    {
+      label: 'Documents',
+      href: '/student/documents',
+      icon: <IconFileText className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
+    },
+    {
+      label: 'Video Library',
+      href: '/student/videos',
+      icon: <IconVideo className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
     {
       label: 'My Tests',
@@ -94,7 +106,7 @@ export const StudentLayout = () => {
 export const Logo = () => {
   return (
     <Link
-      to="/student/batches"
+      to="/student/dashboard"
       className="relative z-20 flex items-center space-x-2.5 py-1 text-sm font-normal"
     >
       <div className="h-12 w-12 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm">
@@ -114,7 +126,7 @@ export const Logo = () => {
 export const LogoIcon = () => {
   return (
     <Link
-      to="/student/batches"
+      to="/student/dashboard"
       className="relative z-20 flex items-center justify-center"
     >
       <div className="h-12 w-12 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm">

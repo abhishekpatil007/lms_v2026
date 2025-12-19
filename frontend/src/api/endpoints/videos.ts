@@ -40,7 +40,7 @@ export const videosApi = {
     batch_id?: string;
   }): Promise<{ videos: Video[] }> => {
     const response = await apiClient.get('/api/videos', { params });
-    return response.data;
+    return { videos: response.data };
   },
 
   /**

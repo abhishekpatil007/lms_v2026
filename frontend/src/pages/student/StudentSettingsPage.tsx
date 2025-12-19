@@ -28,8 +28,8 @@ export const StudentSettingsPage = () => {
 
   const links = [
     {
-      label: 'My Batches',
-      href: '/student/batches',
+      label: 'Dashboard',
+      href: '/student/dashboard',
       icon: <IconSchool className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
     {
@@ -90,7 +90,7 @@ export const StudentSettingsPage = () => {
 export const Logo = () => {
   return (
     <a
-      href="/student/batches"
+      href="/student/dashboard"
       className="relative z-20 flex items-center space-x-2.5 py-1 text-sm font-normal"
     >
       <div className="h-12 w-12 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm">
@@ -110,7 +110,7 @@ export const Logo = () => {
 export const LogoIcon = () => {
   return (
     <a
-      href="/student/batches"
+      href="/student/dashboard"
       className="relative z-20 flex items-center justify-center"
     >
       <div className="h-12 w-12 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm">
@@ -183,21 +183,19 @@ const SettingsContent = ({ user }: { user: any }) => {
           <div className="mb-6 flex gap-3">
             <button
               onClick={() => setActiveTab('profile')}
-              className={`rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
-                activeTab === 'profile'
-                  ? 'bg-[#3D3532] text-white shadow-lg'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`rounded-xl px-6 py-3 text-sm font-semibold transition-all ${activeTab === 'profile'
+                ? 'bg-[#3D3532] text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
             >
               Profile
             </button>
             <button
               onClick={() => setActiveTab('password')}
-              className={`rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
-                activeTab === 'password'
-                  ? 'bg-[#3D3532] text-white shadow-lg'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
+              className={`rounded-xl px-6 py-3 text-sm font-semibold transition-all ${activeTab === 'password'
+                ? 'bg-[#3D3532] text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
             >
               Password
             </button>

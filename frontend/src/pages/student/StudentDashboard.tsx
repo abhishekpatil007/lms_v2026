@@ -81,7 +81,10 @@ export const StudentDashboard = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = doc.file_name;
+      a.href = url;
+      // Extract filename from path or use title
+      const fileName = doc.file_path?.split(/[\\/]/).pop() || `${doc.title}.${doc.file_type}`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -123,6 +126,47 @@ export const StudentDashboard = () => {
     }
   };
 
+  // Dashboard Data State
+  const [dashboardLiveClasses, setDashboardLiveClasses] = useState<LiveClass[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+
+  useEffect(() => {
+    if (batches.length > 0) {
+      fetchDashboardData();
+    }
+  }, [batches]);
+
+  const fetchDashboardData = async () => {
+    setDashboardLoading(true);
+    try {
+      const liveClassPromises = batches.map(batch => liveClassesApi.listByBatch(batch.id));
+      const results = await Promise.all(liveClassPromises);
+
+      const allLiveClasses = results.flatMap(r => r.liveClasses);
+      const now = new Date();
+
+      const validClasses = allLiveClasses.filter(c => {
+        const status = c.status as string;
+        const startTime = new Date(c.start_time);
+        const endTime = new Date(startTime.getTime() + c.duration * 60000);
+        return status === "ongoing" || (status === "scheduled" && startTime > now) || (status === "ongoing" && endTime > now);
+      });
+
+      // Sort: Ongoing first, then by start time
+      validClasses.sort((a, b) => {
+        if (a.status === "ongoing" && b.status !== "ongoing") return -1;
+        if (a.status !== "ongoing" && b.status === "ongoing") return 1;
+        return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+      });
+
+      setDashboardLiveClasses(validClasses);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -131,10 +175,10 @@ export const StudentDashboard = () => {
     );
   }
 
-  // Batch Selection View
+  // Batch Selection View (Dashboard Overview)
   if (!selectedBatch) {
     return (
-      <div className="px-4 sm:px-0">
+      <div className="px-4 sm:px-0 max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -144,67 +188,215 @@ export const StudentDashboard = () => {
             Welcome back, {user?.name.split(' ')[0]}!
           </h1>
           <p className="text-lg text-gray-500">
-            Select a batch to access your learning materials
+            Here's what's happening today
           </p>
         </motion.div>
 
-        {batches.length === 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          {/* Profile Highlights */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg p-8"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="col-span-1 rounded-[28px] bg-white p-6 shadow-lg border border-gray-100"
           >
-            <IconSchool className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-            <p className="text-gray-900 font-semibold text-lg mb-1">No batches yet</p>
-            <p className="text-gray-500 text-sm text-center">
-              You haven't been enrolled in any batches yet. Contact your administrator.
-            </p>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl font-bold text-white shadow-md">
+                {user?.name.charAt(0)}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{user?.name}</h2>
+                <p className="text-sm text-gray-500">{user?.email}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                    <IconSchool className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium text-gray-700">Enrolled Courses</span>
+                </div>
+                <span className="text-lg font-bold text-gray-900">{batches.length}</span>
+              </div>
+
+              {/* Test Performance Placeholder - API Not Available */}
+              {/* <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                    <IconBook className="w-5 h-5" />
+                  </div>
+                  <span className="font-medium text-gray-700">Avg. Test Score</span>
+                </div>
+                <span className="text-lg font-bold text-gray-900">--</span>
+              </div> */}
+            </div>
           </motion.div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {batches.map((batch, idx) => (
+
+          {/* Live Classes Feed */}
+          <div className="col-span-1 lg:col-span-2 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <IconBrandZoom className="w-6 h-6 text-[#2D96FF]" />
+              Live & Upcoming Classes
+            </h2>
+
+            {dashboardLoading ? (
+              <div className="flex items-center justify-center h-48 rounded-[28px] bg-white shadow-sm border border-gray-100">
+                <div className="text-gray-400">Loading schedule...</div>
+              </div>
+            ) : dashboardLiveClasses.length === 0 ? (
               <motion.div
-                key={batch.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                onClick={() => setSelectedBatch(batch)}
-                className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center h-48 rounded-[28px] bg-white shadow-sm border border-gray-100"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <IconSchool className="w-7 h-7 text-white" strokeWidth={2} />
-                  </div>
-                  <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                    {batch.status}
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-bold text-white mb-2 group-hover:scale-105 transition-transform">
-                  {batch.batch_name}
-                </h3>
-
-                {batch.course && (
-                  <p className="text-sm text-white/80 mb-4">{batch.course.title}</p>
-                )}
-
-                {batch.instructor && (
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                      {batch.instructor.name.charAt(0)}
-                    </div>
-                    <span className="text-sm text-white/90">{batch.instructor.name}</span>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 text-xs text-white/80">
-                  <IconCalendar className="w-4 h-4" strokeWidth={2} />
-                  {new Date(batch.start_date).toLocaleDateString()} - {new Date(batch.end_date).toLocaleDateString()}
-                </div>
+                <IconCalendar className="w-12 h-12 text-gray-300 mb-2" strokeWidth={1.5} />
+                <p className="text-gray-500 font-medium">No live or upcoming classes</p>
               </motion.div>
-            ))}
+            ) : (
+              <div className="space-y-4">
+                {dashboardLiveClasses.map((liveClass, idx) => {
+                  const statusColor = getClassStatusColor(liveClass.status);
+                  const isOngoing = liveClass.status === 'ongoing';
+
+                  return (
+                    <motion.div
+                      key={liveClass.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className={cn(
+                        "rounded-[24px] p-6 shadow-md transition-all border",
+                        isOngoing ? "bg-white border-blue-200 ring-4 ring-blue-50/50" : "bg-white border-gray-100"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider",
+                              statusColor.bg,
+                              statusColor.text
+                            )}>
+                              <span className={cn("w-2 h-2 rounded-full animate-pulse", statusColor.dot)}></span>
+                              {liveClass.status}
+                            </span>
+                            <span className="text-sm text-gray-400 font-medium">
+                              {liveClass.batch?.batch_name || "Batch Class"}
+                            </span>
+                          </div>
+
+                          <h3 className="text-lg font-bold text-gray-900 mb-2">
+                            {liveClass.topic}
+                          </h3>
+
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-1.5">
+                              <IconCalendar className="w-4 h-4 text-gray-400" />
+                              <span className={isOngoing ? "text-blue-600 font-semibold" : ""}>
+                                {new Date(liveClass.start_time).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <IconClock className="w-4 h-4 text-gray-400" />
+                              {liveClass.duration} min
+                            </div>
+                            {liveClass.instructor && (
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                  {liveClass.instructor.name.charAt(0)}
+                                </div>
+                                {liveClass.instructor.name}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {liveClass.zoom_join_url && (isOngoing || liveClass.status === 'scheduled') && (
+                          <a
+                            href={liveClass.zoom_join_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "hidden sm:flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition-all shadow-lg",
+                              isOngoing
+                                ? "bg-gradient-to-br from-[#2D96FF] to-[#0B7FE8] hover:shadow-blue-200 hover:scale-105"
+                                : "bg-gray-900 hover:bg-gray-800"
+                            )}
+                          >
+                            {isOngoing ? "Join Now" : "Join Link"}
+                            <IconBrandZoom className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Batches</h2>
+          {batches.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg p-8"
+            >
+              <IconSchool className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
+              <p className="text-gray-900 font-semibold text-lg mb-1">No batches yet</p>
+              <p className="text-gray-500 text-sm text-center">
+                You haven't been enrolled in any batches yet. Contact your administrator.
+              </p>
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {batches.map((batch, idx) => (
+                <motion.div
+                  key={batch.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  onClick={() => setSelectedBatch(batch)}
+                  className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <IconSchool className="w-7 h-7 text-white" strokeWidth={2} />
+                    </div>
+                    <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
+                      {batch.status}
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mb-2 group-hover:scale-105 transition-transform">
+                    {batch.batch_name}
+                  </h3>
+
+                  {batch.course && (
+                    <p className="text-sm text-white/80 mb-4">{batch.course.title}</p>
+                  )}
+
+                  {batch.instructor && (
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                        {batch.instructor.name.charAt(0)}
+                      </div>
+                      <span className="text-sm text-white/90">{batch.instructor.name}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-xs text-white/80">
+                    <IconCalendar className="w-4 h-4" strokeWidth={2} />
+                    {new Date(batch.start_date).toLocaleDateString()} - {new Date(batch.end_date).toLocaleDateString()}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -379,9 +571,9 @@ export const StudentDashboard = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-gray-900 truncate">{doc.title}</h3>
-                          <p className="text-sm text-gray-500 truncate">{doc.file_name}</p>
+                          <p className="text-sm text-gray-500 truncate">{doc.file_path?.split(/[\\/]/).pop() || doc.title}</p>
                           <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                            <span>{formatFileSize(doc.file_size)}</span>
+                            {/* <span>{formatFileSize(doc.file_size)}</span> */}
                             {doc.language && <span>• {doc.language}</span>}
                           </div>
                         </div>
@@ -424,18 +616,18 @@ export const StudentDashboard = () => {
                               <IconBrandZoom className="w-7 h-7 text-white" strokeWidth={2} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-lg font-bold text-gray-900 mb-1">{liveClass.title}</h3>
+                              <h3 className="text-lg font-bold text-gray-900 mb-1">{liveClass.topic}</h3>
                               {liveClass.description && (
                                 <p className="text-sm text-gray-600 mb-3">{liveClass.description}</p>
                               )}
                               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
                                 <div className="flex items-center gap-1.5">
                                   <IconCalendar className="w-4 h-4" strokeWidth={2} />
-                                  {new Date(liveClass.scheduled_at).toLocaleString()}
+                                  {new Date(liveClass.start_time).toLocaleString()}
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <IconClock className="w-4 h-4" strokeWidth={2} />
-                                  {liveClass.duration_minutes} minutes
+                                  {liveClass.duration} minutes
                                 </div>
                               </div>
                             </div>

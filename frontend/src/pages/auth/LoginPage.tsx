@@ -42,7 +42,7 @@ export const LoginPage = () => {
       } else if (response.user.role === 'instructor') {
         navigate('/instructor/batches');
       } else {
-        navigate('/student/batches');
+        navigate('/student/dashboard');
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');

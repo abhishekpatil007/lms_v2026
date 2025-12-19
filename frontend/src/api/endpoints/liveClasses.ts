@@ -27,7 +27,7 @@ export const liveClassesApi = {
    */
   listByBatch: async (batchId: string): Promise<{ liveClasses: LiveClass[] }> => {
     const response = await apiClient.get(`/api/live-classes/batch/${batchId}`);
-    return response.data;
+    return { liveClasses: response.data.data };
   },
 
   /**

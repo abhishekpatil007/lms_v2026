@@ -88,9 +88,12 @@ export interface Video {
   mux_asset_id?: string;
   mux_playback_id?: string;
   duration?: number;
-  status: VideoStatus;
+  upload_status: VideoStatus; // Changed from status to upload_status
   thumbnail_url?: string;
   uploaded_by: number;
+  language?: string;
+  visibility?: string;
+  is_active?: boolean;
   createdAt: string;
   updatedAt: string;
   batches?: {
@@ -117,12 +120,14 @@ export interface Document {
   id: string;
   title: string;
   description?: string;
-  file_name: string;
+  // file_name: string; // Not returning from backend
   file_path: string;
-  file_size: number;
+  // file_size: number; // Not returning from backend
   file_type: DocumentType;
   language?: string;
   uploaded_by: number;
+  visibility?: string;
+  is_active?: boolean;
   batch_id?: string;
   createdAt: string;
   updatedAt: string;
@@ -143,16 +148,16 @@ export interface DocumentUploadResponse {
 }
 
 // Live Class Module Types
-export type LiveClassStatus = 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
+export type LiveClassStatus = 'ongoing' | 'scheduled' | 'completed' | 'cancelled';
 
 export interface LiveClass {
-  id: string;
+  id: number; // Changed from string to number
   batch_id: string;
   instructor_id: number;
-  title: string;
+  topic: string; // Changed from title
   description?: string;
-  scheduled_at: string;
-  duration_minutes: number;
+  start_time: string; // Changed from scheduled_at
+  duration: number; // Changed from duration_minutes
   zoom_meeting_id: string;
   zoom_join_url: string;
   zoom_start_url: string;

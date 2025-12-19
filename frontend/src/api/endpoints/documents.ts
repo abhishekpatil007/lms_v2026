@@ -28,7 +28,7 @@ export const documentsApi = {
     file_type?: DocumentType;
   }): Promise<{ documents: Document[] }> => {
     const response = await apiClient.get('/api/documents', { params });
-    return response.data;
+    return { documents: response.data };
   },
 
   /**

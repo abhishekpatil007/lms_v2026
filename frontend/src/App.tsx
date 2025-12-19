@@ -22,6 +22,8 @@ import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
 import { BatchDetailPage } from './pages/instructor/BatchDetailPage';
 import { InstructorSettingsPage } from './pages/instructor/InstructorSettingsPage';
 import { StudentDashboard } from './pages/student/StudentDashboard';
+import { StudentDocumentsPage } from './pages/student/StudentDocumentsPage';
+import { StudentVideosPage } from './pages/student/StudentVideosPage';
 import { StudentSettingsPage } from './pages/student/StudentSettingsPage';
 import { WebinarLanding } from './pages/public/WebinarLanding';
 import { WebinarJoin } from './pages/public/WebinarJoin';
@@ -103,7 +105,9 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="batches" element={<StudentDashboard />} />
+          <Route path="dashboard" element={<StudentDashboard />} />
+          <Route path="documents" element={<StudentDocumentsPage />} />
+          <Route path="videos" element={<StudentVideosPage />} />
           <Route path="tests" element={<StudentTestsPage />} />
           <Route path="tests/:testId/take" element={<TestTakingPage />} />
           <Route path="tests/:attemptId/result" element={<TestResultPage />} />
