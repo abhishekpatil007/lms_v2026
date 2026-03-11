@@ -130,7 +130,7 @@ export const BatchDetailPage = () => {
     }
   };
 
-  const handleDeleteLiveClass = async (classId: string) => {
+  const handleDeleteLiveClass = async (classId: number) => {
     if (!confirm("Are you sure you want to delete this live class?")) return;
     try {
       await liveClassesApi.delete(classId);
@@ -461,13 +461,13 @@ export const BatchDetailPage = () => {
                       <div className="absolute top-3 right-3">
                         <span className={cn(
                           "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
-                          video.status === "ready" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                          video.upload_status === "ready" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
                         )}>
                           <span className={cn(
                             "w-1.5 h-1.5 rounded-full",
-                            video.status === "ready" ? "bg-green-500" : "bg-yellow-500"
+                            video.upload_status === "ready" ? "bg-green-500" : "bg-yellow-500"
                           )}></span>
-                          {video.status}
+                          {video.upload_status}
                         </span>
                       </div>
                       {video.duration && (
@@ -562,12 +562,11 @@ export const BatchDetailPage = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
-                          {doc.title || doc.file_name}
+                           {doc.title}
                         </h3>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span className="font-medium uppercase">{doc.file_type}</span>
-                          <span>•</span>
-                          <span>{formatFileSize(doc.file_size)}</span>
+                          {/* doc.file_size is not in the type definition */}
                         </div>
                       </div>
                     </div>
@@ -585,7 +584,7 @@ export const BatchDetailPage = () => {
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
                       <button
-                        onClick={() => handleDownloadDocument(doc.id, doc.file_name)}
+                        onClick={() => handleDownloadDocument(doc.id, doc.title)}
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium transition-all text-sm"
                       >
                         <IconDownload className="w-4 h-4" strokeWidth={2} />
@@ -640,7 +639,7 @@ export const BatchDetailPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {liveClasses.map((liveClass, idx) => {
                   const classStatusColor = getLiveClassStatusColor(liveClass.status);
-                  const scheduledDate = new Date(liveClass.scheduled_at);
+                  const scheduledDate = new Date(liveClass.start_time);
                   const isUpcoming = scheduledDate > new Date();
 
                   return (
@@ -679,7 +678,7 @@ export const BatchDetailPage = () => {
                         "text-xl font-bold mb-2",
                         isUpcoming ? "text-[#2D2D2D]" : "text-gray-900"
                       )}>
-                        {liveClass.title}
+                        {liveClass.topic}
                       </h3>
 
                       {liveClass.description && (
@@ -710,7 +709,7 @@ export const BatchDetailPage = () => {
                             "text-sm font-semibold",
                             isUpcoming ? "text-[#2D2D2D]" : "text-gray-900"
                           )}>
-                            {liveClass.duration_minutes} minutes
+                            {liveClass.duration} minutes
                           </span>
                         </div>
                       </div>
@@ -1377,10 +1376,10 @@ const ScheduleClassModal: React.FC<ScheduleClassModalProps> = ({ isOpen, onClose
     try {
       await liveClassesApi.create({
         batch_id: batchId,
-        title: title.trim(),
+        topic: title.trim(),
         description: description.trim() || undefined,
-        scheduled_at: new Date(scheduledAt).toISOString(),
-        duration_minutes: duration,
+        start_time: new Date(scheduledAt).toISOString(),
+        duration: duration,
       });
 
       toast.success("Live class scheduled successfully!");
@@ -1554,15 +1553,15 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose, liveCl
 
   useEffect(() => {
     if (liveClass) {
-      setTitle(liveClass.title);
+      setTitle(liveClass.topic);
       setDescription(liveClass.description || "");
       // Convert ISO string to datetime-local format
-      const date = new Date(liveClass.scheduled_at);
+      const date = new Date(liveClass.start_time);
       const localDateTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16);
       setScheduledAt(localDateTime);
-      setDuration(liveClass.duration_minutes);
+      setDuration(liveClass.duration);
     }
   }, [liveClass]);
 
@@ -1576,10 +1575,10 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose, liveCl
     setLoading(true);
     try {
       await liveClassesApi.update(liveClass.id, {
-        title: title.trim(),
+        topic: title.trim(),
         description: description.trim() || undefined,
-        scheduled_at: new Date(scheduledAt).toISOString(),
-        duration_minutes: duration,
+        start_time: new Date(scheduledAt).toISOString(),
+        duration: duration,
       });
 
       toast.success("Live class updated successfully!");

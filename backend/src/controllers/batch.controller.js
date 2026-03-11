@@ -234,10 +234,8 @@ export const enrollStudents = async (req, res) => {
         const enrollments = studentIds.map((id) => ({ batch_id: req.params.id, student_id: id }));
         await BatchStudent.bulkCreate(enrollments, { ignoreDuplicates: true });
 
-        // Trigger welcome email for each student
-        for (let studentId of studentIds) {
-            await sendWelcomeEmail(studentId, req.params.id);
-        }
+        // Trigger welcome emails in parallel
+        await Promise.all(studentIds.map(studentId => sendWelcomeEmail(studentId, req.params.id)));
 
         batchLogger.info(`Students enrolled - Batch ID: ${req.params.id}, Count: ${studentIds.length}`);
         res.json({ message: `${studentIds.length} students enrolled successfully` });
@@ -295,40 +293,4 @@ export const getStudentBatches = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
-// --------------------------
-// Admin: Get all instructors
-// --------------------------
-export const getAllInstructors = async (req, res) => {
-    try {
-        const instructors = await User.findAll({
-            where: { role: 'instructor', is_active: true },
-            attributes: ['id', 'name', 'email'],
-            order: [['name', 'ASC']],
-        });
-
-        batchLogger.info(`All instructors retrieved - Count: ${instructors.length}`);
-        res.json({ instructors });
-    } catch (err) {
-        batchLogger.error(`Error in getAllInstructors: ${err.message}`);
-        res.status(500).json({ message: err.message });
-    }
-};
-
-// --------------------------
-// Admin: Get all students
-// --------------------------
-export const getAllStudents = async (req, res) => {
-    try {
-        const students = await User.findAll({
-            where: { role: 'student', is_active: true },
-            attributes: ['id', 'name', 'email'],
-            order: [['name', 'ASC']],
-        });
-
-        batchLogger.info(`All students retrieved - Count: ${students.length}`);
-        res.json({ students });
-    } catch (err) {
-        batchLogger.error(`Error in getAllStudents: ${err.message}`);
-        res.status(500).json({ message: err.message });
-    }
-};
+// End of batch controller

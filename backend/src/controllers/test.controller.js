@@ -68,7 +68,6 @@ export const addQuestion = async (req, res) => {
                 type,
                 marks,
                 order_index,
-                order_index,
                 reference_media_url: referenceMedia ? getFileUrl(referenceMedia) : null,
                 model_answer: type === 'SHORT_ANSWER' ? model_answer : null
             }, { transaction: t });

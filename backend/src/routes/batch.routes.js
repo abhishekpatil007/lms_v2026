@@ -10,19 +10,11 @@ import {
     enrollStudents,
     getInstructorBatches,
     getStudentBatches,
-    getAllInstructors,
-    getAllStudents,
 } from '../controllers/batch.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 
 const router = express.Router();
-
-// --------------------------
-// Admin: Fetch all instructors & students
-// --------------------------
-router.get('/instructor-list', verifyToken, requireRole(['admin']), getAllInstructors);
-router.get('/student-list', verifyToken, requireRole(['admin']), getAllStudents);
 
 // --------------------------
 // Admin Routes

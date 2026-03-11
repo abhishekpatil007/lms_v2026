@@ -115,7 +115,7 @@ export const StudentDashboard = () => {
     switch (status) {
       case "scheduled":
         return { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" };
-      case "ongoing":
+      case "live":
         return { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" };
       case "completed":
         return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
@@ -146,16 +146,16 @@ export const StudentDashboard = () => {
       const now = new Date();
 
       const validClasses = allLiveClasses.filter(c => {
-        const status = c.status as string;
+        const status = c.status as string; // Keep this cast as it handles runtime data safety
         const startTime = new Date(c.start_time);
         const endTime = new Date(startTime.getTime() + c.duration * 60000);
-        return status === "ongoing" || (status === "scheduled" && startTime > now) || (status === "ongoing" && endTime > now);
+        return status === "live" || (status === "scheduled" && startTime > now) || (status === "live" && endTime > now);
       });
 
-      // Sort: Ongoing first, then by start time
+      // Sort: Live first, then by start time
       validClasses.sort((a, b) => {
-        if (a.status === "ongoing" && b.status !== "ongoing") return -1;
-        if (a.status !== "ongoing" && b.status === "ongoing") return 1;
+        if (a.status === "live" && b.status !== "live") return -1;
+        if (a.status !== "live" && b.status === "live") return 1;
         return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
       });
 
@@ -257,7 +257,7 @@ export const StudentDashboard = () => {
               <div className="space-y-4">
                 {dashboardLiveClasses.map((liveClass, idx) => {
                   const statusColor = getClassStatusColor(liveClass.status);
-                  const isOngoing = liveClass.status === 'ongoing';
+                  const isOngoing = liveClass.status === 'live';
 
                   return (
                     <motion.div
@@ -326,6 +326,18 @@ export const StudentDashboard = () => {
                           >
                             {isOngoing ? "Join Now" : "Join Link"}
                             <IconBrandZoom className="w-4 h-4" />
+                          </a>
+                        )}
+
+                        {liveClass.status === 'completed' && liveClass.recording_url && (
+                          <a
+                            href={liveClass.recording_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hidden sm:flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-all shadow-lg"
+                          >
+                            Watch Recording
+                            <IconPlayerPlay className="w-4 h-4" />
                           </a>
                         )}
                       </div>

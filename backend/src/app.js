@@ -19,7 +19,9 @@ import webinarRoutes from './routes/webinar.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import testRoutes from './routes/test.routes.js';
 import attemptRoutes from './routes/attempt.routes.js';
+import statsRoutes from './routes/stats.routes.js';
 import evaluationRoutes from './routes/evaluation.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 import { initAutoSubmitWorker } from './services/autoSubmit.worker.js';
 import { createModuleLogger } from './utils/logger/logger.js';
@@ -77,7 +79,9 @@ app.use("/api/webinars", authLimiter, webinarRoutes);
 app.use('/api/invoices', authLimiter, invoiceRoutes);
 app.use('/api/tests', authLimiter, testRoutes);
 app.use('/api/attempts', authLimiter, attemptRoutes);
+app.use('/api/stats', authLimiter, statsRoutes);
 app.use('/api/evaluation', authLimiter, evaluationRoutes);
+app.use('/api/users', authLimiter, userRoutes);
 // app.use('/api/attendance', attendanceRoutes);
 
 // Socket.IO connection: JWT-based auth and server-side batch validation

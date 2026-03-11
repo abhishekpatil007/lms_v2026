@@ -40,7 +40,9 @@ export const videosApi = {
     batch_id?: string;
   }): Promise<{ videos: Video[] }> => {
     const response = await apiClient.get('/api/videos', { params });
-    return { videos: response.data };
+    // Robustly handle both { videos: [...] } and direct array [...] from backend
+    const videos = Array.isArray(response.data) ? response.data : (response.data.videos || []);
+    return { videos };
   },
 
   /**

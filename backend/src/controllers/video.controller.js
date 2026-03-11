@@ -241,10 +241,23 @@ export const listVideos = async (req, res) => {
 
         // For many-to-many, we'll fetch videos that are associated to relevant batches
         if (role === 'admin') {
-            // admin sees all videos (optionally filter)
-            const videos = await Video.findAll({ where: filters, order: [['created_at', 'DESC']] });
-            videoLogger.info(`Videos listed by admin - Count: ${videos.length}`);
-            return res.json(videos);
+            const { page = 1, limit = 10 } = req.query;
+            const offset = (page - 1) * limit;
+
+            const { count, rows } = await Video.findAndCountAll({
+                where: filters,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [['created_at', 'DESC']]
+            });
+
+            videoLogger.info(`Videos listed by admin - Count: ${rows.length}`);
+            return res.json({
+                videos: rows,
+                total: count,
+                totalPages: Math.ceil(count / limit),
+                currentPage: parseInt(page)
+            });
         }
 
         // gather batch ids accessible to user
@@ -287,10 +300,23 @@ export const listVideos = async (req, res) => {
 
         // apply video-level filters and restrict to videoIds
         const where = { ...filters, id: { [Op.in]: videoIds } };
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
 
-        const videos = await Video.findAll({ where, order: [['created_at', 'DESC']] });
-        videoLogger.info(`Videos listed by ${role} - Count: ${videos.length}`);
-        return res.json(videos);
+        const { count, rows } = await Video.findAndCountAll({
+            where,
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [['created_at', 'DESC']]
+        });
+
+        videoLogger.info(`Videos listed by ${role} - Count: ${rows.length}`);
+        return res.json({
+            videos: rows,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
+        });
     } catch (err) {
         videoLogger.error(`Error in listVideos: ${err.message}`);
         return res.status(500).json({ message: 'Server error' });

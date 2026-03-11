@@ -28,7 +28,9 @@ export const documentsApi = {
     file_type?: DocumentType;
   }): Promise<{ documents: Document[] }> => {
     const response = await apiClient.get('/api/documents', { params });
-    return { documents: response.data };
+    // Robustly handle both { documents: [...] } and direct array [...] from backend
+    const documents = Array.isArray(response.data) ? response.data : (response.data.documents || []);
+    return { documents };
   },
 
   /**

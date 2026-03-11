@@ -97,13 +97,23 @@ export const listDocuments = async (req, res) => {
             filters.batch_id = { [Op.or]: [null, { [Op.in]: batchIds }] };
         }
 
-        const docs = await Document.findAll({
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+
+        const { count, rows } = await Document.findAndCountAll({
             where: filters,
+            limit: parseInt(limit),
+            offset: parseInt(offset),
             order: [['created_at', 'DESC']],
         });
 
-        documentLogger.info(`Documents listed - Count: ${docs.length}, Role: ${role}`);
-        res.json(docs);
+        documentLogger.info(`Documents listed - Count: ${rows.length}, Role: ${role}`);
+        res.json({
+            documents: rows,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
+        });
     } catch (err) {
         documentLogger.error(`Error in listDocuments: ${err.message}`);
         res.status(500).json({ message: 'Server error' });

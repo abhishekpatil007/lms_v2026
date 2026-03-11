@@ -49,7 +49,7 @@ export async function onboardUser(req, res) {
             return res.status(409).json({ message: 'Email already exists' });
         }
 
-        const userPassword = password || Math.random().toString(36).slice(-8);
+        const userPassword = password || crypto.randomBytes(4).toString('hex'); // 8 chars
         const hash = await bcrypt.hash(userPassword, SALT_ROUNDS);
 
         const user = await User.create({ name, email, password_hash: hash, role, preferred_language });
@@ -58,7 +58,7 @@ export async function onboardUser(req, res) {
         // Optionally return tokens
         const accessToken = signAccessToken({ userId: user.id, role: user.role });
         const refreshToken = signRefreshToken({ userId: user.id });
-        await RefreshToken.create({ user_id: user.id, token_hash: sha256Hex(refreshToken), expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) });
+        await RefreshToken.create({ user_id: user.id, token_hash: sha256Hex(refreshToken), expires_at: refreshTokenExpiryDate() });
 
         if (sendEmail) {
             const invoiceBuffer = await generateInvoicePDF({
@@ -98,7 +98,7 @@ export async function onboardInstructor(req, res) {
             return res.status(409).json({ message: 'Email already exists' });
         }
 
-        const instructorPassword = password || Math.random().toString(36).slice(-8);
+        const instructorPassword = password || crypto.randomBytes(4).toString('hex');
         const hash = await bcrypt.hash(instructorPassword, SALT_ROUNDS);
 
         const instructor = await User.create({
@@ -116,7 +116,7 @@ export async function onboardInstructor(req, res) {
         await RefreshToken.create({
             user_id: instructor.id,
             token_hash: sha256Hex(refreshToken),
-            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            expires_at: refreshTokenExpiryDate()
         });
 
         if (sendEmail) {
@@ -272,8 +272,7 @@ export async function requestPasswordReset(req, res) {
             await sendPasswordResetEmail({ to: email, name: user.name, resetLink });
         }
 
-        return res.json({ message: 'Password reset link sent to email', reset_link: resetLink });
-        // return res.json({ message: 'Password reset link sent to email' });
+        return res.json({ message: 'Password reset link sent to email' });
     } catch (err) {
         authLogger.error(`Error in requestPasswordReset: ${err.message}`);
         return res.status(500).json({ message: 'Internal server error' });

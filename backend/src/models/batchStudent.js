@@ -12,7 +12,7 @@ const BatchStudent = sequelize.define('BatchStudent', {
         allowNull: false,
     },
     student_id: {
-        type: DataTypes.UUID,
+        type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false,
     },
     enrolled_at: {

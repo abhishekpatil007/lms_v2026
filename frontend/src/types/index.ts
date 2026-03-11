@@ -148,7 +148,7 @@ export interface DocumentUploadResponse {
 }
 
 // Live Class Module Types
-export type LiveClassStatus = 'ongoing' | 'scheduled' | 'completed' | 'cancelled';
+export type LiveClassStatus = 'scheduled' | 'live' | 'completed' | 'cancelled';
 
 export interface LiveClass {
   id: number; // Changed from string to number
@@ -162,6 +162,7 @@ export interface LiveClass {
   zoom_join_url: string;
   zoom_start_url: string;
   status: LiveClassStatus;
+  recording_url?: string;
   createdAt: string;
   updatedAt: string;
   batch?: {

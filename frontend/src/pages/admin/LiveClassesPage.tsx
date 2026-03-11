@@ -125,7 +125,7 @@ export const LiveClassesPage = () => {
   };
 
   const filteredClasses = (liveClasses || []).filter((cls) => {
-    const matchesSearch = cls.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = cls.topic.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === "all" || cls.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -134,7 +134,7 @@ export const LiveClassesPage = () => {
     switch (status) {
       case "scheduled":
         return { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500", icon: IconCalendar };
-      case "ongoing":
+      case "live":
         return { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500", icon: IconCheck };
       case "completed":
         return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500", icon: IconCheck };
@@ -153,7 +153,7 @@ export const LiveClassesPage = () => {
     };
   };
 
-  const handleDelete = async (classId: string) => {
+  const handleDelete = async (classId: number) => {
     if (!confirm("Are you sure you want to delete this live class?")) return;
 
     try {
@@ -289,7 +289,7 @@ export const LiveClassesPage = () => {
                 >
                   <option value="all">All Status</option>
                   <option value="scheduled">Scheduled</option>
-                  <option value="ongoing">Ongoing</option>
+                  <option value="live">Live</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
@@ -348,7 +348,7 @@ export const LiveClassesPage = () => {
             <div className="grid grid-cols-1 gap-4">
               {(filteredClasses || []).map((cls, idx) => {
                 const statusColor = getStatusColor(cls.status);
-                const { date, time } = formatDateTime(cls.scheduled_at);
+                const { date, time } = formatDateTime(cls.start_time);
                 const StatusIcon = statusColor.icon;
 
                 return (
@@ -368,7 +368,7 @@ export const LiveClassesPage = () => {
                       {/* Class Info */}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-base text-gray-900 mb-1">
-                          {cls.title}
+                          {cls.topic}
                         </h3>
                         <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
                           <span className="flex items-center gap-1">
@@ -381,7 +381,7 @@ export const LiveClassesPage = () => {
                             {time}
                           </span>
                           <span>•</span>
-                          <span>{cls.duration_minutes} min</span>
+                          <span>{cls.duration} min</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span
@@ -463,10 +463,10 @@ const CreateLiveClassModal = ({
   batchId: string;
 }) => {
   const [formData, setFormData] = useState({
-    title: "",
+    topic: "",
     description: "",
-    scheduled_at: "",
-    duration_minutes: 60,
+    start_time: "",
+    duration: 60,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -475,7 +475,7 @@ const CreateLiveClassModal = ({
     e.preventDefault();
     setError("");
 
-    if (!formData.title || !formData.scheduled_at) {
+    if (!formData.topic || !formData.start_time) {
       setError("Please fill in all required fields");
       return;
     }
@@ -484,10 +484,10 @@ const CreateLiveClassModal = ({
       setLoading(true);
       await liveClassesApi.create({
         batch_id: batchId,
-        title: formData.title,
+        topic: formData.topic,
         description: formData.description || undefined,
-        scheduled_at: formData.scheduled_at,
-        duration_minutes: formData.duration_minutes,
+        start_time: formData.start_time,
+        duration: formData.duration,
       });
       onSuccess();
     } catch (err: any) {
@@ -552,8 +552,8 @@ const CreateLiveClassModal = ({
             </label>
             <input
               type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              value={formData.topic}
+              onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
               className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2D96FF] focus:border-transparent transition-all"
               placeholder="e.g., React Hooks Deep Dive"
             />
@@ -567,8 +567,8 @@ const CreateLiveClassModal = ({
               </label>
               <input
                 type="datetime-local"
-                value={formData.scheduled_at}
-                onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                 className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2D96FF] focus:border-transparent transition-all"
               />
             </div>
@@ -578,8 +578,8 @@ const CreateLiveClassModal = ({
               </label>
               <input
                 type="number"
-                value={formData.duration_minutes}
-                onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
+                value={formData.duration}
+                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                 min="15"
                 step="15"
                 className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2D96FF] focus:border-transparent transition-all"

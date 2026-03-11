@@ -5,13 +5,20 @@ const { Course, Batch, User } = db;
 // Create a course
 export const createCourse = async (req, res) => {
     try {
-        const { title, description } = req.body;
+        const { title, description, category, duration, level } = req.body;
         if (!title) {
             courseLogger.warn('Create Course - Title is required');
             return res.status(400).json({ message: 'Title is required' });
         }
 
-        const course = await Course.create({ title, description, created_by : req.user.user.id });
+        const course = await Course.create({ 
+            title, 
+            description, 
+            category, 
+            duration, 
+            level, 
+            created_by : req.user.user.id 
+        });
         courseLogger.info(`Course created successfully - Course ID: ${course.id}, Title: ${title}`);
         res.status(201).json({ message: 'Course created', course });
     } catch (err) {
@@ -41,15 +48,26 @@ export const updateCourse = async (req, res) => {
 // List courses
 export const listCourses = async (req, res) => {
     try {
-        const courses = await Course.findAll({
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+
+        const { count, rows } = await Course.findAndCountAll({
             include: [
                 { model: User, as: 'creator', attributes: ['id', 'name', 'email'] },
                 { model: Batch, as: 'batches' },
             ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
             order: [['createdAt', 'DESC']]
         });
-        courseLogger.info(`Courses listed successfully - Count: ${courses.length}`);
-        res.json({ courses });
+
+        courseLogger.info(`Courses listed successfully - Count: ${rows.length}`);
+        res.json({ 
+            courses: rows,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
+        });
     } catch (err) {
         courseLogger.error(`Error in listCourses: ${err.message}`);
         res.status(500).json({ message: err.message });

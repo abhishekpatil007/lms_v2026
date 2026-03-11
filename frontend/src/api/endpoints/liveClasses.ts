@@ -13,10 +13,10 @@ export const liveClassesApi = {
    */
   create: async (data: {
     batch_id: string;
-    title: string;
+    topic: string;
     description?: string;
-    scheduled_at: string;
-    duration_minutes: number;
+    start_time: string;
+    duration: number;
   }): Promise<{ message: string; liveClass: LiveClass }> => {
     const response = await apiClient.post('/api/live-classes', data);
     return response.data;
@@ -33,7 +33,7 @@ export const liveClassesApi = {
   /**
    * Get live class by ID
    */
-  getById: async (liveClassId: string): Promise<{ liveClass: LiveClass }> => {
+  getById: async (liveClassId: number): Promise<{ liveClass: LiveClass }> => {
     const response = await apiClient.get(`/api/live-classes/${liveClassId}`);
     return response.data;
   },
@@ -42,7 +42,7 @@ export const liveClassesApi = {
    * Get Zoom signature for joining live class
    */
   getSignature: async (
-    liveClassId: string,
+    liveClassId: number,
     data: {
       role: number; // 0 for participant, 1 for host
     }
@@ -54,7 +54,7 @@ export const liveClassesApi = {
   /**
    * Join live class
    */
-  join: async (liveClassId: string): Promise<LiveClassJoinResponse> => {
+  join: async (liveClassId: number): Promise<LiveClassJoinResponse> => {
     const response = await apiClient.get(`/api/live-classes/${liveClassId}/join`);
     return response.data;
   },
@@ -63,12 +63,12 @@ export const liveClassesApi = {
    * Update live class (Instructor/Admin only)
    */
   update: async (
-    liveClassId: string,
+    liveClassId: number,
     data: {
-      title?: string;
+      topic?: string;
       description?: string;
-      scheduled_at?: string;
-      duration_minutes?: number;
+      start_time?: string;
+      duration?: number;
       status?: LiveClassStatus;
     }
   ): Promise<{ message: string; liveClass: LiveClass }> => {
@@ -79,7 +79,7 @@ export const liveClassesApi = {
   /**
    * Delete live class (Instructor/Admin only)
    */
-  delete: async (liveClassId: string): Promise<{ message: string }> => {
+  delete: async (liveClassId: number): Promise<{ message: string }> => {
     const response = await apiClient.delete(`/api/live-classes/${liveClassId}`);
     return response.data;
   },

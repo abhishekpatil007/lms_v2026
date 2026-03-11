@@ -16,10 +16,9 @@ import {
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
-import { usersApi } from "@/api/endpoints/users";
+import { statsApi } from "@/api/endpoints/stats";
 import { batchesApi } from "@/api/endpoints/batches";
-import { coursesApi } from "@/api/endpoints/courses";
-import type { User, Batch, Course } from "@/types";
+import type { Batch } from "@/types";
 
 export const AdminDashboard = () => {
   const { user, logout } = useAuthStore();
@@ -28,6 +27,15 @@ export const AdminDashboard = () => {
     logout();
     window.location.href = '/login';
   };
+// ... (omitting links for brevity in replacement, but I will keep them)
+// Wait, I should provide the full block for replacement to be safe.
+// Actually, I'll just target the part from imports and the fetchDashboardData.
+
+// Let's do a narrower replacement for imports.
+// And another for fetchDashboardData.
+// Wait, multi_replace is better.
+
+// Let's use multi_replace.
 
   const links = [
     {
@@ -216,10 +224,6 @@ const Dashboard = ({ user }: { user: any }) => {
     draftBatches: 0,
   });
   const [recentBatches, setRecentBatches] = useState<Batch[]>([]);
-  const [students, setStudents] = useState<User[]>([]);
-  const [instructors, setInstructors] = useState<User[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -229,41 +233,16 @@ const Dashboard = ({ user }: { user: any }) => {
     try {
       setLoading(true);
 
-      // Fetch all data in parallel
-      const [studentsRes, instructorsRes, coursesRes, batchesRes] = await Promise.all([
-        usersApi.getStudents(),
-        usersApi.getInstructors(),
-        coursesApi.list(),
+      // Fetch pre-calculated stats and batches list in parallel
+      const [statsRes, batchesRes] = await Promise.all([
+        statsApi.getDashboardStats(),
         batchesApi.list(),
       ]);
 
-      const studentsData = studentsRes.students || [];
-      const instructorsData = instructorsRes.instructors || [];
-      const coursesData = coursesRes.courses || [];
+      setStats(statsRes);
+
       const batchesData = batchesRes.batches || [];
-
-      setStudents(studentsData);
-      setInstructors(instructorsData);
-      setCourses(coursesData);
-      setBatches(batchesData);
-
-      // Calculate stats
-      const totalUsers = studentsData.length + instructorsData.length + 1; // +1 for admin
-      const activeBatches = batchesData.filter(b => b.status === 'ongoing').length;
-      const completedBatches = batchesData.filter(b => b.status === 'completed').length;
-      const draftBatches = batchesData.filter(b => b.status === 'draft').length;
-
-      setStats({
-        totalUsers,
-        totalStudents: studentsData.length,
-        totalInstructors: instructorsData.length,
-        totalCourses: coursesData.length,
-        totalBatches: batchesData.length,
-        activeBatches,
-        completedBatches,
-        draftBatches,
-      });
-
+      
       // Get 5 most recent batches
       const sortedBatches = [...batchesData].sort((a, b) => {
         return new Date(b.createdAt || b.start_date).getTime() -

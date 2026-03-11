@@ -27,6 +27,11 @@ const Course = sequelize.define('Course', {
         allowNull: false,
         defaultValue: 'beginner',
     },
+    status: {
+        type: DataTypes.ENUM('active', 'inactive'),
+        allowNull: false,
+        defaultValue: 'active',
+    },
     created_by: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false,
