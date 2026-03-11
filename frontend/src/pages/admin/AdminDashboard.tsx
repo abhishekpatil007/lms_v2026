@@ -27,15 +27,6 @@ export const AdminDashboard = () => {
     logout();
     window.location.href = '/login';
   };
-// ... (omitting links for brevity in replacement, but I will keep them)
-// Wait, I should provide the full block for replacement to be safe.
-// Actually, I'll just target the part from imports and the fetchDashboardData.
-
-// Let's do a narrower replacement for imports.
-// And another for fetchDashboardData.
-// Wait, multi_replace is better.
-
-// Let's use multi_replace.
 
   const links = [
     {
