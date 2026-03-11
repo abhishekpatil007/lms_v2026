@@ -140,7 +140,7 @@ app.use('/api/users', authLimiter, userRoutes);
     try {
         await sequelize.authenticate();
         console.log('✅ MySQL connected');
-        await sequelize.sync();
+        await sequelize.sync({ alter: true });
         console.log('✅ Sequelize models synced');
 
         const PORT = process.env.PORT || 5000;

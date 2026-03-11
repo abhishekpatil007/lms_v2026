@@ -318,6 +318,62 @@ export const BatchesPage = () => {
             </div>
           </motion.div>
 
+                    {/* Stats Summary */}
+          {!loading && filteredBatches.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="grid grid-cols-1 gap-5 md:grid-cols-4"
+            >
+              <div className="rounded-[24px] bg-gradient-to-br from-[#B4F481] to-[#9FE66F] p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-[#2D2D2D] flex items-center justify-center">
+                    <IconSchool className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-[#2D2D2D]/70">Total Batches</p>
+                </div>
+                <p className="text-3xl font-bold text-[#2D2D2D]">{batches.length}</p>
+              </div>
+
+              <div className="rounded-[24px] bg-white p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <IconUserCheck className="w-5 h-5 text-green-600" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-500">Ongoing</p>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {(batches || []).filter(b => b.status === "ongoing").length}
+                </p>
+              </div>
+
+              <div className="rounded-[24px] bg-white p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <IconBook className="w-5 h-5 text-blue-600" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-500">Completed</p>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {(batches || []).filter(b => b.status === "completed").length}
+                </p>
+              </div>
+
+              <div className="rounded-[24px] bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
+                    <IconUsers className="w-5 h-5 text-[#A78BFA]" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-white/90">Total Students</p>
+                </div>
+                <p className="text-3xl font-bold text-white">
+                  {(batches || []).reduce((acc, b) => acc + (b.students?.length || 0), 0)}
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* Batches Grid */}
           {loading ? (
             <motion.div
@@ -537,62 +593,6 @@ export const BatchesPage = () => {
                 );
               })}
             </div>
-          )}
-
-          {/* Stats Summary */}
-          {!loading && filteredBatches.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="grid grid-cols-1 gap-5 md:grid-cols-4"
-            >
-              <div className="rounded-[24px] bg-gradient-to-br from-[#B4F481] to-[#9FE66F] p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-[#2D2D2D] flex items-center justify-center">
-                    <IconSchool className="w-5 h-5 text-white" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-[#2D2D2D]/70">Total Batches</p>
-                </div>
-                <p className="text-3xl font-bold text-[#2D2D2D]">{batches.length}</p>
-              </div>
-
-              <div className="rounded-[24px] bg-white p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <IconUserCheck className="w-5 h-5 text-green-600" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-500">Ongoing</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {(batches || []).filter(b => b.status === "ongoing").length}
-                </p>
-              </div>
-
-              <div className="rounded-[24px] bg-white p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <IconBook className="w-5 h-5 text-blue-600" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-500">Completed</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {(batches || []).filter(b => b.status === "completed").length}
-                </p>
-              </div>
-
-              <div className="rounded-[24px] bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
-                    <IconUsers className="w-5 h-5 text-[#A78BFA]" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-white/90">Total Students</p>
-                </div>
-                <p className="text-3xl font-bold text-white">
-                  {(batches || []).reduce((acc, b) => acc + (b.students?.length || 0), 0)}
-                </p>
-              </div>
-            </motion.div>
           )}
         </div>
       </div>
