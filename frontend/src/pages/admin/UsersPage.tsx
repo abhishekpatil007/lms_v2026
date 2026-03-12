@@ -28,10 +28,18 @@ export const UsersPage = () => {
   const { user, logout } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterRole, setFilterRole] = useState<"all" | "student" | "instructor">("all");
+  const [activeTab, setActiveTab] = useState<"student" | "instructor">("student");
   const [students, setStudents] = useState<User[]>([]);
   const [instructors, setInstructors] = useState<User[]>([]);
+  const [studentPage, setStudentPage] = useState(1);
+  const [instructorPage, setInstructorPage] = useState(1);
+  const [hasMoreStudents, setHasMoreStudents] = useState(true);
+  const [hasMoreInstructors, setHasMoreInstructors] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalStudentsCount, setTotalStudentsCount] = useState(0);
+  const [totalInstructorsCount, setTotalInstructorsCount] = useState(0);
+
   const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [onboardType, setOnboardType] = useState<"student" | "instructor">("student");
   const [onboardFormData, setOnboardFormData] = useState({
@@ -42,6 +50,25 @@ export const UsersPage = () => {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
+
+  const observer = React.useRef<IntersectionObserver | null>(null);
+  const lastUserElementRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading || loadingMore) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          if (activeTab === "student" && hasMoreStudents) {
+            fetchUsers(studentPage + 1, false);
+          } else if (activeTab === "instructor" && hasMoreInstructors) {
+            fetchUsers(instructorPage + 1, false);
+          }
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loading, loadingMore, activeTab, hasMoreStudents, hasMoreInstructors, studentPage, instructorPage]
+  );
 
   const handleLogout = () => {
     logout();
@@ -97,22 +124,49 @@ export const UsersPage = () => {
   ];
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    // Reset and fetch when tab or search changes
+    setStudents([]);
+    setInstructors([]);
+    setStudentPage(1);
+    setInstructorPage(1);
+    setHasMoreStudents(true);
+    setHasMoreInstructors(true);
+    fetchUsers(1, true);
+  }, [activeTab, searchQuery]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page: number, initial: boolean) => {
     try {
-      setLoading(true);
-      const [studentsData, instructorsData] = await Promise.all([
-        usersApi.getStudents(),
-        usersApi.getInstructors(),
-      ]);
-      setStudents(studentsData.students);
-      setInstructors(instructorsData.instructors);
+      if (initial) setLoading(true);
+      else setLoadingMore(true);
+
+      const limit = 12;
+
+      if (activeTab === "student") {
+        const response = await usersApi.getStudents(page, limit, searchQuery);
+        if (initial) {
+          setStudents(response.students);
+        } else {
+          setStudents(prev => [...prev, ...response.students]);
+        }
+        setTotalStudentsCount(response.total);
+        setHasMoreStudents(response.students.length === limit);
+        setStudentPage(page);
+      } else {
+        const response = await usersApi.getInstructors(page, limit, searchQuery);
+        if (initial) {
+          setInstructors(response.instructors);
+        } else {
+          setInstructors(prev => [...prev, ...response.instructors]);
+        }
+        setTotalInstructorsCount(response.total);
+        setHasMoreInstructors(response.instructors.length === limit);
+        setInstructorPage(page);
+      }
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
-      setLoading(false);
+      if (initial) setLoading(false);
+      else setLoadingMore(false);
     }
   };
 
@@ -137,7 +191,7 @@ export const UsersPage = () => {
       setShowOnboardModal(false);
 
       // Refresh users list
-      fetchUsers();
+      fetchUsers(1, true);
     } catch (error) {
       console.error("Error onboarding user:", error);
       alert("Failed to onboard user. Please try again.");
@@ -150,23 +204,8 @@ export const UsersPage = () => {
     setTimeout(() => setCopiedPassword(false), 2000);
   };
 
-  // Combine and filter users
-  const allUsers = [
-    ...(students || []).map(s => ({ ...s, role: 'student' as const })),
-    ...(instructors || []).map(i => ({ ...i, role: 'instructor' as const })),
-  ];
-
-  const filteredUsers = (allUsers || []).filter((userData) => {
-    const matchesSearch =
-      userData.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      userData.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === "all" || userData.role === filterRole;
-    return matchesSearch && matchesRole;
-  });
-
-  const totalStudents = (students || []).length;
-  const totalInstructors = (instructors || []).length;
-  const activeUsers = (allUsers || []).filter(u => u.is_active).length;
+  const usersToDisplay = activeTab === "student" ? students : instructors;
+  const activeUsersCount = [...students, ...instructors].filter(u => u.is_active).length;
 
   return (
     <div className="flex w-full h-screen bg-[#E8E6E1]">
@@ -243,7 +282,7 @@ export const UsersPage = () => {
                 </div>
                 <span className="text-sm font-semibold text-[#2D2D2D]/80">Total Students</span>
               </div>
-              <p className="text-4xl font-bold text-[#2D2D2D]">{totalStudents}</p>
+              <p className="text-4xl font-bold text-[#2D2D2D]">{totalStudentsCount}</p>
             </motion.div>
 
             <motion.div
@@ -258,7 +297,7 @@ export const UsersPage = () => {
                 </div>
                 <span className="text-sm font-semibold text-white/90">Total Instructors</span>
               </div>
-              <p className="text-4xl font-bold text-white">{totalInstructors}</p>
+              <p className="text-4xl font-bold text-white">{totalInstructorsCount}</p>
             </motion.div>
 
             <motion.div
@@ -271,9 +310,9 @@ export const UsersPage = () => {
                 <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
                   <IconCheck className="w-5 h-5 text-white" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-white/90">Active Users</span>
+                <span className="text-sm font-semibold text-white/90">Active (Loaded)</span>
               </div>
-              <p className="text-4xl font-bold text-white">{activeUsers}</p>
+              <p className="text-4xl font-bold text-white">{activeUsersCount}</p>
             </motion.div>
           </div>
 
@@ -292,7 +331,7 @@ export const UsersPage = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Users Management</h2>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    Showing {filteredUsers.length} of {allUsers.length} users
+                    Showing {usersToDisplay.length} {activeTab === "student" ? "students" : "instructors"}
                   </p>
                 </div>
               </div>
@@ -314,28 +353,43 @@ export const UsersPage = () => {
               </div>
             </div>
 
+            {/* Tab Selection */}
+            <div className="flex gap-4 mb-6 border-b border-gray-100 pb-4">
+              <button
+                onClick={() => setActiveTab("student")}
+                className={cn(
+                  "px-6 py-2 rounded-xl text-sm font-bold transition-all",
+                  activeTab === "student"
+                    ? "bg-[#2D2D2D] text-white shadow-lg"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                )}
+              >
+                Students ({totalStudentsCount})
+              </button>
+              <button
+                onClick={() => setActiveTab("instructor")}
+                className={cn(
+                  "px-6 py-2 rounded-xl text-sm font-bold transition-all",
+                  activeTab === "instructor"
+                    ? "bg-[#2D2D2D] text-white shadow-lg"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                )}
+              >
+                Instructors ({totalInstructorsCount})
+              </button>
+            </div>
+
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-2.5">
               <div className="relative flex-1">
                 <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
                 <input
                   type="text"
-                  placeholder="Search users by name or email..."
+                  placeholder={`Search ${activeTab}s by name or email...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
                 />
-              </div>
-              <div className="flex gap-2.5">
-                <select
-                  value={filterRole}
-                  onChange={(e) => setFilterRole(e.target.value as any)}
-                  className="rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="student">Students</option>
-                  <option value="instructor">Instructors</option>
-                </select>
               </div>
             </div>
           </motion.div>
@@ -345,98 +399,107 @@ export const UsersPage = () => {
             <div className="flex items-center justify-center h-64">
               <div className="text-gray-500 text-lg">Loading users...</div>
             </div>
-          ) : filteredUsers.length === 0 ? (
+          ) : usersToDisplay.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg"
             >
               <IconUsers className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-              <p className="text-gray-900 font-semibold text-lg mb-1">No users found</p>
-              <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
+              <p className="text-gray-900 font-semibold text-lg mb-1">No {activeTab}s found</p>
+              <p className="text-gray-500 text-sm">Try adjusting your search</p>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {(filteredUsers || []).map((userData, idx) => (
-                <motion.div
-                  key={userData.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className={cn(
-                    "rounded-[24px] p-5 shadow-lg hover:shadow-xl transition-all cursor-pointer group",
-                    userData.role === "instructor"
-                      ? "bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA]"
-                      : "bg-white"
-                  )}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className={cn(
-                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold shadow-md",
-                        userData.role === "instructor"
-                          ? "bg-white/90 text-[#A78BFA]"
-                          : "bg-gradient-to-br from-[#B4F481] to-[#9FE66F] text-[#2D2D2D]"
-                      )}>
-                        {userData.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </div>
-                      <div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {usersToDisplay.map((userData, idx) => (
+                  <motion.div
+                    key={userData.id}
+                    ref={idx === usersToDisplay.length - 1 ? lastUserElementRef : null}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx % 12 * 0.05 }}
+                    className={cn(
+                      "rounded-[24px] p-5 shadow-lg hover:shadow-xl transition-all cursor-pointer group",
+                      activeTab === "instructor"
+                        ? "bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA]"
+                        : "bg-white"
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
                         <div className={cn(
-                          "font-semibold text-base",
-                          userData.role === "instructor" ? "text-white" : "text-gray-900"
+                          "flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold shadow-md",
+                          activeTab === "instructor"
+                            ? "bg-white/90 text-[#A78BFA]"
+                            : "bg-gradient-to-br from-[#B4F481] to-[#9FE66F] text-[#2D2D2D]"
                         )}>
-                          {userData.name}
+                          {userData.name?.charAt(0)?.toUpperCase() || 'U'}
                         </div>
-                        <div className={cn(
-                          "text-xs",
-                          userData.role === "instructor" ? "text-white/80" : "text-gray-500"
-                        )}>
-                          {userData.email}
+                        <div>
+                          <div className={cn(
+                            "font-semibold text-base",
+                            activeTab === "instructor" ? "text-white" : "text-gray-900"
+                          )}>
+                            {userData.name}
+                          </div>
+                          <div className={cn(
+                            "text-xs",
+                            activeTab === "instructor" ? "text-white/80" : "text-gray-500"
+                          )}>
+                            {userData.email}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <span className={cn(
-                      "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
-                      userData.role === "instructor"
-                        ? "bg-white/20 text-white"
-                        : "bg-gray-100 text-gray-700"
-                    )}>
-                      {userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}
-                    </span>
-                    <span className={cn(
-                      "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
-                      userData.is_active
-                        ? userData.role === "instructor"
+                    <div className="flex items-center gap-1.5 mb-2.5">
+                      <span className={cn(
+                        "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                        activeTab === "instructor"
                           ? "bg-white/20 text-white"
-                          : "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    )}>
-                      {userData.is_active ? "● Active" : "○ Inactive"}
-                    </span>
-                  </div>
-
-                  {userData.preferred_language && (
-                    <div className={cn(
-                      "rounded-xl px-3 py-2 text-xs mb-3",
-                      userData.role === "instructor"
-                        ? "bg-white/10 text-white"
-                        : "bg-gray-50 text-gray-700"
-                    )}>
-                      <span className="font-medium">Language: {userData.preferred_language}</span>
+                          : "bg-gray-100 text-gray-700"
+                      )}>
+                        {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                      </span>
+                      <span className={cn(
+                        "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                        userData.is_active
+                          ? activeTab === "instructor"
+                            ? "bg-white/20 text-white"
+                            : "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      )}>
+                        {userData.is_active ? "● Active" : "○ Inactive"}
+                      </span>
                     </div>
-                  )}
 
-                  <div className={cn(
-                    "text-xs",
-                    userData.role === "instructor" ? "text-white/60" : "text-gray-400"
-                  )}>
-                    Joined {new Date(userData.created_at || '').toLocaleDateString()}
-                  </div>
-                </motion.div>
-              ))}
+                    {userData.preferred_language && (
+                      <div className={cn(
+                        "rounded-xl px-3 py-2 text-xs mb-3",
+                        activeTab === "instructor"
+                          ? "bg-white/10 text-white"
+                          : "bg-gray-50 text-gray-700"
+                      )}>
+                        <span className="font-medium">Language: {userData.preferred_language}</span>
+                      </div>
+                    )}
+
+                    <div className={cn(
+                      "text-xs",
+                      activeTab === "instructor" ? "text-white/60" : "text-gray-400"
+                    )}>
+                      Joined {new Date(userData.created_at || '').toLocaleDateString()}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {loadingMore && (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2D2D2D]"></div>
+                </div>
+              )}
             </div>
           )}
         </div>

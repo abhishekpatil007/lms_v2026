@@ -251,7 +251,7 @@ export const enrollStudents = async (req, res) => {
 export const getInstructorBatches = async (req, res) => {
     try {
         const batches = await Batch.findAll({
-            where: { instructor_id: req.user.user.id, status: { [Op.not]: 'completed' }, is_active: true },
+            where: { instructor_id: req.user.user.id, status: 'ongoing', is_active: true },
         });
         batchLogger.info(`Instructor batches retrieved - Instructor ID: ${req.user.user.id}, Count: ${batches.length}`);
         res.json({ batches });
@@ -268,7 +268,7 @@ export const getStudentBatches = async (req, res) => {
     try {
         const batches = await Batch.findAll({
             where: {
-                status: { [Op.not]: 'completed' },
+                status: 'ongoing',
             },
             include: [
                 {

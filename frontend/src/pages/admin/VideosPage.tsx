@@ -26,7 +26,8 @@ import { useAuthStore } from "@/store/authStore";
 import { Logo, LogoIcon } from "./AdminDashboard";
 import { videosApi } from "@/api/endpoints/videos";
 import { batchesApi } from "@/api/endpoints/batches";
-import type { Video, VideoStatus, Batch } from "@/types";
+import { topicsApi } from "@/api/endpoints/topics";
+import type { Video, VideoStatus, Batch, Topic } from "@/types";
 
 export const VideosPage = () => {
   const { user, logout } = useAuthStore();
@@ -297,6 +298,62 @@ export const VideosPage = () => {
             </div>
           </motion.div>
 
+          {/* Stats Summary */}
+          {!loading && filteredVideos.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="grid grid-cols-1 gap-5 md:grid-cols-4"
+            >
+              <div className="rounded-[24px] bg-gradient-to-br from-[#A78BFA] to-[#8B5CF6] p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <IconVideo className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-white/90">Total Videos</p>
+                </div>
+                <p className="text-3xl font-bold text-white">{(videos || []).length}</p>
+              </div>
+
+              <div className="rounded-[24px] bg-white p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <IconCheck className="w-5 h-5 text-green-600" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-500">Ready</p>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {(videos || []).filter(v => v.upload_status === "ready").length}
+                </p>
+              </div>
+
+              <div className="rounded-[24px] bg-white p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <IconClock className="w-5 h-5 text-blue-600" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-gray-500">Processing</p>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {(videos || []).filter(v => v.upload_status === "processing" || v.upload_status === "uploading").length}
+                </p>
+              </div>
+
+              <div className="rounded-[24px] bg-gradient-to-br from-[#B4F481] to-[#9FE66F] p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-[#2D2D2D] flex items-center justify-center">
+                    <IconSchool className="w-5 h-5 text-white" strokeWidth={2} />
+                  </div>
+                  <p className="text-xs font-semibold text-[#2D2D2D]/70">Total Duration</p>
+                </div>
+                <p className="text-3xl font-bold text-[#2D2D2D]">
+                  {Math.floor((videos || []).reduce((acc, v) => acc + (v.duration || 0), 0) / 60)}m
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* Videos Grid */}
           {loading ? (
             <motion.div
@@ -327,8 +384,8 @@ export const VideosPage = () => {
           ) : (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
               {filteredVideos.map((video, idx) => {
-                const statusColor = getStatusColor(video.status);
-                const isReady = video.status === "ready";
+                const statusColor = getStatusColor(video.upload_status);
+                const isReady = video.upload_status === "ready";
                 return (
                   <motion.div
                     key={video.id}
@@ -407,7 +464,7 @@ export const VideosPage = () => {
                         )}
                       >
                         <div className={cn("w-1.5 h-1.5 rounded-full", statusColor.dot)} />
-                        {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                        {video.upload_status.charAt(0).toUpperCase() + video.upload_status.slice(1)}
                       </span>
                       {(video.batches || []).length > 0 && (
                         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm bg-gray-100 text-gray-700">
@@ -451,62 +508,6 @@ export const VideosPage = () => {
                 );
               })}
             </div>
-          )}
-
-          {/* Stats Summary */}
-          {!loading && filteredVideos.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="grid grid-cols-1 gap-5 md:grid-cols-4"
-            >
-              <div className="rounded-[24px] bg-gradient-to-br from-[#A78BFA] to-[#8B5CF6] p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                    <IconVideo className="w-5 h-5 text-white" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-white/90">Total Videos</p>
-                </div>
-                <p className="text-3xl font-bold text-white">{(videos || []).length}</p>
-              </div>
-
-              <div className="rounded-[24px] bg-white p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <IconCheck className="w-5 h-5 text-green-600" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-500">Ready</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {(videos || []).filter(v => v.status === "ready").length}
-                </p>
-              </div>
-
-              <div className="rounded-[24px] bg-white p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <IconClock className="w-5 h-5 text-blue-600" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-500">Processing</p>
-                </div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {(videos || []).filter(v => v.status === "processing" || v.status === "uploading").length}
-                </p>
-              </div>
-
-              <div className="rounded-[24px] bg-gradient-to-br from-[#B4F481] to-[#9FE66F] p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-[#2D2D2D] flex items-center justify-center">
-                    <IconSchool className="w-5 h-5 text-white" strokeWidth={2} />
-                  </div>
-                  <p className="text-xs font-semibold text-[#2D2D2D]/70">Total Duration</p>
-                </div>
-                <p className="text-3xl font-bold text-[#2D2D2D]">
-                  {Math.floor((videos || []).reduce((acc, v) => acc + (v.duration || 0), 0) / 60)}m
-                </p>
-              </div>
-            </motion.div>
           )}
         </div>
       </div>
@@ -565,9 +566,34 @@ const UploadVideoModal = ({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    batch_id: "",
+    topic_id: "",
   });
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTopics, setLoadingTopics] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (formData.batch_id) {
+      fetchTopics(formData.batch_id);
+    } else {
+      setTopics([]);
+      setFormData(prev => ({ ...prev, topic_id: "" }));
+    }
+  }, [formData.batch_id]);
+
+  const fetchTopics = async (batchId: string) => {
+    try {
+      setLoadingTopics(true);
+      const { topics: data } = await topicsApi.listByBatch(batchId);
+      setTopics(data);
+    } catch (err) {
+      console.error("Error fetching topics:", err);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -580,13 +606,15 @@ const UploadVideoModal = ({
 
     try {
       setLoading(true);
-      const response = await videosApi.createUpload({
+      const response = await videosApi.createDirectUpload({
         title: formData.title,
         description: formData.description || undefined,
+        topic_id: formData.topic_id ? parseInt(formData.topic_id) : undefined,
+        batch_ids: formData.batch_id ? [formData.batch_id] : undefined
       });
 
       // In a real implementation, you would handle the upload URL here
-      alert(`Video created! Upload URL: ${response.uploadUrl}`);
+      alert(`Video created! Upload URL: ${response.upload_url}`);
       onSuccess();
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to create video upload");
@@ -669,6 +697,41 @@ const UploadVideoModal = ({
               className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#A78BFA] focus:border-transparent resize-none transition-all"
               placeholder="Add a description for this video..."
             />
+          </div>
+
+          {/* Batch & Topic Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-2.5">
+                Batch <span className="text-gray-400 font-normal">(Optional)</span>
+              </label>
+              <select
+                value={formData.batch_id}
+                onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#A78BFA] transition-all"
+              >
+                <option value="">Select Batch</option>
+                {(batches || []).map(b => (
+                  <option key={b.id} value={b.id}>{b.batch_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-2.5">
+                Topic <span className="text-gray-400 font-normal">(Optional)</span>
+              </label>
+              <select
+                value={formData.topic_id}
+                onChange={(e) => setFormData({ ...formData, topic_id: e.target.value })}
+                disabled={!formData.batch_id || loadingTopics}
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#A78BFA] transition-all disabled:opacity-50"
+              >
+                <option value="">{loadingTopics ? "Loading..." : "Select Topic"}</option>
+                {(topics || []).map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Actions */}

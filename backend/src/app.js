@@ -22,8 +22,10 @@ import attemptRoutes from './routes/attempt.routes.js';
 import statsRoutes from './routes/stats.routes.js';
 import evaluationRoutes from './routes/evaluation.routes.js';
 import userRoutes from './routes/user.routes.js';
+import topicRoutes from './routes/topic.routes.js';
 
 import { initAutoSubmitWorker } from './services/autoSubmit.worker.js';
+import { initBatchExpirationWorker } from './services/batchExpiration.worker.js';
 import { createModuleLogger } from './utils/logger/logger.js';
 // import { handleClosePollJob } from './jobs/pollClosure.job.js';
 
@@ -82,6 +84,7 @@ app.use('/api/attempts', authLimiter, attemptRoutes);
 app.use('/api/stats', authLimiter, statsRoutes);
 app.use('/api/evaluation', authLimiter, evaluationRoutes);
 app.use('/api/users', authLimiter, userRoutes);
+app.use('/api/topics', authLimiter, topicRoutes);
 // app.use('/api/attendance', attendanceRoutes);
 
 // Socket.IO connection: JWT-based auth and server-side batch validation
@@ -140,8 +143,13 @@ app.use('/api/users', authLimiter, userRoutes);
     try {
         await sequelize.authenticate();
         console.log('✅ MySQL connected');
-        await sequelize.sync({ alter: true });
+        // await sequelize.sync({ alter: true });
+        await sequelize.sync();
         console.log('✅ Sequelize models synced');
+
+        // Initialize background workers
+        initAutoSubmitWorker();
+        initBatchExpirationWorker();
 
         const PORT = process.env.PORT || 5000;
         server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

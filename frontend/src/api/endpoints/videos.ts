@@ -20,6 +20,19 @@ export const videosApi = {
   },
 
   /**
+   * Create a direct upload URL for video with topic and batches
+   */
+  createDirectUpload: async (data: {
+    title: string;
+    description?: string;
+    topic_id?: number;
+    batch_ids?: string[];
+  }): Promise<{ id: string; upload_id: string; upload_url: string }> => {
+    const response = await apiClient.post('/api/videos/upload', data);
+    return response.data;
+  },
+
+  /**
    * Assign video to batches
    */
   assignBatches: async (

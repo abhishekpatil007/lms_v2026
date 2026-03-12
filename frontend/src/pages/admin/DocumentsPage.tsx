@@ -26,7 +26,8 @@ import { useAuthStore } from "@/store/authStore";
 import { Logo, LogoIcon } from "./AdminDashboard";
 import { documentsApi } from "@/api/endpoints/documents";
 import { batchesApi } from "@/api/endpoints/batches";
-import type { Document, DocumentType, Batch } from "@/types";
+import { topicsApi } from "@/api/endpoints/topics";
+import type { Document, DocumentType, Batch, Topic } from "@/types";
 
 export const DocumentsPage = () => {
   const { user, logout } = useAuthStore();
@@ -132,7 +133,7 @@ export const DocumentsPage = () => {
   const filteredDocuments = (documents || []).filter(
     (doc) =>
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+      (doc.file_name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getFileIcon = (fileType: DocumentType) => {
@@ -153,7 +154,7 @@ export const DocumentsPage = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = doc.file_name;
+      a.download = doc.file_name || 'download';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -345,9 +346,9 @@ export const DocumentsPage = () => {
                         {doc.title}
                       </h3>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
-                        <span className="font-medium">{doc.file_name}</span>
+                        <span className="font-medium">{doc.file_name || "Unknown Filename"}</span>
                         <span>•</span>
-                        <span>{formatFileSize(doc.file_size)}</span>
+                        <span>{formatFileSize(doc.file_size || 0)}</span>
                         {doc.language && (
                           <>
                             <span>•</span>
@@ -415,10 +416,34 @@ const UploadDocumentModal = ({
     description: "",
     language: "",
     batch_id: "",
+    topic_id: "",
   });
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingTopics, setLoadingTopics] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (formData.batch_id) {
+      fetchTopics(formData.batch_id);
+    } else {
+      setTopics([]);
+      setFormData(prev => ({ ...prev, topic_id: "" }));
+    }
+  }, [formData.batch_id]);
+
+  const fetchTopics = async (batchId: string) => {
+    try {
+      setLoadingTopics(true);
+      const { topics: data } = await topicsApi.listByBatch(batchId);
+      setTopics(data);
+    } catch (err) {
+      console.error("Error fetching topics:", err);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -436,7 +461,8 @@ const UploadDocumentModal = ({
       uploadData.append('title', formData.title);
       if (formData.description) uploadData.append('description', formData.description);
       if (formData.language) uploadData.append('language', formData.language);
-      if (formData.batch_id) uploadData.append('batch_id', formData.batch_id);
+      if (formData.batch_id) uploadData.append('batch_ids[]', formData.batch_id);
+      if (formData.topic_id) uploadData.append('topic_id', formData.topic_id);
 
       await documentsApi.upload(uploadData);
       onSuccess();
@@ -549,6 +575,24 @@ const UploadDocumentModal = ({
                 {(batches || []).map((batch) => (
                   <option key={batch.id} value={batch.id}>
                     {batch.batch_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-2.5">
+                Topic
+              </label>
+              <select
+                value={formData.topic_id}
+                onChange={(e) => setFormData({ ...formData, topic_id: e.target.value })}
+                disabled={!formData.batch_id || loadingTopics}
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#60A5FA] focus:border-transparent cursor-pointer transition-all disabled:opacity-50"
+              >
+                <option value="">{loadingTopics ? "Loading..." : "Select Topic"}</option>
+                {topics.map((topic) => (
+                  <option key={topic.id} value={topic.id}>
+                    {topic.title}
                   </option>
                 ))}
               </select>

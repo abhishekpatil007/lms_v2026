@@ -18,7 +18,7 @@ const router = express.Router();
 router.post('/', verifyToken, requireRole(['instructor', 'admin']), createLiveClass);
 
 // List live classes for a batch (instructor or student)
-router.get('/batch/:batch_id', verifyToken, requireRole(['instructor', 'student']), getBatchLiveClasses);
+router.get('/batch/:batch_id', verifyToken, requireRole(['instructor', 'student', 'admin']), getBatchLiveClasses);
 
 // Get signature for live class (to be used by frontend Zoom Web SDK)
 router.post('/:id/signature', verifyToken, requireRole(['instructor', 'student']), getLiveClassSignature);

@@ -16,6 +16,9 @@ import { Op } from "sequelize";
 dotenv.config();
 
 const Document = db.Document;
+const Batch = db.Batch;
+const BatchStudent = db.BatchStudent;
+const BatchDocument = db.BatchDocument;
 
 // Initialize S3 client once
 let s3 = null;
@@ -43,17 +46,24 @@ export const uploadDocument = async (req, res) => {
         const filePath = file.location || file.path;
         const fileType = path.extname(file.originalname).replace('.', '');
 
+        const { title, description, language, visibility, batch_ids, topic_id } = req.body;
+
         const doc = await Document.create({
-            title: req.body.title || file.originalname,
-            description: req.body.description || null,
+            title: title || file.originalname,
+            description: description || null,
             file_path: filePath,
             file_type: fileType,
-            language: req.body.language || null,
-            batch_id: req.body.batch_id || null,
+            language: language || null,
             uploaded_by: req.user?.user?.id,
-            visibility: req.body.visibility || 'batch',
+            visibility: visibility || 'batch',
+            topic_id: topic_id || null,
             is_active: true,
         });
+
+        // Assign to batches if provided
+        if (batch_ids && Array.isArray(batch_ids)) {
+            await doc.setBatches(batch_ids);
+        }
 
         documentLogger.info(`Document uploaded successfully - Document ID: ${doc.id}, File: ${file.originalname}`);
         return res.status(201).json({ message: 'Uploaded', document: doc });
@@ -68,46 +78,89 @@ export const uploadDocument = async (req, res) => {
 // -------------------------------------------------------------------
 export const listDocuments = async (req, res) => {
     try {
+        const role = req.user?.role || req.user?.user?.role;
+        const userId = req.user?.id || req.user?.user?.id;
         const filters = {};
-        const role = req.user?.role;
-        const userId = req.user?.user?.id;
 
+        // query filters
         if (req.query.language) filters.language = req.query.language;
         if (req.query.visibility) filters.visibility = req.query.visibility;
 
-        // Role-based batch restriction
+        if (role === 'admin') {
+            const { page = 1, limit = 10 } = req.query;
+            const offset = (page - 1) * limit;
+
+            const { count, rows } = await Document.findAndCountAll({
+                where: filters,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+                order: [['created_at', 'DESC']]
+            });
+
+            documentLogger.info(`Documents listed by admin - Count: ${rows.length}`);
+            return res.json({
+                documents: rows,
+                total: count,
+                totalPages: Math.ceil(count / limit),
+                currentPage: parseInt(page)
+            });
+        }
+
+        // Gather batch ids accessible to user (strict ongoing)
+        let accessibleBatchIds = [];
+
         if (role === 'instructor') {
-            // Instructor: only their batches
-            const instructorBatches = await db.Batch.findAll({
-                where: { instructor_id: userId },
+            const instructorBatches = await Batch.findAll({
+                where: { instructor_id: userId, status: 'ongoing' },
                 attributes: ['id'],
                 raw: true,
             });
-            const batchIds = instructorBatches.map(b => b.id);
-            filters.batch_id = { [Op.or]: [null, { [Op.in]: batchIds }] };
-
+            accessibleBatchIds = instructorBatches.map(b => b.id);
         } else if (role === 'student') {
-            // Student: only batches they're enrolled in
-            const enrolled = await db.BatchStudent.findAll({
+            const enrolled = await BatchStudent.findAll({
                 where: { student_id: userId },
+                include: [{
+                    model: Batch,
+                    as: 'batch',
+                    where: { status: 'ongoing' },
+                    attributes: []
+                }],
                 attributes: ['batch_id'],
                 raw: true,
             });
-            const batchIds = enrolled.map(b => b.batch_id);
-            filters.batch_id = { [Op.or]: [null, { [Op.in]: batchIds }] };
+            accessibleBatchIds = enrolled.map(b => b.batch_id);
         }
 
+        if (accessibleBatchIds.length === 0) {
+            documentLogger.info(`Documents listed by ${role} - No accessible ongoing batches`);
+            return res.json({ documents: [], total: 0, totalPages: 0, currentPage: parseInt(req.query.page || 1) });
+        }
+
+        // Find document ids linked to these batches
+        const bdRows = await BatchDocument.findAll({
+            where: { batch_id: { [Op.in]: accessibleBatchIds } },
+            attributes: ['document_id'],
+            raw: true,
+        });
+
+        const docIds = [...new Set(bdRows.map(r => r.document_id))];
+        if (docIds.length === 0) {
+            documentLogger.info(`Documents listed by ${role} - No documents found in ongoing batches`);
+            return res.json({ documents: [], total: 0, totalPages: 0, currentPage: parseInt(req.query.page || 1) });
+        }
+
+        const where = { ...filters, id: { [Op.in]: docIds } };
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
 
         const { count, rows } = await Document.findAndCountAll({
-            where: filters,
+            where,
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['created_at', 'DESC']],
         });
 
-        documentLogger.info(`Documents listed - Count: ${rows.length}, Role: ${role}`);
+        documentLogger.info(`Documents listed by ${role} - Count: ${rows.length}`);
         res.json({
             documents: rows,
             total: count,
@@ -129,16 +182,13 @@ export const getDocument = async (req, res) => {
         const role = req.user?.role;
         const userId = req.user?.id;
 
-        const doc = await Document.findByPk(req.params.id);
+        const doc = await Document.findByPk(req.params.id, {
+            include: [{ model: Batch, as: 'batches', through: { attributes: [] } }]
+        });
+
         if (!doc) {
             documentLogger.warn(`Get Document - Document not found: ${req.params.id}`);
             return res.status(404).json({ message: 'Document not found' });
-        }
-
-        // Global documents (no batch)
-        if (!doc.batch_id) {
-            documentLogger.info(`Document retrieved - Document ID: ${doc.id}`);
-            return res.json(doc);
         }
 
         if (role === 'admin') {
@@ -146,27 +196,33 @@ export const getDocument = async (req, res) => {
             return res.json(doc);
         }
 
-        // Instructor → check if they own the batch
+        // Get accessible ONGOING batch ids
+        const docBatchIds = (doc.batches || [])
+            .filter(b => b.status === 'ongoing')
+            .map(b => b.id);
+
         if (role === 'instructor') {
-            const ownsBatch = await db.Batch.findOne({
-                where: { id: doc.batch_id, instructor_id: userId },
+            const owns = await Batch.count({
+                where: { id: { [Op.in]: docBatchIds }, instructor_id: userId }
             });
-            if (!ownsBatch) {
+            if (owns === 0) {
                 documentLogger.warn(`Get Document - Access denied for instructor: ${userId}, Document: ${doc.id}`);
-                return res.status(403).json({ message: 'Access denied (not your batch)' });
+                return res.status(403).json({ message: 'Access denied' });
             }
             documentLogger.info(`Document retrieved by instructor - Document ID: ${doc.id}`);
             return res.json(doc);
         }
 
-        // Student → check enrollment
         if (role === 'student') {
-            const enrolled = await db.BatchStudent.findOne({
-                where: { student_id: userId, batch_id: doc.batch_id },
+            const enrolled = await BatchStudent.findOne({
+                where: {
+                    student_id: userId,
+                    batch_id: { [Op.in]: docBatchIds },
+                },
             });
             if (!enrolled) {
                 documentLogger.warn(`Get Document - Access denied for student: ${userId}, Document: ${doc.id}`);
-                return res.status(403).json({ message: 'Access denied (not your batch)' });
+                return res.status(403).json({ message: 'Access denied' });
             }
             documentLogger.info(`Document retrieved by student - Document ID: ${doc.id}`);
             return res.json(doc);
@@ -250,6 +306,52 @@ export const downloadDocument = async (req, res) => {
     } catch (err) {
         documentLogger.error(`Error in downloadDocument: ${err.message}`);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// -------------------------------------------------------------------
+// assignBatches - assign a document to multiple batches (replace associations)
+// Body: { batch_ids: ["uuid1","uuid2"] }
+// -------------------------------------------------------------------
+export const assignBatches = async (req, res) => {
+    try {
+        const userId = req.user?.user?.id;
+        const role = req.user?.user?.role;
+        const docId = req.params.id;
+        const { batch_ids } = req.body;
+
+        if (!Array.isArray(batch_ids) || batch_ids.length === 0) {
+            documentLogger.warn('Assign Batches - batch_ids must be a non-empty array');
+            return res.status(400).json({ message: 'batch_ids must be a non-empty array' });
+        }
+
+        const doc = await Document.findByPk(docId);
+        if (!doc) {
+            documentLogger.warn(`Assign Batches - Document not found: ${docId}`);
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        // Permission: admin OR instructor owning any of the target batches
+        if (role === 'instructor') {
+            const owned = await Batch.count({ where: { id: { [Op.in]: batch_ids }, instructor_id: userId } });
+            if (owned !== batch_ids.length) {
+                documentLogger.warn(`Assign Batches - Forbidden for instructor: ${userId}, Document: ${docId}`);
+                return res.status(403).json({ message: 'Forbidden: you can only assign documents to your own batches' });
+            }
+        } else if (role !== 'admin') {
+            documentLogger.warn(`Assign Batches - Forbidden for role: ${role}`);
+            return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        // set associations (overwrite)
+        await doc.setBatches(batch_ids);
+
+        const updated = await Document.findByPk(docId, { include: [{ model: Batch, as: 'batches' }] });
+        documentLogger.info(`Document assigned to batches - Document ID: ${docId}, Batch Count: ${batch_ids.length}`);
+        return res.json({ message: 'Assigned to batches', document: updated });
+    } catch (err) {
+        documentLogger.error(`Error in assignBatches: ${err.message}`);
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 

@@ -7,10 +7,6 @@ const Document = sequelize.define('Document', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
     },
-    batch_id: {
-        type: DataTypes.UUID,
-        allowNull: true,
-    },
     uploaded_by: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false, // reference to User
@@ -35,6 +31,10 @@ const Document = sequelize.define('Document', {
         type: DataTypes.STRING(10),
         allowNull: true,
     },
+    topic_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+    },
     visibility: {
         type: DataTypes.ENUM('public', 'batch', 'private'),
         defaultValue: 'batch',
@@ -50,8 +50,14 @@ const Document = sequelize.define('Document', {
 });
 
 Document.associate = (models) => {
-    Document.belongsTo(models.Batch, { foreignKey: 'batch_id', as: 'batch' });
     Document.belongsTo(models.User, { foreignKey: 'uploaded_by', as: 'uploader' });
+    Document.belongsTo(models.Topic, { foreignKey: 'topic_id', as: 'topic' });
+    Document.belongsToMany(models.Batch, {
+        through: models.BatchDocument,
+        foreignKey: 'document_id',
+        otherKey: 'batch_id',
+        as: 'batches'
+    });
 };
 
 export default Document;

@@ -50,6 +50,22 @@ Batch.associate = (models) => {
         otherKey: 'student_id',
         as: 'students',
     });
+
+    Batch.hasMany(models.Topic, { foreignKey: 'batch_id', as: 'topics' });
+
+    Batch.belongsToMany(models.Document, {
+        through: models.BatchDocument,
+        foreignKey: 'batch_id',
+        otherKey: 'document_id',
+        as: 'documents'
+    });
+
+    Batch.belongsToMany(models.Video, {
+        through: models.BatchVideo,
+        foreignKey: 'batch_id',
+        otherKey: 'video_id',
+        as: 'videos'
+    });
 };
 
 export default Batch;

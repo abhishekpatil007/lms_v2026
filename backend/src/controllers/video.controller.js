@@ -33,7 +33,7 @@ export const createDirectUpload = async (req, res) => {
             return res.status(403).json({ message: 'Forbidden' });
         }
 
-        const { title, description, language, visibility } = req.body;
+        const { title, description, language, visibility, topic_id, batch_ids } = req.body;
 
         // Create DB placeholder for the video
         const entry = await Video.create({
@@ -42,8 +42,14 @@ export const createDirectUpload = async (req, res) => {
             language: language || null,
             uploaded_by: user.user.id,
             visibility: visibility || 'batch',
+            topic_id: topic_id || null,
             upload_status: 'pending',
         });
+
+        // If batch_ids provided, associate them
+        if (Array.isArray(batch_ids) && batch_ids.length > 0) {
+            await entry.setBatches(batch_ids);
+        }
 
         // Create a direct upload on Mux; passthrough ties the upload back to our entry id
         const upload = await mux.video.uploads.create({
@@ -265,7 +271,7 @@ export const listVideos = async (req, res) => {
 
         if (role === 'instructor') {
             const instructorBatches = await Batch.findAll({
-                where: { instructor_id: userId },
+                where: { instructor_id: userId, status: 'ongoing' },
                 attributes: ['id'],
                 raw: true,
             });
@@ -273,6 +279,12 @@ export const listVideos = async (req, res) => {
         } else if (role === 'student') {
             const enrolled = await BatchStudent.findAll({
                 where: { student_id: userId },
+                include: [{
+                    model: Batch,
+                    as: 'batch',
+                    where: { status: 'ongoing' },
+                    attributes: []
+                }],
                 attributes: ['batch_id'],
                 raw: true,
             });
@@ -282,7 +294,7 @@ export const listVideos = async (req, res) => {
         if (accessibleBatchIds.length === 0) {
             // no batches -> return empty
             videoLogger.info(`Videos listed by ${role} - No accessible batches`);
-            return res.json([]);
+            return res.json({ videos: [], total: 0, totalPages: 0, currentPage: parseInt(req.query.page || 1) });
         }
 
         // Find video ids linked to these batches via BatchVideo
@@ -295,7 +307,7 @@ export const listVideos = async (req, res) => {
         const videoIds = [...new Set(bvRows.map(r => r.video_id))];
         if (videoIds.length === 0) {
             videoLogger.info(`Videos listed by ${role} - No videos found`);
-            return res.json([]);
+            return res.json({ videos: [], total: 0, totalPages: 0, currentPage: parseInt(req.query.page || 1) });
         }
 
         // apply video-level filters and restrict to videoIds
@@ -338,8 +350,10 @@ export const getVideo = async (req, res) => {
             return res.status(404).json({ message: 'Not found' });
         }
 
-        // Get the list of batch ids associated with the video
-        const videoBatchIds = (video.batches || []).map(b => b.id);
+        // Get the list of ONGOING batch ids associated with the video that the user has access to
+        const videoBatchIds = (video.batches || [])
+            .filter(b => b.status === 'ongoing')
+            .map(b => b.id);
 
         if (role === 'admin') {
             videoLogger.info(`Video retrieved by admin - Video ID: ${req.params.id}`);

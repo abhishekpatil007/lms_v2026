@@ -8,6 +8,7 @@ import {
     downloadDocument,
     deleteDocument,
     getUniqueLanguages,
+    assignBatches,
 } from '../controllers/document.controller.js';
 import { requireRole } from '../middleware/role.middleware.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
@@ -34,6 +35,12 @@ router.delete('/:id',
     verifyToken,
     requireRole(['instructor', 'admin']),
     deleteDocument
+);
+
+router.post('/:id/assign-batches',
+    verifyToken,
+    requireRole(['instructor', 'admin']),
+    assignBatches
 );
 
 export default router;

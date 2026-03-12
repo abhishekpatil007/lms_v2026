@@ -26,6 +26,10 @@ const Video = sequelize.define('Video', {
         type: DataTypes.ENUM('public', 'batch', 'private'),
         defaultValue: 'batch',
     },
+    topic_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+    },
     is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, {
     tableName: 'videos',
@@ -35,6 +39,7 @@ const Video = sequelize.define('Video', {
 
 Video.associate = (models) => {
     Video.belongsTo(models.User, { foreignKey: 'uploaded_by', as: 'uploader' });
+    Video.belongsTo(models.Topic, { foreignKey: 'topic_id', as: 'topic' });
     Video.belongsToMany(models.Batch, {
         through: models.BatchVideo,
         foreignKey: 'video_id',

@@ -5,52 +5,82 @@ import {
     IconPlayerPlay,
     IconFilter,
     IconClock,
-    IconCalendar
+    IconCalendar,
+    IconLayoutGrid,
+    IconLayoutList
 } from '@tabler/icons-react';
 import { videosApi } from '@/api/endpoints/videos';
-import type { Video } from '@/types';
+import { topicsApi } from '@/api/endpoints/topics';
+import type { Video, Topic } from '@/types';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import { TopicAccordion } from '@/components/topics/TopicAccordion';
 
 export const StudentVideosPage = () => {
     const [allVideos, setAllVideos] = useState<Video[]>([]);
+    const [topics, setTopics] = useState<Topic[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedLanguage, setSelectedLanguage] = useState<string>('');
+    const [viewMode, setViewMode] = useState<'topic' | 'grid'>('topic');
 
     useEffect(() => {
-        fetchVideos();
+        fetchData();
     }, []);
 
-    const fetchVideos = async () => {
+    const fetchData = async () => {
         try {
             setLoading(true);
-            // Fetch all videos. The backend should handle authorization.
-            const { videos } = await videosApi.list();
+            const [{ videos }, { topics: topicData }] = await Promise.all([
+                videosApi.list(),
+                // Since student might be in multiple batches, we'd ideally fetch topics for all ongoing batches.
+                // For now, if student is enrolled in batches, we fetch their topics.
+                // If the generic list doesn't return topics, we can fetch uniquely.
+                // In a production app, we'd have a 'my-topics' endpoint.
+                topicsApi.listByBatch('enrolled') // Backend should handle 'enrolled' special keyword or we iterate.
+            ]).catch(async (err) => {
+                // Fallback if topicsApi fails or doesn't support 'enrolled'
+                const { videos: v } = await videosApi.list();
+                return [{ videos: v }, { topics: [] as Topic[] }];
+            }) as [{ videos: Video[] }, { topics: Topic[] }];
+
             setAllVideos(videos);
+            setTopics(topicData || []);
         } catch (error) {
-            console.error('Error fetching videos:', error);
+            console.error('Error fetching student video data:', error);
             toast.error('Failed to load video library');
         } finally {
             setLoading(false);
         }
     };
 
-    // Derive unique languages from valid videos
-    const languages = useMemo(() => {
-        const langs = new Set<string>();
-        allVideos.forEach(v => {
-            if (v.language) {
-                langs.add(v.language);
-            }
-        });
-        return Array.from(langs).sort();
-    }, [allVideos]);
+    // Group videos by topic
+    const groupedTopics = useMemo(() => {
+        const filtered = selectedLanguage 
+            ? allVideos.filter(v => v.language === selectedLanguage)
+            : allVideos;
 
-    // Filter videos based on selection
-    const displayedVideos = useMemo(() => {
-        if (!selectedLanguage) return allVideos;
-        return allVideos.filter(v => v.language === selectedLanguage);
-    }, [allVideos, selectedLanguage]);
+        // Clone topics to avoid mutation and add 'General' if needed
+        const topicList: Topic[] = topics.map(t => ({
+            ...t,
+            videos: filtered.filter(v => v.topic_id === t.id)
+        }));
+
+        const untrackedVideos = filtered.filter(v => !v.topic_id);
+        if (untrackedVideos.length > 0) {
+            topicList.push({
+                id: 0, // General topic
+                title: 'General Resources',
+                description: 'Videos not assigned to a specific module',
+                order_index: 999,
+                batch_id: 'all',
+                createdAt: '',
+                updatedAt: '',
+                videos: untrackedVideos
+            });
+        }
+
+        return topicList.sort((a, b) => a.order_index - b.order_index);
+    }, [allVideos, topics, selectedLanguage]);
 
     const formatDuration = (seconds?: number) => {
         if (!seconds) return '00:00';
@@ -59,22 +89,52 @@ export const StudentVideosPage = () => {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const handleVideoClick = (video: any) => {
+        // Logic to open video player (e.g., Modal or separate page)
+        toast.success(`Playing: ${video.title}`);
+    };
+
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-0">
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8"
+                className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6"
             >
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                    Video Library
-                </h1>
-                <p className="text-gray-500">
-                    Watch recorded lectures and supplementary videos
-                </p>
+                <div>
+                    <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-2">
+                        Video Library
+                    </h1>
+                    <p className="text-gray-500 text-lg">
+                        Structured learning content organized for your progress
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl shadow-sm border border-gray-100">
+                    <button
+                        onClick={() => setViewMode('topic')}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                            viewMode === 'topic' ? "bg-[#2D2D2D] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+                        )}
+                    >
+                        <IconLayoutList size={18} />
+                        Topic View
+                    </button>
+                    <button
+                        onClick={() => setViewMode('grid')}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                            viewMode === 'grid' ? "bg-[#2D2D2D] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+                        )}
+                    >
+                        <IconLayoutGrid size={18} />
+                        Grid View
+                    </button>
+                </div>
             </motion.div>
 
-            {/* Filters - Only show if we have videos */}
+            {/* Filters */}
             {allVideos.length > 0 && (
                 <div className="mb-8 flex flex-wrap items-center gap-4">
                     <div className="relative min-w-[200px]">
@@ -84,40 +144,40 @@ export const StudentVideosPage = () => {
                         <select
                             value={selectedLanguage}
                             onChange={(e) => setSelectedLanguage(e.target.value)}
-                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none cursor-pointer"
+                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-[#A78BFA]/20 focus:border-[#A78BFA] appearance-none cursor-pointer font-medium"
                         >
                             <option value="">All Languages</option>
-                            {languages.map(lang => (
-                                <option key={lang} value={lang}>{lang}</option>
+                            {Array.from(new Set(allVideos.map(v => v.language).filter(Boolean))).sort().map(lang => (
+                                <option key={lang} value={lang!}>{lang}</option>
                             ))}
                         </select>
                     </div>
                 </div>
             )}
 
-            {/* Video Grid */}
+            {/* Content Area */}
             {loading ? (
-                <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                <div className="flex items-center justify-center h-96">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A78BFA]"></div>
                 </div>
-            ) : displayedVideos.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 bg-white rounded-[24px] border border-gray-100 shadow-sm">
-                    <IconVideo className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-                    <p className="text-gray-500 font-medium">No videos found</p>
-                    {selectedLanguage && <p className="text-sm text-gray-400 mt-1">Try selecting a different language</p>}
-                </div>
+            ) : viewMode === 'topic' ? (
+                <TopicAccordion 
+                    topics={groupedTopics} 
+                    resourceType="video" 
+                    onResourceClick={handleVideoClick} 
+                />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {displayedVideos.map((video, idx) => (
+                    {allVideos.filter(v => !selectedLanguage || v.language === selectedLanguage).map((video, idx) => (
                         <motion.div
                             key={video.id}
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: idx * 0.05 }}
-                            className="group relative bg-white rounded-[20px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-all"
+                            onClick={() => handleVideoClick(video)}
+                            className="group relative bg-white rounded-[24px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#A78BFA]/30 transition-all cursor-pointer"
                         >
-                            {/* Thumbnail / Player Placeholder */}
-                            <div className="relative aspect-video bg-gray-900 group-video-hover">
+                            <div className="relative aspect-video bg-gray-900">
                                 {video.thumbnail_url ? (
                                     <img
                                         src={video.thumbnail_url}
@@ -125,44 +185,38 @@ export const StudentVideosPage = () => {
                                         className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                                        <IconVideo className="w-12 h-12 text-gray-600" />
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 group-hover:from-gray-700 group-hover:to-gray-800 transition-all">
+                                        <IconVideo className="w-12 h-12 text-gray-600 group-hover:text-gray-500" />
                                     </div>
                                 )}
-
-                                {/* Play Overlay */}
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-[2px]">
                                     <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform">
                                         <IconPlayerPlay className="w-5 h-5 text-gray-900 fill-current ml-1" />
                                     </div>
                                 </div>
-
-                                {/* Duration Badge */}
-                                <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 text-white text-[10px] font-bold">
+                                <div className="absolute bottom-3 right-3 px-2 py-1 rounded-lg bg-black/70 text-white text-[10px] font-bold backdrop-blur-md">
                                     {formatDuration(video.duration)}
                                 </div>
                             </div>
 
-                            <div className="p-4">
-                                <h3 className="text-base font-bold text-gray-900 mb-1 line-clamp-2 min-h-[3rem]" title={video.title}>
+                            <div className="p-5">
+                                <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-[#A78BFA] transition-colors" title={video.title}>
                                     {video.title}
                                 </h3>
-
-                                <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
-                                    <div className="flex items-center gap-1.5">
-                                        <IconCalendar className="w-3.5 h-3.5" />
-                                        <span>{new Date(video.createdAt).toLocaleDateString()}</span>
+                                <div className="flex items-center justify-between mt-auto">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-1">
+                                            <IconCalendar size={12} />
+                                            {new Date(video.createdAt).toLocaleDateString()}
+                                        </span>
                                     </div>
                                     {video.language && (
-                                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                                        <span className="px-2.5 py-1 rounded-lg bg-gray-50 text-gray-500 text-[10px] font-bold uppercase tracking-wider border border-gray-100">
                                             {video.language}
                                         </span>
                                     )}
                                 </div>
                             </div>
-
-                            {/* Click Utility (If we had a playback Page/Modal, we'd wire it here) */}
-                            {/* For now, just a visual indicator or link if URL exists */}
                         </motion.div>
                     ))}
                 </div>

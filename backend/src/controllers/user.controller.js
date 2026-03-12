@@ -19,7 +19,7 @@ export const getAllInstructors = async (req, res) => {
 
         const { count, rows } = await User.findAndCountAll({
             where,
-            attributes: ['id', 'name', 'email'],
+            attributes: ['id', 'name', 'email', 'is_active', 'created_at'],
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['name', 'ASC']],
@@ -53,7 +53,7 @@ export const getAllStudents = async (req, res) => {
 
         const { count, rows } = await User.findAndCountAll({
             where,
-            attributes: ['id', 'name', 'email'],
+            attributes: ['id', 'name', 'email', 'is_active', 'created_at'],
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['name', 'ASC']],

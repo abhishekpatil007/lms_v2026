@@ -24,6 +24,7 @@ import { Logo, LogoIcon } from "./AdminDashboard";
 import { batchesApi } from "@/api/endpoints/batches";
 import { coursesApi } from "@/api/endpoints/courses";
 import { usersApi } from "@/api/endpoints/users";
+import { TopicManager } from "@/components/topics/TopicManager";
 import type { Batch, Course, BatchStatus, User } from "@/types";
 
 export const BatchesPage = () => {
@@ -43,6 +44,7 @@ export const BatchesPage = () => {
   const [selectedBatchForAction, setSelectedBatchForAction] = useState<Batch | null>(null);
   const [selectedInstructorId, setSelectedInstructorId] = useState<number | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [showTopicManager, setShowTopicManager] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -567,13 +569,19 @@ export const BatchesPage = () => {
 
                     {/* Actions */}
                     <div className="flex gap-2">
-                      <button className={cn(
-                        "flex-1 rounded-xl py-2.5 text-xs font-bold transition-all",
-                        isOngoing
-                          ? "bg-white/30 text-[#2D2D2D] hover:bg-white/40"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      )}>
-                        View Details
+                      <button
+                        onClick={() => {
+                          setSelectedBatchForAction(batch);
+                          setShowTopicManager(true);
+                        }}
+                        className={cn(
+                          "flex-1 rounded-xl py-2.5 text-xs font-bold transition-all",
+                          isOngoing
+                            ? "bg-white/30 text-[#2D2D2D] hover:bg-white/40"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        )}
+                      >
+                        Manage Topics
                       </button>
                       <button className={cn(
                         "rounded-xl px-4 py-2.5 text-xs font-bold transition-all hover:scale-105",
@@ -649,6 +657,20 @@ export const BatchesPage = () => {
               setSelectedStudentIds([]);
             }}
             onSubmit={handleEnrollStudents}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Topic Manager Modal */}
+      <AnimatePresence>
+        {showTopicManager && selectedBatchForAction && (
+          <TopicManager
+            batchId={selectedBatchForAction.id}
+            batchName={selectedBatchForAction.batch_name}
+            onClose={() => {
+              setShowTopicManager(false);
+              setSelectedBatchForAction(null);
+            }}
           />
         )}
       </AnimatePresence>

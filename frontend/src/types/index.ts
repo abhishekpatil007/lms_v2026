@@ -65,6 +65,7 @@ export interface Batch {
     email: string;
   };
   students?: User[];
+  topics?: Topic[];
 }
 
 export interface BatchStudent {
@@ -94,12 +95,14 @@ export interface Video {
   language?: string;
   visibility?: string;
   is_active?: boolean;
+  topic_id?: number;
   createdAt: string;
   updatedAt: string;
   batches?: {
     id: string;
     batch_name: string;
   }[];
+  topic?: Topic;
 }
 
 export interface VideoUploadResponse {
@@ -113,22 +116,34 @@ export interface VideoPlaybackResponse {
   thumbnailUrl?: string;
 }
 
-// Document Module Types
 export type DocumentType = 'pdf' | 'doc' | 'docx' | 'ppt' | 'pptx' | 'txt' | 'other';
+
+export interface Topic {
+  id: number;
+  batch_id: string;
+  title: string;
+  description?: string;
+  order_index: number;
+  createdAt: string;
+  updatedAt: string;
+  videos?: Video[];
+  documents?: Document[];
+}
 
 export interface Document {
   id: string;
   title: string;
   description?: string;
-  // file_name: string; // Not returning from backend
+  file_name?: string;
   file_path: string;
-  // file_size: number; // Not returning from backend
+  file_size?: number;
   file_type: DocumentType;
   language?: string;
   uploaded_by: number;
   visibility?: string;
   is_active?: boolean;
   batch_id?: string;
+  topic_id?: number;
   createdAt: string;
   updatedAt: string;
   uploader?: {
@@ -140,6 +155,7 @@ export interface Document {
     id: string;
     batch_name: string;
   };
+  topic?: Topic;
 }
 
 export interface DocumentUploadResponse {
