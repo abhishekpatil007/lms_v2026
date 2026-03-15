@@ -16,6 +16,7 @@ import {
   IconX,
   IconCopy,
   IconCheck,
+  IconUpload,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,12 @@ export const UsersPage = () => {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
+
+  // Bulk Upload State
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkUploadFile, setBulkUploadFile] = useState<File | null>(null);
+  const [bulkUploadLoading, setBulkUploadLoading] = useState(false);
+  const [bulkUploadResults, setBulkUploadResults] = useState<{ successful: number; failed: number; details: any[] } | null>(null);
 
   const observer = React.useRef<IntersectionObserver | null>(null);
   const lastUserElementRef = React.useCallback(
@@ -204,6 +211,25 @@ export const UsersPage = () => {
     setTimeout(() => setCopiedPassword(false), 2000);
   };
 
+  const handleBulkUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkUploadFile) {
+        alert("Please select a file first");
+        return;
+    }
+    setBulkUploadLoading(true);
+    try {
+        const response = await usersApi.bulkOnboardStudents(bulkUploadFile);
+        setBulkUploadResults(response.results);
+        fetchUsers(1, true); // Refresh users list
+    } catch (error: any) {
+        console.error("Bulk upload error:", error);
+        alert(error.response?.data?.message || "Failed to process bulk upload");
+    } finally {
+        setBulkUploadLoading(false);
+    }
+  };
+
   const usersToDisplay = activeTab === "student" ? students : instructors;
   const activeUsersCount = [...students, ...instructors].filter(u => u.is_active).length;
 
@@ -336,6 +362,13 @@ export const UsersPage = () => {
                 </div>
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={() => setShowBulkUploadModal(true)}
+                  className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-all"
+                >
+                  <IconUpload className="h-4 w-4" strokeWidth={2.5} />
+                  Bulk Upload
+                </button>
                 <button
                   onClick={() => handleOpenOnboardModal("student")}
                   className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#B4F481] to-[#9FE66F] px-4 py-2.5 text-sm font-semibold text-[#2D2D2D] shadow-lg hover:shadow-xl transition-all"
@@ -665,6 +698,153 @@ export const UsersPage = () => {
               >
                 Done
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Upload Modal */}
+      <AnimatePresence>
+        {showBulkUploadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => !bulkUploadLoading && setShowBulkUploadModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              <div className="mb-5 flex items-center justify-between shrink-0">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Bulk Upload Students
+                </h3>
+                <button
+                  onClick={() => setShowBulkUploadModal(false)}
+                  disabled={bulkUploadLoading}
+                  className="rounded-full p-1 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  <IconX className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+
+              {!bulkUploadResults ? (
+                  <form onSubmit={handleBulkUploadSubmit} className="space-y-4 overflow-y-auto pr-2">
+                    <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+                        <IconUpload className="w-12 h-12 text-gray-400 mb-4" />
+                        <p className="text-sm font-semibold text-gray-700 mb-2">
+                            Upload Excel File
+                        </p>
+                        <p className="text-xs text-gray-500 mb-6 text-center max-w-xs">
+                            Upload an .xlsx file with columns: name, email, preferred_language
+                        </p>
+                        <input
+                            type="file"
+                            accept=".xlsx, .xls"
+                            onChange={(e) => setBulkUploadFile(e.target.files ? e.target.files[0] : null)}
+                            className="hidden"
+                            id="bulk-file-upload"
+                        />
+                        <label
+                            htmlFor="bulk-file-upload"
+                            className="cursor-pointer rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50 transition-all mb-4"
+                        >
+                            {bulkUploadFile ? bulkUploadFile.name : 'Choose File'}
+                        </label>
+                        <a 
+                            href="/students-template.xlsx" 
+                            download="students-template.xlsx"
+                            className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                        >
+                            Download Excel Template
+                        </a>
+                    </div>
+                    
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowBulkUploadModal(false)}
+                        disabled={bulkUploadLoading}
+                        className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={bulkUploadLoading || !bulkUploadFile}
+                        className={cn(
+                          "flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#2D2D2D] shadow-lg transition-all flex justify-center items-center gap-2",
+                          bulkUploadLoading || !bulkUploadFile ? "bg-gray-300 cursor-not-allowed text-gray-500" : "bg-gradient-to-br from-[#B4F481] to-[#9FE66F] hover:shadow-xl"
+                        )}
+                      >
+                        {bulkUploadLoading ? (
+                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#2D2D2D] border-t-transparent" />
+                        ) : 'Upload'}
+                      </button>
+                    </div>
+                  </form>
+              ) : (
+                  <div className="space-y-6 overflow-y-auto pr-2">
+                      <div className="flex flex-col items-center justify-center p-6 bg-gray-50 rounded-2xl">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#B4F481] to-[#9FE66F] flex items-center justify-center mb-4">
+                              <IconCheck className="w-8 h-8 text-[#2D2D2D]" strokeWidth={2} />
+                          </div>
+                          <h4 className="text-xl font-bold text-gray-900 mb-2">Upload Complete</h4>
+                          <div className="flex gap-4 text-sm font-medium">
+                              <span className="text-green-600">{bulkUploadResults.successful} Successful</span>
+                              <span className="text-red-600">{bulkUploadResults.failed} Failed</span>
+                          </div>
+                      </div>
+
+                      {bulkUploadResults.details && bulkUploadResults.details.length > 0 && (
+                          <div className="bg-white border rounded-xl overflow-hidden max-h-60 overflow-y-auto">
+                              <table className="w-full text-sm text-left">
+                                  <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b sticky top-0 bg-gray-50">
+                                      <tr>
+                                          <th className="px-4 py-3">Email</th>
+                                          <th className="px-4 py-3">Status</th>
+                                          <th className="px-4 py-3">Details</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {bulkUploadResults.details.map((res, i) => (
+                                          <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                                              <td className="px-4 py-3 truncate max-w-[150px]">{res.email}</td>
+                                              <td className="px-4 py-3">
+                                                  <span className={cn(
+                                                      "px-2 py-1 rounded text-xs font-medium inline-block",
+                                                      res.status === 'success' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                                  )}>
+                                                      {res.status}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-xs text-gray-500 max-w-[150px] truncate" title={res.status === 'success' ? 'Created' : res.error}>
+                                                  {res.status === 'success' ? 'Created' : res.error}
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+                      )}
+
+                      <button
+                        onClick={() => {
+                            setShowBulkUploadModal(false);
+                            setBulkUploadFile(null);
+                            setBulkUploadResults(null);
+                        }}
+                        className="w-full rounded-xl bg-[#2D2D2D] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#2D2D2D]/90 transition-colors mt-4"
+                      >
+                        Done
+                      </button>
+                  </div>
+              )}
             </motion.div>
           </motion.div>
         )}

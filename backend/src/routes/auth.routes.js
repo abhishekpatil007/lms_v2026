@@ -1,12 +1,15 @@
 import express from 'express';
-import { login, refresh, logout, me, onboardUser, onboardInstructor, requestPasswordReset, resetPassword, changePassword } from '../controllers/auth.controller.js';
+import { login, refresh, logout, me, onboardUser, onboardInstructor, requestPasswordReset, resetPassword, changePassword, bulkOnboardStudents } from '../controllers/auth.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ dest: 'uploads/excel/' });
 
 router.post('/onboard', verifyToken, requireRole(['admin']), onboardUser);
 router.post('/onboard-instructor', verifyToken, requireRole(['admin']), onboardInstructor);
+router.post('/bulk-onboard-students', verifyToken, requireRole(['admin']), upload.single('file'), bulkOnboardStudents);
 // router.post('/register', register);
 router.post('/login', login);
 router.post('/refresh', refresh);   

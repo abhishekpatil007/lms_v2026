@@ -9,6 +9,8 @@ import sendPasswordResetEmail from '../services/passwordResetEmail.service.js';
 import crypto from 'crypto';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, refreshTokenExpiryDate } from '../utils/jwt.js';
 import authLogger from '../utils/logger/individualLogger/authLogger.js';
+import fs from 'fs-extra';
+import XLSX from 'xlsx';
 
 dotenv.config();
 
@@ -135,6 +137,65 @@ export async function onboardInstructor(req, res) {
         });
     } catch (err) {
         authLogger.error(`Error in onboardInstructor: ${err.message}`);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
+export async function bulkOnboardStudents(req, res) {
+    try {
+        if (!req.file) return res.status(400).json({ message: 'Excel file required' });
+        
+        const filePath = req.file.path;
+        const workbook = XLSX.readFile(filePath);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(sheet);
+
+        const results = { successful: 0, failed: 0, details: [] };
+
+        for (const student of data) {
+            try {
+                const { name, email, preferred_language = 'en' } = student;
+                
+                if (!name || !email) {
+                    throw new Error('Name and email are required');
+                }
+
+                const existing = await User.findOne({ where: { email } });
+                if (existing) {
+                    throw new Error('Email already exists');
+                }
+
+                const userPassword = crypto.randomBytes(4).toString('hex');
+                const hash = await bcrypt.hash(userPassword, SALT_ROUNDS);
+
+                const user = await User.create({ name, email, password_hash: hash, role: 'student', preferred_language });
+                authLogger.info(`Student bulk onboarded successfully - User ID: ${user.id}, Email: ${email}`);
+
+                if (sendEmail) {
+                    await sendWelcomeEmail({
+                        to: email,
+                        name,
+                        password: userPassword,
+                    });
+                }
+                
+                results.successful++;
+                results.details.push({ email, name, password: userPassword, status: 'success' });
+            } catch (err) {
+                authLogger.error(`Bulk onboard error for ${student.email}: ${err.message}`);
+                results.failed++;
+                results.details.push({ email: student.email, name: student.name, status: 'failed', error: err.message });
+            }
+        }
+        
+        // Cleanup file
+        if (await fs.pathExists(filePath)) {
+            await fs.unlink(filePath);
+        }
+
+        return res.status(200).json({ message: 'Bulk onboard processed', results });
+    } catch (err) {
+        authLogger.error(`Error in bulkOnboardStudents: ${err.message}`);
         return res.status(500).json({ message: 'Internal server error' });
     }
 }

@@ -33,4 +33,16 @@ export const usersApi = {
     const response = await apiClient.post('/api/auth/onboard-instructor', data);
     return response.data;
   },
+
+  // Bulk onboard students via Excel file (admin only)
+  bulkOnboardStudents: async (file: File): Promise<{ message: string, results: any }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/api/auth/bulk-onboard-students', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };
