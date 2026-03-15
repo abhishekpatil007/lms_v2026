@@ -376,10 +376,17 @@ export const CreateInvoiceModal = ({ onClose, onSuccess }: CreateInvoiceModalPro
                                 />
                                 <label
                                     htmlFor="file-upload"
-                                    className="cursor-pointer rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50 transition-all"
+                                    className="cursor-pointer rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50 transition-all mb-4"
                                 >
                                     {file ? file.name : 'Choose File'}
                                 </label>
+                                <a 
+                                    href="/invoice-template.xlsx" 
+                                    download="invoice-template.xlsx"
+                                    className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                                >
+                                    Download Excel Template
+                                </a>
                             </div>
                         )}
 

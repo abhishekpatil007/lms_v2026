@@ -95,7 +95,7 @@ export async function processInvoiceExcel(filePath) {
     const results = [];
     for (const student of data) {
         try {
-            // const { invoiceNo, pdfBuffer } = await generateInvoicePDF(student);
+            const { invoiceNo, pdfBuffer } = await generateInvoicePDF(student);
             // await sendInvoiceEmail(student, invoiceNo, pdfBuffer);
             results.push({ email: student.email, status: 'sent', invoiceNo });
         } catch (err) {
