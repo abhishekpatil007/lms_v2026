@@ -7,17 +7,64 @@ import {
     IconPlayerPlay,
     IconVideo,
     IconExternalLink,
+    IconSearch,
+    IconFilter,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { batchesApi } from '@/api/endpoints/batches';
 import { liveClassesApi } from '@/api/endpoints/liveClasses';
 import { toast } from 'react-hot-toast';
 
+// ---------------------------------------------------------------------------
+// Countdown Hook
+// ---------------------------------------------------------------------------
+function useCountdown(targetDate: string) {
+    const [timeLeft, setTimeLeft] = useState('');
+
+    useEffect(() => {
+        const calc = () => {
+            const now = Date.now();
+            const target = new Date(targetDate).getTime();
+            const diff = target - now;
+            if (diff <= 0) { setTimeLeft(''); return; }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hrs = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (days > 0) setTimeLeft(`${days}d ${hrs}h`);
+            else if (hrs > 0) setTimeLeft(`${hrs}h ${mins}m`);
+            else setTimeLeft(`${mins}m`);
+        };
+        calc();
+        const interval = setInterval(calc, 60000);
+        return () => clearInterval(interval);
+    }, [targetDate]);
+
+    return timeLeft;
+}
+
+const CountdownBadge: React.FC<{ startTime: string }> = ({ startTime }) => {
+    const timeLeft = useCountdown(startTime);
+    if (!timeLeft) return null;
+    return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-violet-50 text-violet-600 text-[10px] font-bold">
+            <IconClock size={11} />
+            Starts in {timeLeft}
+        </span>
+    );
+};
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
 export const StudentLiveClassesPage = () => {
     const [batches, setBatches] = useState<any[]>([]);
     const [liveClasses, setLiveClasses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
 
     useEffect(() => {
         fetchData();
@@ -47,14 +94,18 @@ export const StudentLiveClassesPage = () => {
     const upcomingClasses = useMemo(() => {
         return liveClasses
             .filter((lc) => lc.status === 'scheduled' || lc.status === 'live')
+            .filter((lc) => selectedBatchId === 'all' || lc.batch?.id === selectedBatchId)
+            .filter((lc) => !searchQuery || (lc.topic || lc.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
             .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-    }, [liveClasses]);
+    }, [liveClasses, selectedBatchId, searchQuery]);
 
     const pastClasses = useMemo(() => {
         return liveClasses
             .filter((lc) => lc.status === 'completed' || lc.status === 'cancelled')
+            .filter((lc) => selectedBatchId === 'all' || lc.batch?.id === selectedBatchId)
+            .filter((lc) => !searchQuery || (lc.topic || lc.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
             .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-    }, [liveClasses]);
+    }, [liveClasses, selectedBatchId, searchQuery]);
 
     const displayedClasses = activeTab === 'upcoming' ? upcomingClasses : pastClasses;
 
@@ -135,6 +186,37 @@ export const StudentLiveClassesPage = () => {
                 </div>
             </motion.div>
 
+            {/* Search & Filters */}
+            {liveClasses.length > 0 && (
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                    <div className="relative flex-1 min-w-[200px]">
+                        <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
+                        <input
+                            type="text"
+                            placeholder="Search classes..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-xl border-0 bg-white py-3 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                        />
+                    </div>
+                    <div className="relative w-full sm:w-auto sm:min-w-[200px]">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <IconFilter className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <select
+                            value={selectedBatchId}
+                            onChange={(e) => setSelectedBatchId(e.target.value)}
+                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 appearance-none cursor-pointer font-medium text-sm"
+                        >
+                            <option value="all">All Batches</option>
+                            {batches.map((b) => (
+                                <option key={b.id} value={b.id}>{b.batch_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            )}
+
             {/* Content */}
             {loading ? (
                 <div className="flex items-center justify-center h-96">
@@ -189,7 +271,7 @@ export const StudentLiveClassesPage = () => {
                                             {status.label}
                                         </span>
                                         <span className="px-2.5 py-1 rounded-lg bg-gray-50 text-gray-500 text-[10px] font-bold uppercase tracking-wider border border-gray-100">
-                                            {lc.batch?.name || 'Batch'}
+                                            {lc.batch?.batch_name || lc.batch?.name || 'Batch'}
                                         </span>
                                     </div>
 
@@ -198,7 +280,7 @@ export const StudentLiveClassesPage = () => {
                                         {lc.topic || lc.title || 'Live Class'}
                                     </h3>
 
-                                    {/* Date, Time, Duration */}
+                                    {/* Date, Time, Duration + Countdown */}
                                     <div className="space-y-2 mb-5">
                                         <div className="flex items-center gap-2 text-sm text-gray-500">
                                             <IconCalendar size={16} className="text-gray-400" />
@@ -214,6 +296,9 @@ export const StudentLiveClassesPage = () => {
                                                 </>
                                             )}
                                         </div>
+                                        {lc.status === 'scheduled' && (
+                                            <CountdownBadge startTime={lc.start_time} />
+                                        )}
                                     </div>
 
                                     {/* Action Buttons */}

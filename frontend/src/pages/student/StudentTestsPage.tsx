@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
     IconSchool,
@@ -12,6 +12,8 @@ import {
     IconCalendar,
     IconAlertCircle,
     IconChevronRight,
+    IconHistory,
+    IconX,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { testsApi } from "@/api/endpoints/tests";
@@ -28,6 +30,7 @@ export const StudentTestsPage = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedBatchId, setSelectedBatchId] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [historyTestId, setHistoryTestId] = useState<number | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -304,44 +307,150 @@ export const StudentTestsPage = () => {
                                         </div>
                                     )}
 
-                                    {/* Action Button */}
-                                    {status === 'completed' && attempt?.status === 'evaluated' ? (
-                                        <button
-                                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-200/50 hover:shadow-lg transition-all"
-                                            onClick={() => navigate(`/student/tests/${attempt.id}/result`)}
-                                        >
-                                            <IconTrophy size={16} />
-                                            View Result
-                                        </button>
-                                    ) : status === 'completed' ? (
-                                        <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-50 py-2.5 text-sm font-semibold text-amber-600 ring-1 ring-inset ring-amber-200">
-                                            <IconClock size={16} />
-                                            Awaiting Evaluation
-                                        </div>
-                                    ) : status === 'in_progress' ? (
-                                        <button
-                                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200/50 hover:shadow-lg transition-all"
-                                            onClick={() => navigate(`/student/tests/${test.id}/take`)}
-                                        >
-                                            <IconPlayerPlay size={16} />
-                                            Resume Test
-                                        </button>
-                                    ) : (
-                                        <button
-                                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 hover:shadow-md transition-all group"
-                                            onClick={() => navigate(`/student/tests/${test.id}/take`)}
-                                        >
-                                            <IconPlayerPlay size={16} />
-                                            Start Test
-                                            <IconChevronRight size={14} className="opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
-                                        </button>
-                                    )}
+                                    {/* Action Buttons */}
+                                    <div className="space-y-2">
+                                        {status === 'completed' && attempt?.status === 'evaluated' ? (
+                                            <button
+                                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-200/50 hover:shadow-lg transition-all"
+                                                onClick={() => navigate(`/student/tests/${attempt.id}/result`)}
+                                            >
+                                                <IconTrophy size={16} />
+                                                View Result
+                                            </button>
+                                        ) : status === 'completed' ? (
+                                            <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-50 py-2.5 text-sm font-semibold text-amber-600 ring-1 ring-inset ring-amber-200">
+                                                <IconClock size={16} />
+                                                Awaiting Evaluation
+                                            </div>
+                                        ) : status === 'in_progress' ? (
+                                            <button
+                                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200/50 hover:shadow-lg transition-all"
+                                                onClick={() => navigate(`/student/tests/${test.id}/take`)}
+                                            >
+                                                <IconPlayerPlay size={16} />
+                                                Resume Test
+                                            </button>
+                                        ) : (
+                                            <button
+                                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 hover:shadow-md transition-all group"
+                                                onClick={() => navigate(`/student/tests/${test.id}/take`)}
+                                            >
+                                                <IconPlayerPlay size={16} />
+                                                Start Test
+                                                <IconChevronRight size={14} className="opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
+                                            </button>
+                                        )}
+
+                                        {/* Attempt History Button */}
+                                        {attemptCount > 0 && (
+                                            <button
+                                                onClick={() => setHistoryTestId(test.id)}
+                                                className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gray-50 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 ring-1 ring-inset ring-gray-200 transition-all"
+                                            >
+                                                <IconHistory size={14} />
+                                                {attemptCount} Attempt{attemptCount !== 1 ? 's' : ''}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </motion.div>
                         );
                     })}
                 </div>
             )}
+
+            {/* Attempt History Modal */}
+            <AnimatePresence>
+                {historyTestId !== null && (() => {
+                    const test = tests.find(t => t.id === historyTestId);
+                    const testAttempts = attempts
+                        .filter(a => a.test_id === historyTestId)
+                        .sort((a: any, b: any) => new Date(b.createdAt || b.started_at).getTime() - new Date(a.createdAt || a.started_at).getTime());
+
+                    return (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                            onClick={() => setHistoryTestId(null)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                transition={{ type: 'spring', damping: 25 }}
+                                className="bg-white rounded-2xl overflow-hidden w-full max-w-lg shadow-2xl"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">Attempt History</h3>
+                                        <p className="text-xs text-gray-400 truncate">{test?.title}</p>
+                                    </div>
+                                    <button onClick={() => setHistoryTestId(null)} className="text-gray-400 hover:text-gray-600 p-1">
+                                        <IconX size={20} />
+                                    </button>
+                                </div>
+                                <div className="p-4 sm:p-6 max-h-[60vh] overflow-y-auto space-y-3">
+                                    {testAttempts.length === 0 ? (
+                                        <p className="text-gray-400 text-sm text-center py-8">No attempts recorded</p>
+                                    ) : (
+                                        testAttempts.map((att: any, i: number) => {
+                                            const statusMap: Record<string, { bg: string; text: string; label: string }> = {
+                                                evaluated: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'Evaluated' },
+                                                submitted: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Submitted' },
+                                                completed: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Completed' },
+                                                ongoing: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'In Progress' },
+                                            };
+                                            const s = statusMap[att.status] || { bg: 'bg-gray-50', text: 'text-gray-600', label: att.status };
+                                            const attemptDate = new Date(att.createdAt || att.started_at);
+
+                                            return (
+                                                <div
+                                                    key={att.id}
+                                                    className="rounded-xl border border-gray-100 p-3 sm:p-4 hover:border-gray-200 transition-colors"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-bold text-gray-400">Attempt #{testAttempts.length - i}</span>
+                                                        <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold", s.bg, s.text)}>
+                                                            {s.label}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="text-xs text-gray-500 space-y-0.5">
+                                                            <p className="flex items-center gap-1">
+                                                                <IconCalendar size={12} />
+                                                                {attemptDate.toLocaleDateString()} at {attemptDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            {att.score !== null && att.score !== undefined && (
+                                                                <p className="text-lg font-extrabold text-gray-900">
+                                                                    {att.score}<span className="text-sm text-gray-400 font-medium">/{att.total_marks}</span>
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {att.status === 'evaluated' && (
+                                                        <button
+                                                            onClick={() => { setHistoryTestId(null); navigate(`/student/tests/${att.id}/result`); }}
+                                                            className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-100 transition-colors"
+                                                        >
+                                                            <IconTrophy size={13} />
+                                                            View Result
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    );
+                })()}
+            </AnimatePresence>
         </div>
     );
 };

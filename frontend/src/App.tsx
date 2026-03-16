@@ -37,6 +37,7 @@ import { InstructorEvaluationsPage } from './pages/instructor/InstructorEvaluati
 import { EvaluationGradingPage } from './pages/instructor/EvaluationGradingPage';
 import { StudentLiveClassesPage } from './pages/student/StudentLiveClassesPage';
 import { StudentTestsPage } from './pages/student/StudentTestsPage';
+import { StudentBatches } from './pages/student/StudentBatches';
 import { TestTakingPage } from './pages/student/TestTakingPage';
 import { TestResultPage } from './pages/student/TestResultPage';
 
@@ -115,6 +116,7 @@ function App() {
           <Route path="tests/:testId/take" element={<TestTakingPage />} />
           <Route path="tests/:attemptId/result" element={<TestResultPage />} />
           <Route path="live-classes" element={<StudentLiveClassesPage />} />
+          <Route path="batches" element={<StudentBatches />} />
           <Route path="settings" element={<StudentSettingsPage />} />
         </Route>
 

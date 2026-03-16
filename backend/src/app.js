@@ -143,7 +143,7 @@ app.use('/api/topics', authLimiter, topicRoutes);
     try {
         await sequelize.authenticate();
         console.log('✅ MySQL connected');
-        // await sequelize.sync({ alter: true });
+        //await sequelize.sync({ alter: true });
         await sequelize.sync();
         console.log('✅ Sequelize models synced');
 

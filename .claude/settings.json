@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(grep -r setBatches /Users/abhishek/lms_v2026-4/backend/src --include=*.js)"
+    ]
+  }
+}

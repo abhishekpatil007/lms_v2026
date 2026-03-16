@@ -10,6 +10,10 @@ import {
   IconChevronRight,
   IconArrowLeft,
   IconClock,
+  IconHistory,
+  IconFileTypePdf,
+  IconFileTypeDoc,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -130,6 +134,69 @@ const ScheduleRow: React.FC<{ item: ScheduleItem; idx: number }> = ({ item, idx 
     </div>
   </motion.div>
 );
+
+// ---------------------------------------------------------------------------
+// Recently Accessed (localStorage-based)
+// ---------------------------------------------------------------------------
+const RecentlyAccessed: React.FC = () => {
+  const navigate = useNavigate();
+  const recentVideos = JSON.parse(localStorage.getItem('lms_recent_videos') || '[]').slice(0, 4);
+  const recentDocs = JSON.parse(localStorage.getItem('lms_recent_documents') || '[]').slice(0, 4);
+  const combined = [
+    ...recentVideos.map((v: any) => ({ ...v, type: 'video' })),
+    ...recentDocs.map((d: any) => ({ ...d, type: 'document' })),
+  ].sort((a, b) => new Date(b.watchedAt || b.viewedAt).getTime() - new Date(a.watchedAt || a.viewedAt).getTime()).slice(0, 6);
+
+  if (combined.length === 0) return null;
+
+  const getTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  return (
+    <div>
+      <h2 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+        <IconHistory className="w-5 h-5 text-violet-500" />
+        Recently Accessed
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {combined.map((item: any, idx: number) => (
+          <motion.button
+            key={`${item.type}-${item.id}`}
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: idx * 0.05 }}
+            onClick={() => navigate(item.type === 'video' ? '/student/videos' : '/student/documents')}
+            className="flex items-center gap-3 rounded-xl bg-white border border-gray-100 p-3 hover:border-violet-200 hover:shadow-sm transition-all text-left w-full"
+          >
+            <div className={cn(
+              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+              item.type === 'video' ? "bg-emerald-100" : "bg-amber-100"
+            )}>
+              {item.type === 'video' ? (
+                <IconPlayerPlay className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <IconFileText className="w-4 h-4 text-amber-600" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{item.title}</p>
+              <p className="text-[11px] text-gray-400">
+                {getTimeAgo(item.watchedAt || item.viewedAt)}
+              </p>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -442,6 +509,9 @@ export const StudentDashboard = () => {
           onClick={() => navigate("/student/documents")}
         />
       </motion.div>
+
+      {/* Recently Accessed */}
+      <RecentlyAccessed />
 
       {/* Upcoming Schedule */}
       {scheduleItems.length > 0 && (

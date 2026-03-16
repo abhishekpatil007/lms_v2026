@@ -9,6 +9,7 @@ import {
   IconSettings,
   IconChecklist,
   IconBrandZoom,
+  IconBooks,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
@@ -49,6 +50,11 @@ export const StudentLayout = () => {
       label: 'Live Classes',
       href: '/student/live-classes',
       icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
+    },
+    {
+      label: 'My Batches',
+      href: '/student/batches',
+      icon: <IconBooks className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
     {
       label: 'Settings',
