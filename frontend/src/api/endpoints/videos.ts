@@ -51,6 +51,8 @@ export const videosApi = {
   list: async (params?: {
     status?: VideoStatus;
     batch_id?: string;
+    language?: string;
+    upload_status?: VideoStatus;
   }): Promise<{ videos: Video[] }> => {
     const response = await apiClient.get('/api/videos', { params });
     // Robustly handle both { videos: [...] } and direct array [...] from backend

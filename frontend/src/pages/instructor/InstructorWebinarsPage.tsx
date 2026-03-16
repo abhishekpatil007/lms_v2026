@@ -259,7 +259,7 @@ export const InstructorWebinarsPage = () => {
   const totalRegistrations = webinars.reduce((acc, w) => acc + (w.registrations_count || 0), 0);
 
   return (
-    <div className="px-4 sm:px-0">
+    <div>
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -275,35 +275,35 @@ export const InstructorWebinarsPage = () => {
       </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:gap-5 mb-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-[24px] bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] p-6 shadow-lg"
+          className="rounded-[24px] bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] p-3 sm:p-4 md:p-6 shadow-lg"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-              <IconPresentation className="w-6 h-6 text-white" strokeWidth={2} />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center">
+              <IconPresentation className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2} />
             </div>
-            <span className="text-sm font-semibold text-white/90">My Webinars</span>
+            <span className="text-xs sm:text-sm font-semibold text-white/90">My Webinars</span>
           </div>
-          <p className="text-4xl font-bold text-white">{myWebinars}</p>
+          <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{myWebinars}</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-6 shadow-lg"
+          className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-3 sm:p-4 md:p-6 shadow-lg"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-              <IconUserCheck className="w-6 h-6 text-white" strokeWidth={2} />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center">
+              <IconUserCheck className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2} />
             </div>
-            <span className="text-sm font-semibold text-white/90">Total Registrations</span>
+            <span className="text-xs sm:text-sm font-semibold text-white/90">Total Registrations</span>
           </div>
-          <p className="text-4xl font-bold text-white">{totalRegistrations}</p>
+          <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{totalRegistrations}</p>
         </motion.div>
       </div>
 
@@ -312,9 +312,9 @@ export const InstructorWebinarsPage = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="rounded-[28px] bg-white p-6 shadow-lg mb-6"
+        className="rounded-[28px] bg-white p-4 sm:p-5 md:p-6 shadow-lg mb-6"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Webinars Management</h2>
             <p className="mt-0.5 text-xs text-gray-500">
@@ -323,7 +323,7 @@ export const InstructorWebinarsPage = () => {
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
           >
             <IconPlus className="h-4 w-4" strokeWidth={2.5} />
             Create Webinar
@@ -385,7 +385,7 @@ export const InstructorWebinarsPage = () => {
           </button>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
           {filteredWebinars.map((webinar, idx) => {
             const actualStatus = getWebinarStatus(webinar);
             const statusColors = getStatusColor(actualStatus);
@@ -399,7 +399,7 @@ export const InstructorWebinarsPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.08 }}
-                className="rounded-[24px] bg-white p-6 shadow-lg hover:shadow-xl transition-all group"
+                className="rounded-[24px] bg-white p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all group"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -531,10 +531,10 @@ export const InstructorWebinarsPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-900">Create New Webinar</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Webinar</h3>
                 <button
                   onClick={() => setShowCreateModal(false)}
                   className="rounded-full p-1 hover:bg-gray-100 transition-colors"
@@ -571,7 +571,7 @@ export const InstructorWebinarsPage = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                       Scheduled Date & Time *
@@ -664,10 +664,10 @@ export const InstructorWebinarsPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-900">Edit Webinar</h3>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Edit Webinar</h3>
                 <button
                   onClick={() => setShowEditModal(false)}
                   className="rounded-full p-1 hover:bg-gray-100 transition-colors"
@@ -704,7 +704,7 @@ export const InstructorWebinarsPage = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                       Scheduled Date & Time *
@@ -813,7 +813,7 @@ export const InstructorWebinarsPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-4xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-4xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
                 <div>

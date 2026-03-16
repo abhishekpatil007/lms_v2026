@@ -1,108 +1,525 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     IconSearch,
     IconFileInvoice,
     IconDownload,
     IconEye,
-    IconFilter,
-    IconLayoutDashboard,
-    IconUsers,
-    IconBook,
-    IconSchool,
-    IconSettings,
-    IconLogout,
-    IconVideo,
-    IconFile,
-    IconBrandZoom,
-    IconChecklist,
     IconPlus,
+    IconCash,
+    IconSend,
+    IconUpload,
+    IconUserPlus,
+    IconX,
 } from "@tabler/icons-react";
 import { invoicesApi } from "@/api/endpoints/invoices";
 import type { Invoice } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/store/authStore";
-import { Logo, LogoIcon } from "./AdminDashboard";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
+import toast from "react-hot-toast";
 
+// --------------- Action Modal Wrapper ---------------
+const ActionModal = ({
+    title,
+    onClose,
+    children,
+}: {
+    title: string;
+    onClose: () => void;
+    children: React.ReactNode;
+}) => (
+    <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+        onClick={onClose}
+    >
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900">{title}</h2>
+                <button
+                    onClick={onClose}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                    <IconX className="w-5 h-5" />
+                </button>
+            </div>
+            <div className="p-4 sm:p-6">{children}</div>
+        </motion.div>
+    </motion.div>
+);
+
+// --------------- Offline Enroll Modal ---------------
+const OfflineEnrollModal = ({
+    onClose,
+    onSuccess,
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+}) => {
+    const [form, setForm] = useState({
+        user_id: "",
+        batch_id: "",
+        amount: "",
+        gst_rate: "18",
+        is_gst_inclusive: true,
+        notes: "",
+    });
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await invoicesApi.offlineEnroll({
+                user_id: Number(form.user_id),
+                batch_id: Number(form.batch_id),
+                amount: Number(form.amount),
+                gst_rate: Number(form.gst_rate),
+                is_gst_inclusive: form.is_gst_inclusive,
+                payment_method: "offline",
+                notes: form.notes,
+            });
+            toast.success("Offline enrollment created successfully");
+            onSuccess();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Failed to create offline enrollment");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <ActionModal title="Offline Enroll" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                        <input
+                            type="number"
+                            required
+                            value={form.user_id}
+                            onChange={(e) => setForm({ ...form, user_id: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="Enter user ID"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Batch ID</label>
+                        <input
+                            type="number"
+                            required
+                            value={form.batch_id}
+                            onChange={(e) => setForm({ ...form, batch_id: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="Enter batch ID"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (INR)</label>
+                        <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={form.amount}
+                            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GST Rate (%)</label>
+                        <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={form.gst_rate}
+                            onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                            placeholder="18"
+                        />
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        id="offline-gst-inclusive"
+                        checked={form.is_gst_inclusive}
+                        onChange={(e) => setForm({ ...form, is_gst_inclusive: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    />
+                    <label htmlFor="offline-gst-inclusive" className="text-sm text-gray-700">GST Inclusive</label>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        rows={3}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-500/20 resize-none"
+                        placeholder="Optional notes..."
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3 rounded-xl bg-violet-600 text-white font-bold hover:bg-violet-700 transition-colors disabled:opacity-50"
+                >
+                    {submitting ? "Processing..." : "Enroll Offline"}
+                </button>
+            </form>
+        </ActionModal>
+    );
+};
+
+// --------------- Request Payment Modal ---------------
+const RequestPaymentModal = ({
+    onClose,
+    onSuccess,
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+}) => {
+    const [form, setForm] = useState({
+        user_id: "",
+        batch_id: "",
+        amount: "",
+        gst_rate: "18",
+        is_gst_inclusive: true,
+    });
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await invoicesApi.requestPayment({
+                user_id: Number(form.user_id),
+                batch_id: Number(form.batch_id),
+                amount: Number(form.amount),
+                gst_rate: Number(form.gst_rate),
+                is_gst_inclusive: form.is_gst_inclusive,
+            });
+            toast.success("Payment request sent successfully");
+            onSuccess();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Failed to send payment request");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <ActionModal title="Request Payment" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                        <input
+                            type="number"
+                            required
+                            value={form.user_id}
+                            onChange={(e) => setForm({ ...form, user_id: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="Enter user ID"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Batch ID</label>
+                        <input
+                            type="number"
+                            required
+                            value={form.batch_id}
+                            onChange={(e) => setForm({ ...form, batch_id: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="Enter batch ID"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (INR)</label>
+                        <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={form.amount}
+                            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GST Rate (%)</label>
+                        <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={form.gst_rate}
+                            onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            placeholder="18"
+                        />
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        id="request-gst-inclusive"
+                        checked={form.is_gst_inclusive}
+                        onChange={(e) => setForm({ ...form, is_gst_inclusive: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <label htmlFor="request-gst-inclusive" className="text-sm text-gray-700">GST Inclusive</label>
+                </div>
+                <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                    {submitting ? "Sending..." : "Send Payment Request"}
+                </button>
+            </form>
+        </ActionModal>
+    );
+};
+
+// --------------- Send Manual Invoice Modal ---------------
+const SendManualModal = ({
+    onClose,
+    onSuccess,
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+}) => {
+    const [form, setForm] = useState({
+        user_id: "",
+        batch_id: "",
+        amount: "",
+        gst_rate: "18",
+        is_gst_inclusive: true,
+        payment_method: "online" as "online" | "offline",
+        notes: "",
+    });
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await invoicesApi.sendManual({
+                user_id: Number(form.user_id),
+                batch_id: Number(form.batch_id),
+                amount: Number(form.amount),
+                gst_rate: Number(form.gst_rate),
+                is_gst_inclusive: form.is_gst_inclusive,
+                payment_method: form.payment_method,
+                notes: form.notes,
+            });
+            toast.success("Manual invoice sent successfully");
+            onSuccess();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Failed to send manual invoice");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <ActionModal title="Send Manual Invoice" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                        <input
+                            type="number"
+                            required
+                            value={form.user_id}
+                            onChange={(e) => setForm({ ...form, user_id: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                            placeholder="Enter user ID"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Batch ID</label>
+                        <input
+                            type="number"
+                            required
+                            value={form.batch_id}
+                            onChange={(e) => setForm({ ...form, batch_id: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                            placeholder="Enter batch ID"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (INR)</label>
+                        <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={form.amount}
+                            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GST Rate (%)</label>
+                        <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={form.gst_rate}
+                            onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}
+                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                            placeholder="18"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                    <select
+                        value={form.payment_method}
+                        onChange={(e) => setForm({ ...form, payment_method: e.target.value as "online" | "offline" })}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 bg-white"
+                    >
+                        <option value="online">Online</option>
+                        <option value="offline">Offline</option>
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        id="manual-gst-inclusive"
+                        checked={form.is_gst_inclusive}
+                        onChange={(e) => setForm({ ...form, is_gst_inclusive: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    <label htmlFor="manual-gst-inclusive" className="text-sm text-gray-700">GST Inclusive</label>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        rows={3}
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 resize-none"
+                        placeholder="Optional notes..."
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3 rounded-xl bg-sky-600 text-white font-bold hover:bg-sky-700 transition-colors disabled:opacity-50"
+                >
+                    {submitting ? "Sending..." : "Send Manual Invoice"}
+                </button>
+            </form>
+        </ActionModal>
+    );
+};
+
+// --------------- Bulk Upload Modal ---------------
+const BulkUploadModal = ({
+    onClose,
+    onSuccess,
+}: {
+    onClose: () => void;
+    onSuccess: () => void;
+}) => {
+    const [file, setFile] = useState<File | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) {
+            toast.error("Please select a CSV file");
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await invoicesApi.bulkUpload(file);
+            toast.success("Bulk upload completed successfully");
+            onSuccess();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Bulk upload failed");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <ActionModal title="Bulk Upload Invoices" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Upload CSV File</label>
+                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-amber-400 transition-colors">
+                        <IconUpload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500 mb-2">
+                            {file ? file.name : "Click to select or drag a CSV file"}
+                        </p>
+                        <input
+                            type="file"
+                            accept=".csv"
+                            onChange={(e) => setFile(e.target.files?.[0] || null)}
+                            className="w-full opacity-0 absolute inset-0 cursor-pointer"
+                            style={{ position: "relative" }}
+                        />
+                        <input
+                            type="file"
+                            accept=".csv"
+                            onChange={(e) => setFile(e.target.files?.[0] || null)}
+                            className="text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                        />
+                    </div>
+                </div>
+                <button
+                    type="submit"
+                    disabled={submitting || !file}
+                    className="w-full py-3 rounded-xl bg-amber-600 text-white font-bold hover:bg-amber-700 transition-colors disabled:opacity-50"
+                >
+                    {submitting ? "Uploading..." : "Upload CSV"}
+                </button>
+            </form>
+        </ActionModal>
+    );
+};
+
+// --------------- Main InvoicesPage ---------------
 export const InvoicesPage = () => {
-    const { user, logout } = useAuthStore();
-    const [open, setOpen] = useState(false);
+    const { user } = useAuthStore();
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [activeModal, setActiveModal] = useState<
+        "offlineEnroll" | "requestPayment" | "sendManual" | "bulkUpload" | null
+    >(null);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
-    const handleLogout = () => {
-        logout();
-        window.location.href = '/login';
-    };
-
-    const links = [
-        {
-            label: "Dashboard",
-            href: "/admin/dashboard",
-            icon: <IconLayoutDashboard className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Users",
-            href: "/admin/users",
-            icon: <IconUsers className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Courses",
-            href: "/admin/courses",
-            icon: <IconBook className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Batches",
-            href: "/admin/batches",
-            icon: <IconSchool className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Tests",
-            href: "/admin/tests",
-            icon: <IconChecklist className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Videos",
-            href: "/admin/videos",
-            icon: <IconVideo className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Documents",
-            href: "/admin/documents",
-            icon: <IconFile className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Live Classes",
-            href: "/admin/live-classes",
-            icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Webinars",
-            href: "/admin/webinars",
-            icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Invoices",
-            href: "/admin/invoices",
-            icon: <IconFileInvoice className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Settings",
-            href: "/admin/settings",
-            icon: <IconSettings className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-    ];
-
     useEffect(() => {
         fetchInvoices();
     }, [page, search, statusFilter]);
+
+    useEffect(() => {
+        fetchAllInvoicesForStats();
+    }, []);
 
     const fetchInvoices = async () => {
         try {
@@ -122,113 +539,207 @@ export const InvoicesPage = () => {
         }
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "paid":
-                return "bg-green-100 text-green-700";
-            case "pending":
-                return "bg-yellow-100 text-yellow-700";
-            case "cancelled":
-                return "bg-red-100 text-red-700";
-            default:
-                return "bg-gray-100 text-gray-700";
+    const fetchAllInvoicesForStats = async () => {
+        try {
+            const data = await invoicesApi.list({ limit: 9999 });
+            setAllInvoices(data.invoices);
+        } catch (error) {
+            console.error("Error fetching invoices for stats:", error);
         }
     };
 
-    return (
-        <div className="flex w-full h-screen bg-[#E8E6E1]">
-            <Sidebar open={open} setOpen={setOpen}>
-                <SidebarBody className="justify-between gap-10">
-                    <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-                        {open ? <Logo /> : <LogoIcon />}
-                        <div className="mt-8 flex flex-col gap-1">
-                            {links.map((link, idx) => (
-                                <SidebarLink key={idx} link={link} />
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <SidebarLink
-                            link={{
-                                label: user?.name || "Admin",
-                                href: "/admin/profile",
-                                icon: (
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
-                                        {user?.name?.charAt(0)?.toUpperCase() || 'A'}
-                                    </div>
-                                ),
-                            }}
-                        />
-                        <button
-                            onClick={handleLogout}
-                            className="mt-2 flex w-full items-center gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 text-white"
-                            title="Logout"
-                        >
-                            <IconLogout className="h-6 w-6 shrink-0" strokeWidth={2} />
-                            <motion.span
-                                animate={{
-                                    display: open ? "inline-block" : "none",
-                                    opacity: open ? 1 : 0,
-                                }}
-                                className="!m-0 inline-block whitespace-pre !p-0 text-sm font-semibold"
-                            >
-                                Logout
-                            </motion.span>
-                        </button>
-                    </div>
-                </SidebarBody>
-            </Sidebar>
+    const stats = useMemo(() => {
+        const totalRevenue = allInvoices
+            .filter((inv) => inv.status === "paid")
+            .reduce((sum, inv) => sum + Number(inv.total || 0), 0);
+        const pendingAmount = allInvoices
+            .filter((inv) => inv.status === "pending")
+            .reduce((sum, inv) => sum + Number(inv.total || 0), 0);
+        const totalCount = allInvoices.length;
+        const paidCount = allInvoices.filter((inv) => inv.status === "paid").length;
+        return { totalRevenue, pendingAmount, totalCount, paidCount };
+    }, [allInvoices]);
 
+    const handleActionSuccess = () => {
+        setActiveModal(null);
+        fetchInvoices();
+        fetchAllInvoicesForStats();
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case "paid":
+                return "bg-emerald-100 text-emerald-700";
+            case "pending":
+                return "bg-amber-100 text-amber-700";
+            case "overdue":
+                return "bg-rose-100 text-rose-700";
+            case "cancelled":
+                return "bg-gray-100 text-gray-600";
+            default:
+                return "bg-gray-100 text-gray-600";
+        }
+    };
+
+    const formatCurrency = (amount: number) =>
+        new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency: "INR",
+            maximumFractionDigits: 0,
+        }).format(amount);
+
+    const statCards = [
+        {
+            label: "Total Revenue",
+            value: formatCurrency(stats.totalRevenue),
+            gradient: "from-violet-500 to-purple-600",
+            icon: "₹",
+        },
+        {
+            label: "Paid Invoices",
+            value: stats.paidCount.toString(),
+            gradient: "from-emerald-500 to-green-600",
+            icon: "✓",
+        },
+        {
+            label: "Pending Amount",
+            value: formatCurrency(stats.pendingAmount),
+            gradient: "from-amber-500 to-orange-600",
+            icon: "⏳",
+        },
+        {
+            label: "Total Invoices",
+            value: stats.totalCount.toString(),
+            gradient: "from-sky-500 to-blue-600",
+            icon: "#",
+        },
+    ];
+
+    const quickActions = [
+        {
+            label: "Offline Enroll",
+            icon: IconUserPlus,
+            modal: "offlineEnroll" as const,
+            color: "bg-violet-600 hover:bg-violet-700",
+        },
+        {
+            label: "Request Payment",
+            icon: IconCash,
+            modal: "requestPayment" as const,
+            color: "bg-emerald-600 hover:bg-emerald-700",
+        },
+        {
+            label: "Send Manual Invoice",
+            icon: IconSend,
+            modal: "sendManual" as const,
+            color: "bg-sky-600 hover:bg-sky-700",
+        },
+        {
+            label: "Bulk Upload",
+            icon: IconUpload,
+            modal: "bulkUpload" as const,
+            color: "bg-amber-600 hover:bg-amber-700",
+        },
+    ];
+
+    return (
+        <>
             <div className="flex flex-1 overflow-auto">
-                <div className="flex h-full w-full flex-1 flex-col gap-6 p-6 md:p-10">
+                <div className="flex h-full w-full flex-1 flex-col gap-6 p-3 sm:p-4 md:p-7">
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-[24px] bg-white p-6 shadow-lg">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
-                            <p className="text-gray-500 mt-1">Manage and track all student invoices</p>
+                            <h1 className="text-3xl md:text-5xl font-bold text-gray-900">Invoices</h1>
+                            <p className="text-sm md:text-base text-gray-500 mt-1">Manage and track all student invoices</p>
                         </div>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="flex items-center gap-2 rounded-xl bg-[#2D2D2D] px-5 py-3 text-sm font-bold text-white shadow-lg hover:shadow-xl transition-all hover:bg-[#2D2D2D]/90"
+                            className="flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-3 text-sm font-bold text-white shadow-lg hover:shadow-xl transition-all hover:bg-gray-800"
                         >
                             <IconPlus className="h-5 w-5" strokeWidth={2.5} />
                             Create Invoice
                         </button>
                     </div>
 
-                    {/* Filters */}
-                    <div className="rounded-[24px] bg-white p-6 shadow-lg">
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="flex-1 relative">
-                                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                <input
-                                    type="text"
-                                    placeholder="Search by invoice number..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                />
-                            </div>
-                            <div className="w-full md:w-48">
-                                <div className="relative">
-                                    <IconFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none bg-white"
-                                    >
-                                        <option value="">All Status</option>
-                                        <option value="paid">Paid</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="cancelled">Cancelled</option>
-                                    </select>
+                    {/* Revenue Stats Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
+                        {statCards.map((card, index) => (
+                            <motion.div
+                                key={card.label}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                className={cn(
+                                    "rounded-2xl bg-gradient-to-br p-3 sm:p-4 md:p-5 text-white shadow-lg",
+                                    card.gradient
+                                )}
+                            >
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-medium text-white/80">{card.label}</span>
+                                    <span className="text-2xl opacity-60">{card.icon}</span>
                                 </div>
-                            </div>
+                                <div className="text-2xl font-bold">{card.value}</div>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div className="flex flex-wrap gap-3">
+                        {quickActions.map((action) => (
+                            <button
+                                key={action.label}
+                                onClick={() => setActiveModal(action.modal)}
+                                className={cn(
+                                    "flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white shadow-md hover:shadow-lg transition-all",
+                                    action.color
+                                )}
+                            >
+                                <action.icon className="w-5 h-5" strokeWidth={2.5} />
+                                {action.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Filters */}
+                    <div className="rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200">
+                        <div className="relative">
+                            <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Search by invoice number..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            />
+                        </div>
+
+                        {/* Status Filter Pills */}
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                            <span className="text-xs font-semibold text-gray-500 mr-1">Status:</span>
+                            {([
+                                { value: "", label: "All" },
+                                { value: "paid", label: "Paid" },
+                                { value: "pending", label: "Pending" },
+                                { value: "cancelled", label: "Cancelled" },
+                            ] as const).map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => { setStatusFilter(opt.value); setPage(1); }}
+                                    className={cn(
+                                        "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+                                        statusFilter === opt.value
+                                            ? "bg-gray-900 text-white shadow-sm"
+                                            : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                                    )}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
                     {/* Invoices List */}
-                    <div className="rounded-[24px] bg-white shadow-lg overflow-hidden">
+                    <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -281,7 +792,7 @@ export const InvoicesPage = () => {
                                                     {invoice.batch?.batch_name}
                                                 </td>
                                                 <td className="px-6 py-4 font-medium text-gray-900">
-                                                    ₹{invoice.total}
+                                                    {formatCurrency(Number(invoice.total))}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600">
                                                     {new Date(invoice.issued_at).toLocaleDateString()}
@@ -335,17 +846,43 @@ export const InvoicesPage = () => {
                 </div>
             </div>
 
+            {/* Modals */}
             <AnimatePresence>
                 {showCreateModal && (
                     <CreateInvoiceModal
                         onClose={() => setShowCreateModal(false)}
                         onSuccess={() => {
                             fetchInvoices();
+                            fetchAllInvoicesForStats();
                             setShowCreateModal(false);
                         }}
                     />
                 )}
+                {activeModal === "offlineEnroll" && (
+                    <OfflineEnrollModal
+                        onClose={() => setActiveModal(null)}
+                        onSuccess={handleActionSuccess}
+                    />
+                )}
+                {activeModal === "requestPayment" && (
+                    <RequestPaymentModal
+                        onClose={() => setActiveModal(null)}
+                        onSuccess={handleActionSuccess}
+                    />
+                )}
+                {activeModal === "sendManual" && (
+                    <SendManualModal
+                        onClose={() => setActiveModal(null)}
+                        onSuccess={handleActionSuccess}
+                    />
+                )}
+                {activeModal === "bulkUpload" && (
+                    <BulkUploadModal
+                        onClose={() => setActiveModal(null)}
+                        onSuccess={handleActionSuccess}
+                    />
+                )}
             </AnimatePresence>
-        </div>
+        </>
     );
 };

@@ -1,51 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
-    IconLayoutDashboard,
-    IconSettings,
-    IconLogout,
     IconSearch,
     IconPlus,
-    IconBrandZoom,
     IconX,
     IconChecklist,
     IconClock,
+    IconCalendar,
+    IconChevronRight,
+    IconHash,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/authStore";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { Test, Batch } from "@/types";
 
-export const Logo = () => {
-    return (
-        <div className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
-            <div className="h-5 w-6 bg-black rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
-            <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="font-medium text-black dark:text-white whitespace-pre"
-            >
-                LMS Portal
-            </motion.span>
-        </div>
-    );
-};
-
-export const LogoIcon = () => {
-    return (
-        <div className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
-            <div className="h-5 w-6 bg-black rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
-        </div>
-    );
-};
-
 export const InstructorTestsPage = () => {
-    const { user, logout } = useAuthStore();
     const navigate = useNavigate();
-    const [open, setOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [tests, setTests] = useState<Test[]>([]);
     const [batches, setBatches] = useState<Batch[]>([]);
@@ -62,34 +34,6 @@ export const InstructorTestsPage = () => {
         shuffle_questions: false,
     });
 
-    const handleLogout = () => {
-        logout();
-        window.location.href = '/login';
-    };
-
-    const links = [
-        {
-            label: "Dashboard",
-            href: "/instructor/batches",
-            icon: <IconLayoutDashboard className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Webinars",
-            href: "/instructor/webinars",
-            icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Tests",
-            href: "/instructor/tests",
-            icon: <IconChecklist className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-        {
-            label: "Settings",
-            href: "/instructor/settings",
-            icon: <IconSettings className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-        },
-    ];
-
     useEffect(() => {
         fetchTests();
         fetchBatches();
@@ -99,8 +43,6 @@ export const InstructorTestsPage = () => {
         try {
             setLoading(true);
             const { tests: data } = await testsApi.list();
-            // Filter tests for batches assigned to this instructor
-            // Ideally backend should do this, but for now we filter here or rely on backend if implemented
             setTests(data);
         } catch (error) {
             console.error("Error fetching tests:", error);
@@ -148,188 +90,166 @@ export const InstructorTestsPage = () => {
         test.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const draftCount = filteredTests.filter(t => t.status === 'draft').length;
+    const publishedCount = filteredTests.filter(t => t.status === 'published').length;
+
     return (
-        <div className="flex w-full h-screen bg-[#E8E6E1]">
-            <Sidebar open={open} setOpen={setOpen}>
-                <SidebarBody className="justify-between gap-10">
-                    <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-                        {open ? <Logo /> : <LogoIcon />}
-                        <div className="mt-8 flex flex-col gap-1">
-                            {links.map((link, idx) => (
-                                <SidebarLink key={idx} link={link} />
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <SidebarLink
-                            link={{
-                                label: user?.name || "Instructor",
-                                href: "/instructor/settings",
-                                icon: (
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
-                                        {user?.name?.charAt(0)?.toUpperCase() || 'I'}
-                                    </div>
-                                ),
-                            }}
+        <div>
+            {/* Header */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-8"
+            >
+                <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight mb-1">
+                    Tests
+                </h1>
+                <p className="text-gray-500">Create and manage tests for your batches</p>
+            </motion.div>
+
+            {/* Controls */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            >
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="relative flex-1 w-full">
+                        <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
+                        <input
+                            type="text"
+                            placeholder="Search tests..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                         />
-                        <button
-                            onClick={handleLogout}
-                            className="mt-2 flex w-full items-center gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 text-white"
-                            title="Logout"
-                        >
-                            <IconLogout className="h-6 w-6 shrink-0" strokeWidth={2} />
-                            <motion.span
-                                animate={{
-                                    display: open ? "inline-block" : "none",
-                                    opacity: open ? 1 : 0,
-                                }}
-                                className="!m-0 inline-block whitespace-pre !p-0 text-sm font-semibold"
-                            >
-                                Logout
-                            </motion.span>
-                        </button>
                     </div>
-                </SidebarBody>
-            </Sidebar>
-
-            <div className="flex flex-1 overflow-auto">
-                <div className="flex h-full w-full flex-1 flex-col gap-5 p-5 md:p-7">
-                    {/* Welcome Header */}
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="mb-2"
+                    <button
+                        onClick={handleOpenCreateModal}
+                        className="shrink-0 flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-200/50 hover:shadow-lg transition-all"
                     >
-                        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-2">
-                            Tests Management
-                        </h1>
-                        <p className="text-lg text-gray-500">
-                            Create and manage tests for your batches.
-                        </p>
-                    </motion.div>
+                        <IconPlus size={16} />
+                        Create Test
+                    </button>
+                </div>
 
-                    {/* Header Card with Filters */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="rounded-[28px] bg-white p-6 shadow-lg"
+                {/* Stats */}
+                {!loading && filteredTests.length > 0 && (
+                    <div className="mt-3 flex items-center gap-3 text-xs">
+                        <span className="text-gray-400 font-medium">{filteredTests.length} tests</span>
+                        <span className="h-3 w-px bg-gray-200" />
+                        <span className="inline-flex items-center gap-1 text-gray-500">
+                            <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                            {draftCount} draft
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-emerald-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            {publishedCount} published
+                        </span>
+                    </div>
+                )}
+            </motion.div>
+
+            {/* Tests Grid */}
+            {loading ? (
+                <div className="flex items-center justify-center h-64">
+                    <div className="relative h-10 w-10">
+                        <div className="h-10 w-10 rounded-full border-[3px] border-gray-200" />
+                        <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-[3px] border-transparent border-t-violet-500" />
+                    </div>
+                </div>
+            ) : filteredTests.length === 0 ? (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-gray-200 bg-white/50"
+                >
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100 text-violet-500">
+                        <IconChecklist size={32} />
+                    </div>
+                    <p className="text-gray-900 font-semibold text-lg mb-1">No tests yet</p>
+                    <p className="text-gray-500 text-sm mb-5">Create your first test to get started</p>
+                    <button
+                        onClick={handleOpenCreateModal}
+                        className="flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 transition-all"
                     >
-                        <div className="flex items-center justify-between mb-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] flex items-center justify-center">
-                                    <IconChecklist className="w-7 h-7 text-white" strokeWidth={2} />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-900">Tests</h2>
-                                    <p className="mt-0.5 text-xs text-gray-500">
-                                        Showing {filteredTests.length} tests
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleOpenCreateModal}
-                                className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                        <IconPlus size={16} />
+                        Create Test
+                    </button>
+                </motion.div>
+            ) : (
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredTests.map((test, idx) => {
+                        const questionCount = test.blocks?.reduce((acc, b) => acc + (b.questions?.length || b.total_questions || 0), 0) || 0;
+                        return (
+                            <motion.div
+                                key={test.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.04 }}
+                                className="group rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-lg hover:border-gray-200 transition-all cursor-pointer overflow-hidden"
+                                onClick={() => navigate(`/instructor/tests/${test.id}/builder`)}
                             >
-                                <IconPlus className="h-4 w-4" strokeWidth={2.5} />
-                                Create Test
-                            </button>
-                        </div>
+                                {/* Accent bar */}
+                                <div className={cn(
+                                    "h-1 bg-gradient-to-r",
+                                    test.status === 'published' ? "from-emerald-400 to-teal-500" : "from-gray-300 to-gray-400"
+                                )} />
 
-                        {/* Filters */}
-                        <div className="flex flex-col sm:flex-row gap-2.5">
-                            <div className="relative flex-1">
-                                <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
-                                <input
-                                    type="text"
-                                    placeholder="Search tests by title..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
-                                />
-                            </div>
-                        </div>
-                    </motion.div>
-
-                    {/* Tests Grid */}
-                    {loading ? (
-                        <div className="flex items-center justify-center h-64">
-                            <div className="text-gray-500 text-lg">Loading tests...</div>
-                        </div>
-                    ) : filteredTests.length === 0 ? (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg"
-                        >
-                            <IconChecklist className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-                            <p className="text-gray-900 font-semibold text-lg mb-1">No tests found</p>
-                            <p className="text-gray-500 text-sm mb-4">Create a new test to get started</p>
-                            <button
-                                onClick={handleOpenCreateModal}
-                                className="flex items-center gap-2 rounded-xl bg-[#2D2D2D] px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
-                            >
-                                <IconPlus className="h-4 w-4" strokeWidth={2.5} />
-                                Create Test
-                            </button>
-                        </motion.div>
-                    ) : (
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                            {(filteredTests || []).map((test, idx) => (
-                                <motion.div
-                                    key={test.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="rounded-[24px] bg-white p-5 shadow-lg hover:shadow-xl transition-all group cursor-pointer"
-                                    onClick={() => navigate(`/instructor/tests/${test.id}/builder`)}
-                                >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] text-base font-bold text-white shadow-md">
-                                                {test.title.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-semibold text-base text-gray-900 truncate">
-                                                    {test.title}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                    Batch: {test.batch?.batch_name || 'N/A'}
-                                                </div>
-                                            </div>
+                                <div className="p-3 sm:p-4 md:p-5">
+                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="font-bold text-gray-900 line-clamp-1 group-hover:text-violet-700 transition-colors">
+                                                {test.title}
+                                            </h3>
+                                            <p className="text-xs text-gray-400 mt-0.5 truncate">
+                                                {test.batch?.batch_name || 'No batch'}
+                                            </p>
                                         </div>
+                                        <span className={cn(
+                                            "shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset",
+                                            test.status === 'published' ? "bg-emerald-50 text-emerald-600 ring-emerald-200" : "bg-gray-50 text-gray-500 ring-gray-200"
+                                        )}>
+                                            {test.status}
+                                        </span>
                                     </div>
 
                                     {test.description && (
-                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                            {test.description}
-                                        </p>
+                                        <p className="text-xs text-gray-500 mb-3 line-clamp-2 leading-relaxed">{test.description}</p>
                                     )}
 
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className={cn(
-                                            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
-                                            test.status === 'published' ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                                        )}>
-                                            <span className={cn("w-1.5 h-1.5 rounded-full", test.status === 'published' ? "bg-green-500" : "bg-gray-500")}></span>
-                                            {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
-                                            <IconClock className="w-3 h-3" strokeWidth={2} />
+                                    {/* Meta pills */}
+                                    <div className="flex flex-wrap gap-1.5 mb-3">
+                                        <span className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-500">
+                                            <IconClock size={11} />
                                             {test.duration_minutes}m
                                         </span>
+                                        <span className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-500">
+                                            <IconHash size={11} />
+                                            {test.max_attempts} attempt{test.max_attempts !== 1 ? 's' : ''}
+                                        </span>
+                                        {questionCount > 0 && (
+                                            <span className="inline-flex items-center rounded-lg bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-600">
+                                                {questionCount} Q
+                                            </span>
+                                        )}
                                     </div>
 
-                                    <div className="text-xs text-gray-400">
-                                        Starts: {new Date(test.start_time).toLocaleString()}
+                                    {/* Date */}
+                                    <div className="flex items-center justify-between">
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
+                                            <IconCalendar size={11} />
+                                            {new Date(test.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                        </span>
+                                        <IconChevronRight size={16} className="text-gray-300 group-hover:text-violet-500 transition-colors" />
                                     </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    )}
+                                </div>
+                            </motion.div>
+                        );
+                    })}
                 </div>
-            </div>
+            )}
 
             {/* Create Modal */}
             <AnimatePresence>
@@ -338,63 +258,62 @@ export const InstructorTestsPage = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
                         onClick={() => setShowCreateModal(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+                            className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
                         >
-                            <div className="mb-5 flex items-center justify-between">
-                                <h3 className="text-2xl font-bold text-gray-900">Create New Test</h3>
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50/80 to-white">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900">Create New Test</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Fill in the details to create a test</p>
+                                </div>
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="rounded-full p-1 hover:bg-gray-100 transition-colors"
+                                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
                                 >
-                                    <IconX className="h-5 w-5 text-gray-500" />
+                                    <IconX size={18} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleCreateSubmit} className="space-y-4">
+                            {/* Modal Body */}
+                            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                        Test Title *
-                                    </label>
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Test Title *</label>
                                     <input
                                         type="text"
                                         required
                                         value={formData.title}
                                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                                        className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                                         placeholder="Enter test title"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                        Description
-                                    </label>
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Description</label>
                                     <textarea
                                         value={formData.description}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                         rows={3}
-                                        className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 resize-none"
-                                        placeholder="Enter test description"
+                                        className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-3 text-sm leading-relaxed outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100 resize-none"
+                                        placeholder="Describe the test..."
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                        Batch *
-                                    </label>
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Batch *</label>
                                     <select
                                         required
                                         value={formData.batch_id}
                                         onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
-                                        className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
+                                        className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100 cursor-pointer"
                                     >
                                         <option value="">Select a batch</option>
                                         {batches.map(batch => (
@@ -403,71 +322,64 @@ export const InstructorTestsPage = () => {
                                     </select>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                            Start Time *
-                                        </label>
+                                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Start Time *</label>
                                         <input
                                             type="datetime-local"
                                             required
                                             value={formData.start_time}
                                             onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                                            className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                                            className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                            End Time *
-                                        </label>
+                                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">End Time *</label>
                                         <input
                                             type="datetime-local"
                                             required
                                             value={formData.end_time}
                                             onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                                            className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                                            className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                            Duration (minutes)
-                                        </label>
+                                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Duration (minutes)</label>
                                         <input
                                             type="number"
                                             min="1"
                                             value={formData.duration_minutes}
                                             onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || 0 })}
-                                            className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                                            className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                            Max Attempts
-                                        </label>
+                                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Max Attempts</label>
                                         <input
                                             type="number"
                                             min="1"
                                             value={formData.max_attempts}
                                             onChange={(e) => setFormData({ ...formData, max_attempts: parseInt(e.target.value) || 1 })}
-                                            className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                                            className="w-full rounded-xl border-2 border-gray-100 bg-gray-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                                         />
                                     </div>
                                 </div>
 
+                                {/* Footer */}
                                 <div className="flex gap-3 pt-2">
                                     <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
+                                        className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                                        className="flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-200/50 hover:shadow-lg transition-all"
                                     >
                                         Create Test
                                     </button>

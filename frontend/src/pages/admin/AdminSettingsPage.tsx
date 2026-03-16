@@ -1,15 +1,5 @@
 import React, { useState } from 'react';
-import { Sidebar, SidebarBody, SidebarLink } from '@/components/ui/sidebar';
 import {
-  IconLayoutDashboard,
-  IconUsers,
-  IconBook,
-  IconSchool,
-  IconSettings,
-  IconLogout,
-  IconVideo,
-  IconFile,
-  IconBrandZoom,
   IconLock,
   IconEye,
   IconEyeOff,
@@ -73,25 +63,25 @@ const SettingsContent = ({ user }: { user: any }) => {
 
   return (
     <div className="flex flex-1 overflow-auto">
-      <div className="flex h-full w-full flex-1 flex-col gap-6 p-6 md:p-10">
-        <div className="px-4 sm:px-0">
+      <div className="flex h-full w-full flex-1 flex-col gap-6 p-3 sm:p-4 md:p-7">
+        <div>
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
+            className=""
           >
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Settings</h1>
-            <p className="text-lg text-gray-500">Manage your account settings and preferences</p>
+            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-2">Settings</h1>
+            <p className="text-sm md:text-base text-gray-500">Manage your account settings and preferences</p>
           </motion.div>
 
           {/* Tabs */}
           <div className="mb-6 flex gap-3">
             <button
               onClick={() => setActiveTab('profile')}
-              className={`rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
+              className={`rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold transition-all ${
                 activeTab === 'profile'
-                  ? 'bg-[#3D3532] text-white shadow-lg'
+                  ? 'bg-gray-800 text-white shadow-lg'
                   : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -99,9 +89,9 @@ const SettingsContent = ({ user }: { user: any }) => {
             </button>
             <button
               onClick={() => setActiveTab('password')}
-              className={`rounded-xl px-6 py-3 text-sm font-semibold transition-all ${
+              className={`rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold transition-all ${
                 activeTab === 'password'
-                  ? 'bg-[#3D3532] text-white shadow-lg'
+                  ? 'bg-gray-800 text-white shadow-lg'
                   : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -114,14 +104,14 @@ const SettingsContent = ({ user }: { user: any }) => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[28px] bg-white p-8 shadow-lg"
+              className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 border border-gray-200"
             >
               <h2 className="mb-6 text-2xl font-bold text-gray-900">Profile Information</h2>
 
               <div className="space-y-6">
                 {/* User Avatar */}
                 <div className="flex items-center gap-6">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] text-3xl font-bold text-white shadow-lg">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-300 to-violet-400 text-3xl font-bold text-white shadow-lg">
                     {user?.name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
@@ -176,7 +166,7 @@ const SettingsContent = ({ user }: { user: any }) => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[28px] bg-white p-8 shadow-lg"
+              className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 border border-gray-200"
             >
               <h2 className="mb-6 text-2xl font-bold text-gray-900">Change Password</h2>
 
@@ -218,7 +208,7 @@ const SettingsContent = ({ user }: { user: any }) => {
                       onChange={(e) => setOldPassword(e.target.value)}
                       placeholder="Enter current password"
                       required
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#3D3532] focus:bg-white focus:ring-2 focus:ring-[#3D3532]/10"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-gray-800 focus:bg-white focus:ring-2 focus:ring-gray-800/10"
                     />
                     <button
                       type="button"
@@ -251,7 +241,7 @@ const SettingsContent = ({ user }: { user: any }) => {
                       placeholder="Enter new password"
                       required
                       minLength={8}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#3D3532] focus:bg-white focus:ring-2 focus:ring-[#3D3532]/10"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-gray-800 focus:bg-white focus:ring-2 focus:ring-gray-800/10"
                     />
                     <button
                       type="button"
@@ -285,7 +275,7 @@ const SettingsContent = ({ user }: { user: any }) => {
                       placeholder="Confirm new password"
                       required
                       minLength={8}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#3D3532] focus:bg-white focus:ring-2 focus:ring-[#3D3532]/10"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-11 text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-gray-800 focus:bg-white focus:ring-2 focus:ring-gray-800/10"
                     />
                     <button
                       type="button"
@@ -305,7 +295,7 @@ const SettingsContent = ({ user }: { user: any }) => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="rounded-xl bg-[#3D3532] px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-[#2D2522] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-gray-800 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {loading ? 'Changing Password...' : 'Change Password'}
                   </button>

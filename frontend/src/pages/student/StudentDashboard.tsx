@@ -1,679 +1,559 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   IconSchool,
-  IconBook,
   IconVideo,
-  IconFile,
+  IconFileText,
   IconBrandZoom,
-  IconClock,
-  IconPlayerPlay,
-  IconDownload,
   IconCalendar,
+  IconChecklist,
+  IconChevronRight,
   IconArrowLeft,
+  IconClock,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
+import { useNavigate } from "react-router-dom";
 import { batchesApi } from "@/api/endpoints/batches";
 import { videosApi } from "@/api/endpoints/videos";
 import { documentsApi } from "@/api/endpoints/documents";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
-import type { Batch, Video, Document, LiveClass } from "@/types";
+import { testsApi } from "@/api/endpoints/tests";
+import { attemptsApi } from "@/api/endpoints/attempts";
+import type { Batch, Video, Document, LiveClass, Test } from "@/types";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+interface ScheduleItem {
+  id: string;
+  type: "class" | "test";
+  title: string;
+  startTime: string;
+  batchName: string;
+}
+
+// ---------------------------------------------------------------------------
+// Stagger helpers
+// ---------------------------------------------------------------------------
+const container = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+/** Single stat card */
+const StatCard: React.FC<{
+  label: string;
+  count: number;
+  gradient: string;
+  shadow: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}> = ({ label, count, gradient, shadow, icon, onClick }) => (
+  <motion.div
+    variants={fadeUp}
+    onClick={onClick}
+    className={cn(
+      "rounded-2xl p-3 sm:p-4 md:p-5 cursor-pointer transition-transform hover:scale-[1.03]",
+      "shadow-lg",
+      gradient,
+      shadow
+    )}
+  >
+    <div className="flex items-center justify-between mb-3">
+      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+        {icon}
+      </div>
+      <IconChevronRight className="w-4 h-4 text-white/60" />
+    </div>
+    <p className="text-2xl sm:text-3xl font-extrabold text-white">{count}</p>
+    <p className="text-xs font-medium text-white/80 mt-0.5">{label}</p>
+  </motion.div>
+);
+
+/** Single quick-action button */
+const QuickAction: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  onClick: () => void;
+}> = ({ label, icon, color, onClick }) => (
+  <motion.button
+    variants={fadeUp}
+    whileHover={{ scale: 1.04 }}
+    whileTap={{ scale: 0.97 }}
+    onClick={onClick}
+    className={cn(
+      "flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white whitespace-nowrap shadow-md transition-colors",
+      color
+    )}
+  >
+    {icon}
+    {label}
+  </motion.button>
+);
+
+/** Single upcoming-schedule row */
+const ScheduleRow: React.FC<{ item: ScheduleItem; idx: number }> = ({ item, idx }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -12 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ delay: idx * 0.06 }}
+    className="flex items-center gap-3 rounded-xl bg-white border border-gray-100 p-3 hover:border-violet-200 transition-colors"
+  >
+    <div
+      className={cn(
+        "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+        item.type === "class" ? "bg-sky-100" : "bg-violet-100"
+      )}
+    >
+      {item.type === "class" ? (
+        <IconBrandZoom className="w-4 h-4 text-sky-600" />
+      ) : (
+        <IconChecklist className="w-4 h-4 text-violet-600" />
+      )}
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-semibold text-gray-900 truncate">{item.title}</p>
+      <p className="text-[11px] text-gray-500 truncate">
+        {new Date(item.startTime).toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })}{" "}
+        &middot; {item.batchName}
+      </p>
+    </div>
+  </motion.div>
+);
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 export const StudentDashboard = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
+
+  // Core data
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
-  const [activeTab, setActiveTab] = useState<"videos" | "documents" | "classes">("videos");
-  const [batchVideos, setBatchVideos] = useState<Video[]>([]);
-  const [batchDocuments, setBatchDocuments] = useState<Document[]>([]);
-  const [batchClasses, setBatchClasses] = useState<LiveClass[]>([]);
-  const [contentLoading, setContentLoading] = useState(false);
 
+  // Stats
+  const [testsPending, setTestsPending] = useState(0);
+  const [upcomingClassCount, setUpcomingClassCount] = useState(0);
+  const [videosCount, setVideosCount] = useState(0);
+  const [docsCount, setDocsCount] = useState(0);
+
+  // Schedule
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
+
+  // All live classes (for counting + schedule)
+  const [allLiveClasses, setAllLiveClasses] = useState<LiveClass[]>([]);
+
+  // Batch drill-down
+  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
+  const [batchContentCounts, setBatchContentCounts] = useState({ videos: 0, documents: 0, classes: 0 });
+  const [batchContentLoading, setBatchContentLoading] = useState(false);
+
+  // -----------------------------------------------------------------------
+  // Fetch everything on mount
+  // -----------------------------------------------------------------------
   useEffect(() => {
-    fetchBatches();
+    fetchAll();
   }, []);
 
-  useEffect(() => {
-    if (selectedBatch) {
-      fetchBatchContent();
-    }
-  }, [selectedBatch, activeTab]);
-
-  const fetchBatches = async () => {
+  const fetchAll = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { batches: data } = await batchesApi.getStudentBatches();
-      setBatches(data);
-    } catch (error) {
-      console.error("Error fetching batches:", error);
+      const [batchRes, videosRes, docsRes, testsRes, attemptsRes] = await Promise.all([
+        batchesApi.getStudentBatches().catch(() => ({ batches: [] as Batch[] })),
+        videosApi.list().catch(() => ({ videos: [] as Video[] })),
+        documentsApi.list().catch(() => ({ documents: [] as Document[] })),
+        testsApi.list().catch(() => ({ tests: [] as Test[] })),
+        attemptsApi.getMyAttempts().catch(() => ({ attempts: [] as any[] })),
+      ]);
+
+      const fetchedBatches = batchRes.batches ?? [];
+      setBatches(fetchedBatches);
+      setVideosCount(videosRes.videos?.length ?? 0);
+      setDocsCount(docsRes.documents?.length ?? 0);
+
+      // Pending tests: tests that have no completed attempt
+      const completedTestIds = new Set(
+        (attemptsRes.attempts ?? [])
+          .filter((a: any) => a.status === "completed")
+          .map((a: any) => a.test_id)
+      );
+      const pending = (testsRes.tests ?? []).filter(
+        (t) => t.status === "published" && !completedTestIds.has(t.id)
+      );
+      setTestsPending(pending.length);
+
+      // Fetch live classes from each batch in parallel
+      if (fetchedBatches.length > 0) {
+        const classResults = await Promise.all(
+          fetchedBatches.map((b) =>
+            liveClassesApi.listByBatch(b.id).catch(() => ({ liveClasses: [] as LiveClass[] }))
+          )
+        );
+        const classes = classResults.flatMap((r) => r.liveClasses ?? []);
+        setAllLiveClasses(classes);
+
+        // Upcoming class count
+        const now = new Date();
+        const upcoming = classes.filter(
+          (c) => c.status === "scheduled" && new Date(c.start_time) > now
+        );
+        setUpcomingClassCount(upcoming.length);
+
+        // Build schedule: upcoming classes + tests with future start_time
+        const classItems: ScheduleItem[] = upcoming.map((c) => ({
+          id: `class-${c.id}`,
+          type: "class",
+          title: c.topic,
+          startTime: c.start_time,
+          batchName: c.batch?.batch_name ?? fetchedBatches.find((b) => b.id === c.batch_id)?.batch_name ?? "Batch",
+        }));
+        const testItems: ScheduleItem[] = pending
+          .filter((t) => new Date(t.start_time) > now)
+          .map((t) => ({
+            id: `test-${t.id}`,
+            type: "test",
+            title: t.title,
+            startTime: t.start_time,
+            batchName: fetchedBatches.find((b) => b.id === t.batch_id)?.batch_name ?? "Batch",
+          }));
+
+        const combined = [...classItems, ...testItems].sort(
+          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+        setScheduleItems(combined);
+      }
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchBatchContent = async () => {
-    if (!selectedBatch) return;
-
-    try {
-      setContentLoading(true);
-      if (activeTab === "videos") {
-        const { videos } = await videosApi.list({ batch_id: selectedBatch.id });
-        setBatchVideos(videos);
-      } else if (activeTab === "documents") {
-        const { documents } = await documentsApi.list({ batch_id: selectedBatch.id });
-        setBatchDocuments(documents);
-      } else if (activeTab === "classes") {
-        const { liveClasses } = await liveClassesApi.listByBatch(selectedBatch.id);
-        setBatchClasses(liveClasses);
-      }
-    } catch (error) {
-      console.error("Error fetching batch content:", error);
-    } finally {
-      setContentLoading(false);
-    }
-  };
-
-  const handleDownloadDocument = async (doc: Document) => {
-    try {
-      const blob = await documentsApi.download(doc.id);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.href = url;
-      // Extract filename from path or use title
-      const fileName = doc.file_path?.split(/[\\/]/).pop() || `${doc.title}.${doc.file_type}`;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Error downloading document:", error);
-      alert("Failed to download document");
-    }
-  };
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return "N/A";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const getClassStatusColor = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" };
-      case "live":
-        return { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" };
-      case "completed":
-        return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
-      case "cancelled":
-        return { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500" };
-      default:
-        return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
-    }
-  };
-
-  // Dashboard Data State
-  const [dashboardLiveClasses, setDashboardLiveClasses] = useState<LiveClass[]>([]);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-
+  // -----------------------------------------------------------------------
+  // Batch drill-down content
+  // -----------------------------------------------------------------------
   useEffect(() => {
-    if (batches.length > 0) {
-      fetchDashboardData();
-    }
-  }, [batches]);
+    if (!selectedBatch) return;
+    fetchBatchCounts(selectedBatch.id);
+  }, [selectedBatch]);
 
-  const fetchDashboardData = async () => {
-    setDashboardLoading(true);
+  const fetchBatchCounts = async (batchId: string) => {
+    setBatchContentLoading(true);
     try {
-      const liveClassPromises = batches.map(batch => liveClassesApi.listByBatch(batch.id));
-      const results = await Promise.all(liveClassPromises);
-
-      const allLiveClasses = results.flatMap(r => r.liveClasses);
-      const now = new Date();
-
-      const validClasses = allLiveClasses.filter(c => {
-        const status = c.status as string; // Keep this cast as it handles runtime data safety
-        const startTime = new Date(c.start_time);
-        const endTime = new Date(startTime.getTime() + c.duration * 60000);
-        return status === "live" || (status === "scheduled" && startTime > now) || (status === "live" && endTime > now);
+      const [vRes, dRes] = await Promise.all([
+        videosApi.list({ batch_id: batchId }).catch(() => ({ videos: [] })),
+        documentsApi.list({ batch_id: batchId }).catch(() => ({ documents: [] })),
+      ]);
+      const classCount = allLiveClasses.filter((c) => c.batch_id === batchId).length;
+      setBatchContentCounts({
+        videos: vRes.videos?.length ?? 0,
+        documents: dRes.documents?.length ?? 0,
+        classes: classCount,
       });
-
-      // Sort: Live first, then by start time
-      validClasses.sort((a, b) => {
-        if (a.status === "live" && b.status !== "live") return -1;
-        if (a.status !== "live" && b.status === "live") return 1;
-        return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
-      });
-
-      setDashboardLiveClasses(validClasses);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
+    } catch {
+      setBatchContentCounts({ videos: 0, documents: 0, classes: 0 });
     } finally {
-      setDashboardLoading(false);
+      setBatchContentLoading(false);
     }
   };
 
+  // -----------------------------------------------------------------------
+  // Loading state
+  // -----------------------------------------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-gray-500 text-lg">Loading your batches...</div>
+        <div className="text-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600 mx-auto mb-4" />
+          <p className="text-gray-500">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  // Batch Selection View (Dashboard Overview)
-  if (!selectedBatch) {
+  // -----------------------------------------------------------------------
+  // Batch detail view
+  // -----------------------------------------------------------------------
+  if (selectedBatch) {
     return (
-      <div className="px-4 sm:px-0 max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.name.split(' ')[0]}!
-          </h1>
-          <p className="text-lg text-gray-500">
-            Here's what's happening today
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* Profile Highlights */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="col-span-1 rounded-[28px] bg-white p-6 shadow-lg border border-gray-100"
-          >
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl font-bold text-white shadow-md">
-                {user?.name.charAt(0)}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{user?.name}</h2>
-                <p className="text-sm text-gray-500">{user?.email}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                    <IconSchool className="w-5 h-5" />
-                  </div>
-                  <span className="font-medium text-gray-700">Enrolled Courses</span>
-                </div>
-                <span className="text-lg font-bold text-gray-900">{batches.length}</span>
-              </div>
-
-              {/* Test Performance Placeholder - API Not Available */}
-              {/* <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-                    <IconBook className="w-5 h-5" />
-                  </div>
-                  <span className="font-medium text-gray-700">Avg. Test Score</span>
-                </div>
-                <span className="text-lg font-bold text-gray-900">--</span>
-              </div> */}
-            </div>
-          </motion.div>
-
-          {/* Live Classes Feed */}
-          <div className="col-span-1 lg:col-span-2 space-y-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <IconBrandZoom className="w-6 h-6 text-[#2D96FF]" />
-              Live & Upcoming Classes
-            </h2>
-
-            {dashboardLoading ? (
-              <div className="flex items-center justify-center h-48 rounded-[28px] bg-white shadow-sm border border-gray-100">
-                <div className="text-gray-400">Loading schedule...</div>
-              </div>
-            ) : dashboardLiveClasses.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center h-48 rounded-[28px] bg-white shadow-sm border border-gray-100"
-              >
-                <IconCalendar className="w-12 h-12 text-gray-300 mb-2" strokeWidth={1.5} />
-                <p className="text-gray-500 font-medium">No live or upcoming classes</p>
-              </motion.div>
-            ) : (
-              <div className="space-y-4">
-                {dashboardLiveClasses.map((liveClass, idx) => {
-                  const statusColor = getClassStatusColor(liveClass.status);
-                  const isOngoing = liveClass.status === 'live';
-
-                  return (
-                    <motion.div
-                      key={liveClass.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1 }}
-                      className={cn(
-                        "rounded-[24px] p-6 shadow-md transition-all border",
-                        isOngoing ? "bg-white border-blue-200 ring-4 ring-blue-50/50" : "bg-white border-gray-100"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider",
-                              statusColor.bg,
-                              statusColor.text
-                            )}>
-                              <span className={cn("w-2 h-2 rounded-full animate-pulse", statusColor.dot)}></span>
-                              {liveClass.status}
-                            </span>
-                            <span className="text-sm text-gray-400 font-medium">
-                              {liveClass.batch?.batch_name || "Batch Class"}
-                            </span>
-                          </div>
-
-                          <h3 className="text-lg font-bold text-gray-900 mb-2">
-                            {liveClass.topic}
-                          </h3>
-
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1.5">
-                              <IconCalendar className="w-4 h-4 text-gray-400" />
-                              <span className={isOngoing ? "text-blue-600 font-semibold" : ""}>
-                                {new Date(liveClass.start_time).toLocaleString()}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <IconClock className="w-4 h-4 text-gray-400" />
-                              {liveClass.duration} min
-                            </div>
-                            {liveClass.instructor && (
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">
-                                  {liveClass.instructor.name.charAt(0)}
-                                </div>
-                                {liveClass.instructor.name}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {liveClass.zoom_join_url && (isOngoing || liveClass.status === 'scheduled') && (
-                          <a
-                            href={liveClass.zoom_join_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                              "hidden sm:flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition-all shadow-lg",
-                              isOngoing
-                                ? "bg-gradient-to-br from-[#2D96FF] to-[#0B7FE8] hover:shadow-blue-200 hover:scale-105"
-                                : "bg-gray-900 hover:bg-gray-800"
-                            )}
-                          >
-                            {isOngoing ? "Join Now" : "Join Link"}
-                            <IconBrandZoom className="w-4 h-4" />
-                          </a>
-                        )}
-
-                        {liveClass.status === 'completed' && liveClass.recording_url && (
-                          <a
-                            href={liveClass.recording_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hidden sm:flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-all shadow-lg"
-                          >
-                            Watch Recording
-                            <IconPlayerPlay className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Batches</h2>
-          {batches.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg p-8"
-            >
-              <IconSchool className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-              <p className="text-gray-900 font-semibold text-lg mb-1">No batches yet</p>
-              <p className="text-gray-500 text-sm text-center">
-                You haven't been enrolled in any batches yet. Contact your administrator.
-              </p>
-            </motion.div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {batches.map((batch, idx) => (
-                <motion.div
-                  key={batch.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  onClick={() => setSelectedBatch(batch)}
-                  className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <IconSchool className="w-7 h-7 text-white" strokeWidth={2} />
-                    </div>
-                    <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                      {batch.status}
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-white mb-2 group-hover:scale-105 transition-transform">
-                    {batch.batch_name}
-                  </h3>
-
-                  {batch.course && (
-                    <p className="text-sm text-white/80 mb-4">{batch.course.title}</p>
-                  )}
-
-                  {batch.instructor && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                        {batch.instructor.name.charAt(0)}
-                      </div>
-                      <span className="text-sm text-white/90">{batch.instructor.name}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 text-xs text-white/80">
-                    <IconCalendar className="w-4 h-4" strokeWidth={2} />
-                    {new Date(batch.start_date).toLocaleDateString()} - {new Date(batch.end_date).toLocaleDateString()}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Batch Content View
-  return (
-    <div className="px-4 sm:px-0">
-      {/* Header with Back Button */}
-      <div className="mb-6">
+      <div className="max-w-7xl mx-auto">
         <button
-          onClick={() => {
-            setSelectedBatch(null);
-            setBatchVideos([]);
-            setBatchDocuments([]);
-            setBatchClasses([]);
-          }}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          onClick={() => setSelectedBatch(null)}
+          className="flex items-center gap-2 text-gray-500 hover:text-violet-600 mb-4 transition-colors"
         >
-          <IconArrowLeft className="w-5 h-5" strokeWidth={2} />
-          <span className="font-medium">Back to My Batches</span>
+          <IconArrowLeft className="w-4 h-4" />
+          <span className="font-medium text-sm">Back to Dashboard</span>
         </button>
 
-        <div className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-6 shadow-lg">
+        <div className="rounded-2xl bg-gradient-to-r from-violet-500 to-purple-600 p-4 sm:p-5 shadow-lg shadow-violet-500/20 mb-5">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">{selectedBatch.batch_name}</h1>
-              {selectedBatch.course && (
-                <p className="text-white/90 mb-2">{selectedBatch.course.title}</p>
-              )}
+              <h1 className="text-xl md:text-2xl font-bold text-white mb-1">{selectedBatch.batch_name}</h1>
+              {selectedBatch.course && <p className="text-white/70 text-sm mb-1">{selectedBatch.course.title}</p>}
               {selectedBatch.instructor && (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold text-white">
                     {selectedBatch.instructor.name.charAt(0)}
                   </div>
-                  <span className="text-sm text-white/90">Instructor: {selectedBatch.instructor.name}</span>
+                  <span className="text-xs text-white/80">{selectedBatch.instructor.name}</span>
                 </div>
               )}
             </div>
-            <span className="inline-flex items-center rounded-full bg-white/20 px-4 py-2 text-sm font-semibold text-white">
+            <span className={cn(
+              "inline-flex items-center rounded-full px-3 py-1 text-xs font-bold",
+              selectedBatch.status === "ongoing" && "bg-emerald-200 text-emerald-800",
+              selectedBatch.status === "completed" && "bg-violet-200 text-violet-800",
+              selectedBatch.status === "draft" && "bg-amber-200 text-amber-800",
+              !["ongoing", "completed", "draft"].includes(selectedBatch.status) && "bg-white/20 text-white"
+            )}>
               {selectedBatch.status}
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 bg-white rounded-[20px] p-2 shadow-md">
-        <button
-          onClick={() => setActiveTab("videos")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold transition-all",
-            activeTab === "videos"
-              ? "bg-gradient-to-br from-[#A78BFA] to-[#8B5CF6] text-white shadow-md"
-              : "text-gray-600 hover:bg-gray-50"
-          )}
-        >
-          <IconVideo className="w-5 h-5" strokeWidth={2} />
-          Videos
-        </button>
-        <button
-          onClick={() => setActiveTab("documents")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold transition-all",
-            activeTab === "documents"
-              ? "bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] text-white shadow-md"
-              : "text-gray-600 hover:bg-gray-50"
-          )}
-        >
-          <IconFile className="w-5 h-5" strokeWidth={2} />
-          Documents
-        </button>
-        <button
-          onClick={() => setActiveTab("classes")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold transition-all",
-            activeTab === "classes"
-              ? "bg-gradient-to-br from-[#2D96FF] to-[#0B7FE8] text-white shadow-md"
-              : "text-gray-600 hover:bg-gray-50"
-          )}
-        >
-          <IconBrandZoom className="w-5 h-5" strokeWidth={2} />
-          Live Classes
-        </button>
+        {batchContentLoading ? (
+          <p className="text-gray-500 text-sm">Loading content...</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div
+              onClick={() => navigate("/student/videos")}
+              className="rounded-2xl bg-white border border-gray-100 p-3 sm:p-4 md:p-5 hover:border-violet-300 cursor-pointer transition-colors"
+            >
+              <IconVideo className="w-6 h-6 text-emerald-500 mb-2" />
+              <p className="text-2xl font-bold text-gray-900">{batchContentCounts.videos}</p>
+              <p className="text-xs text-gray-500">Videos</p>
+            </div>
+            <div
+              onClick={() => navigate("/student/documents")}
+              className="rounded-2xl bg-white border border-gray-100 p-3 sm:p-4 md:p-5 hover:border-amber-300 cursor-pointer transition-colors"
+            >
+              <IconFileText className="w-6 h-6 text-amber-500 mb-2" />
+              <p className="text-2xl font-bold text-gray-900">{batchContentCounts.documents}</p>
+              <p className="text-xs text-gray-500">Documents</p>
+            </div>
+            <div
+              onClick={() => navigate("/student/live-classes")}
+              className="rounded-2xl bg-white border border-gray-100 p-3 sm:p-4 md:p-5 hover:border-sky-300 cursor-pointer transition-colors"
+            >
+              <IconBrandZoom className="w-6 h-6 text-sky-500 mb-2" />
+              <p className="text-2xl font-bold text-gray-900">{batchContentCounts.classes}</p>
+              <p className="text-xs text-gray-500">Live Classes</p>
+            </div>
+          </div>
+        )}
       </div>
+    );
+  }
 
-      {/* Content Area */}
-      <AnimatePresence mode="wait">
-        {contentLoading ? (
+  // -----------------------------------------------------------------------
+  // Main dashboard view
+  // -----------------------------------------------------------------------
+  return (
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Welcome Header */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-1">
+          Welcome back, {user?.name?.split(" ")[0]}!
+        </h1>
+        <p className="text-sm md:text-base text-gray-500">Here's what's happening today</p>
+      </motion.div>
+
+      {/* Stats Cards */}
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+      >
+        <StatCard
+          label="Tests Pending"
+          count={testsPending}
+          gradient="bg-gradient-to-br from-violet-500 to-purple-600"
+          shadow="shadow-violet-500/20"
+          icon={<IconChecklist className="w-5 h-5 text-white" />}
+          onClick={() => navigate("/student/tests")}
+        />
+        <StatCard
+          label="Upcoming Classes"
+          count={upcomingClassCount}
+          gradient="bg-gradient-to-br from-sky-400 to-blue-600"
+          shadow="shadow-sky-500/20"
+          icon={<IconBrandZoom className="w-5 h-5 text-white" />}
+          onClick={() => navigate("/student/live-classes")}
+        />
+        <StatCard
+          label="Videos Available"
+          count={videosCount}
+          gradient="bg-gradient-to-br from-emerald-400 to-emerald-600"
+          shadow="shadow-emerald-500/20"
+          icon={<IconVideo className="w-5 h-5 text-white" />}
+          onClick={() => navigate("/student/videos")}
+        />
+        <StatCard
+          label="Documents"
+          count={docsCount}
+          gradient="bg-gradient-to-br from-amber-400 to-orange-500"
+          shadow="shadow-amber-500/20"
+          icon={<IconFileText className="w-5 h-5 text-white" />}
+          onClick={() => navigate("/student/documents")}
+        />
+      </motion.div>
+
+      {/* Quick Actions */}
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
+      >
+        <QuickAction
+          label="Take a Test"
+          icon={<IconChecklist className="w-4 h-4" />}
+          color="bg-violet-600 hover:bg-violet-700"
+          onClick={() => navigate("/student/tests")}
+        />
+        <QuickAction
+          label="Join Live Class"
+          icon={<IconBrandZoom className="w-4 h-4" />}
+          color="bg-sky-500 hover:bg-sky-600"
+          onClick={() => navigate("/student/live-classes")}
+        />
+        <QuickAction
+          label="Watch Videos"
+          icon={<IconVideo className="w-4 h-4" />}
+          color="bg-emerald-500 hover:bg-emerald-600"
+          onClick={() => navigate("/student/videos")}
+        />
+        <QuickAction
+          label="Browse Documents"
+          icon={<IconFileText className="w-4 h-4" />}
+          color="bg-amber-500 hover:bg-amber-600"
+          onClick={() => navigate("/student/documents")}
+        />
+      </motion.div>
+
+      {/* Upcoming Schedule */}
+      {scheduleItems.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <IconCalendar className="w-5 h-5 text-violet-500" />
+              Upcoming Schedule
+            </h2>
+            {scheduleItems.length > 5 && (
+              <button
+                onClick={() => navigate("/student/live-classes")}
+                className="text-xs font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              >
+                View All
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
+            {scheduleItems.slice(0, 5).map((item, idx) => (
+              <ScheduleRow key={item.id} item={item} idx={idx} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Your Batches */}
+      <div>
+        <h2 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+          <IconSchool className="w-5 h-5 text-violet-500" />
+          Your Batches
+        </h2>
+
+        {batches.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center justify-center h-64"
+            className="flex flex-col items-center justify-center h-48 rounded-2xl bg-white border border-gray-100 p-6"
           >
-            <div className="text-gray-500 text-lg">Loading content...</div>
+            <IconSchool className="w-12 h-12 text-violet-300 mb-3" strokeWidth={1.5} />
+            <p className="text-gray-900 font-semibold text-sm mb-1">No batches yet</p>
+            <p className="text-gray-500 text-xs text-center">
+              You haven't been enrolled in any batches yet. Contact your administrator.
+            </p>
           </motion.div>
         ) : (
           <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
           >
-            {/* Videos Tab */}
-            {activeTab === "videos" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {batchVideos.length === 0 ? (
-                  <div className="col-span-full flex flex-col items-center justify-center h-64 rounded-[24px] bg-white shadow-lg">
-                    <IconVideo className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-                    <p className="text-gray-900 font-semibold text-lg mb-1">No videos available</p>
-                    <p className="text-gray-500 text-sm">Videos will appear here once added to this batch</p>
-                  </div>
-                ) : (
-                  batchVideos.map((video, idx) => (
-                    <motion.div
-                      key={video.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="rounded-[20px] bg-white p-5 shadow-md hover:shadow-lg transition-all group"
-                    >
-                      <div className="relative rounded-xl bg-gradient-to-br from-[#A78BFA] to-[#8B5CF6] h-40 mb-4 flex items-center justify-center overflow-hidden">
-                        {video.thumbnail_url ? (
-                          <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <IconPlayerPlay className="w-12 h-12 text-white" strokeWidth={1.5} />
-                        )}
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
-                            <IconPlayerPlay className="w-8 h-8 text-[#8B5CF6]" strokeWidth={2} />
-                          </div>
-                        </div>
-                      </div>
+            {batches.map((batch, idx) => {
+              const palette = [
+                "bg-gradient-to-br from-violet-500 to-purple-600 shadow-violet-500/20",
+                "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20",
+                "bg-gradient-to-br from-sky-500 to-blue-600 shadow-sky-500/20",
+                "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20",
+              ];
 
-                      <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{video.title}</h3>
-                      {video.description && (
-                        <p className="text-sm text-gray-500 mb-3 line-clamp-2">{video.description}</p>
+              return (
+                <motion.div
+                  key={batch.id}
+                  variants={fadeUp}
+                  onClick={() => setSelectedBatch(batch)}
+                  className={cn(
+                    "rounded-2xl p-4 sm:p-5 cursor-pointer group shadow-lg transition-transform hover:scale-[1.02]",
+                    palette[idx % 4]
+                  )}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <IconSchool className="w-5 h-5 text-white" />
+                    </div>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                        batch.status === "ongoing" && "bg-emerald-200 text-emerald-800",
+                        batch.status === "completed" && "bg-violet-200 text-violet-800",
+                        batch.status === "draft" && "bg-amber-200 text-amber-800",
+                        batch.status === "inactive" && "bg-rose-200 text-rose-800",
+                        !["ongoing", "completed", "draft", "inactive"].includes(batch.status) &&
+                          "bg-white/20 text-white"
                       )}
-
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <IconClock className="w-4 h-4" strokeWidth={2} />
-                        {formatDuration(video.duration)}
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Documents Tab */}
-            {activeTab === "documents" && (
-              <div className="space-y-3">
-                {batchDocuments.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 rounded-[24px] bg-white shadow-lg">
-                    <IconFile className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-                    <p className="text-gray-900 font-semibold text-lg mb-1">No documents available</p>
-                    <p className="text-gray-500 text-sm">Documents will appear here once added to this batch</p>
-                  </div>
-                ) : (
-                  batchDocuments.map((doc, idx) => (
-                    <motion.div
-                      key={doc.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="rounded-[20px] bg-white p-5 shadow-md hover:shadow-lg transition-all flex items-center justify-between group"
                     >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] flex items-center justify-center shrink-0">
-                          <IconFile className="w-6 h-6 text-white" strokeWidth={2} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 truncate">{doc.title}</h3>
-                          <p className="text-sm text-gray-500 truncate">{doc.file_path?.split(/[\\/]/).pop() || doc.title}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                            {/* <span>{formatFileSize(doc.file_size)}</span> */}
-                            {doc.language && <span>• {doc.language}</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDownloadDocument(doc)}
-                        className="shrink-0 w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-[#3B82F6] hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                      >
-                        <IconDownload className="w-5 h-5" strokeWidth={2} />
-                      </button>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Live Classes Tab */}
-            {activeTab === "classes" && (
-              <div className="space-y-4">
-                {batchClasses.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 rounded-[24px] bg-white shadow-lg">
-                    <IconBrandZoom className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
-                    <p className="text-gray-900 font-semibold text-lg mb-1">No live classes scheduled</p>
-                    <p className="text-gray-500 text-sm">Live classes will appear here once scheduled</p>
+                      {batch.status}
+                    </span>
                   </div>
-                ) : (
-                  batchClasses.map((liveClass, idx) => {
-                    const statusColor = getClassStatusColor(liveClass.status);
-                    return (
-                      <motion.div
-                        key={liveClass.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                        className="rounded-[20px] bg-white p-6 shadow-md hover:shadow-lg transition-all"
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#2D96FF] to-[#0B7FE8] flex items-center justify-center shrink-0">
-                              <IconBrandZoom className="w-7 h-7 text-white" strokeWidth={2} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-lg font-bold text-gray-900 mb-1">{liveClass.topic}</h3>
-                              {liveClass.description && (
-                                <p className="text-sm text-gray-600 mb-3">{liveClass.description}</p>
-                              )}
-                              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                                <div className="flex items-center gap-1.5">
-                                  <IconCalendar className="w-4 h-4" strokeWidth={2} />
-                                  {new Date(liveClass.start_time).toLocaleString()}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <IconClock className="w-4 h-4" strokeWidth={2} />
-                                  {liveClass.duration} minutes
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <span className={cn(
-                            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
-                            statusColor.bg,
-                            statusColor.text
-                          )}>
-                            <span className={cn("w-1.5 h-1.5 rounded-full", statusColor.dot)}></span>
-                            {liveClass.status}
-                          </span>
-                        </div>
 
-                        {liveClass.status === "scheduled" && liveClass.zoom_join_url && (
-                          <a
-                            href={liveClass.zoom_join_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#2D96FF] to-[#0B7FE8] px-6 py-3 text-sm font-semibold text-white hover:shadow-lg transition-all"
-                          >
-                            <IconBrandZoom className="w-5 h-5" strokeWidth={2} />
-                            Join Class
-                          </a>
-                        )}
-                      </motion.div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+                  <h3 className="text-base font-bold text-white mb-1 group-hover:text-white/90 transition-colors">
+                    {batch.batch_name}
+                  </h3>
+                  {batch.course && <p className="text-xs text-white/70 mb-3">{batch.course.title}</p>}
+                  {batch.instructor && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold text-white">
+                        {batch.instructor.name.charAt(0)}
+                      </div>
+                      <span className="text-xs text-white/80">{batch.instructor.name}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-[10px] text-white/60">
+                    <IconClock className="w-3.5 h-3.5" />
+                    {new Date(batch.start_date).toLocaleDateString()} -{" "}
+                    {new Date(batch.end_date).toLocaleDateString()}
+                  </div>
+                </motion.div>
+              );
+            })}
           </motion.div>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 };

@@ -7,7 +7,8 @@ import {
     IconClock,
     IconCalendar,
     IconLayoutGrid,
-    IconLayoutList
+    IconLayoutList,
+    IconSearch
 } from '@tabler/icons-react';
 import { videosApi } from '@/api/endpoints/videos';
 import { topicsApi } from '@/api/endpoints/topics';
@@ -20,6 +21,7 @@ export const StudentVideosPage = () => {
     const [allVideos, setAllVideos] = useState<Video[]>([]);
     const [topics, setTopics] = useState<Topic[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedLanguage, setSelectedLanguage] = useState<string>('');
     const [viewMode, setViewMode] = useState<'topic' | 'grid'>('topic');
 
@@ -55,9 +57,10 @@ export const StudentVideosPage = () => {
 
     // Group videos by topic
     const groupedTopics = useMemo(() => {
-        const filtered = selectedLanguage 
-            ? allVideos.filter(v => v.language === selectedLanguage)
-            : allVideos;
+        const filtered = allVideos.filter(v =>
+            (!selectedLanguage || v.language === selectedLanguage) &&
+            (!searchQuery || v.title.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
 
         // Clone topics to avoid mutation and add 'General' if needed
         const topicList: Topic[] = topics.map(t => ({
@@ -80,7 +83,7 @@ export const StudentVideosPage = () => {
         }
 
         return topicList.sort((a, b) => a.order_index - b.order_index);
-    }, [allVideos, topics, selectedLanguage]);
+    }, [allVideos, topics, selectedLanguage, searchQuery]);
 
     const formatDuration = (seconds?: number) => {
         if (!seconds) return '00:00';
@@ -95,7 +98,7 @@ export const StudentVideosPage = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-0">
+        <div className="max-w-7xl mx-auto">
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -115,7 +118,7 @@ export const StudentVideosPage = () => {
                         onClick={() => setViewMode('topic')}
                         className={cn(
                             "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                            viewMode === 'topic' ? "bg-[#2D2D2D] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+                            viewMode === 'topic' ? "bg-gray-900 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
                         )}
                     >
                         <IconLayoutList size={18} />
@@ -125,7 +128,7 @@ export const StudentVideosPage = () => {
                         onClick={() => setViewMode('grid')}
                         className={cn(
                             "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                            viewMode === 'grid' ? "bg-[#2D2D2D] text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+                            viewMode === 'grid' ? "bg-gray-900 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
                         )}
                     >
                         <IconLayoutGrid size={18} />
@@ -137,14 +140,24 @@ export const StudentVideosPage = () => {
             {/* Filters */}
             {allVideos.length > 0 && (
                 <div className="mb-8 flex flex-wrap items-center gap-4">
-                    <div className="relative min-w-[200px]">
+                    <div className="relative flex-1">
+                        <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
+                        <input
+                            type="text"
+                            placeholder="Search videos..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-xl border-0 bg-white py-3 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                        />
+                    </div>
+                    <div className="relative w-full sm:w-auto sm:min-w-[200px]">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <IconFilter className="h-5 w-5 text-gray-400" />
                         </div>
                         <select
                             value={selectedLanguage}
                             onChange={(e) => setSelectedLanguage(e.target.value)}
-                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-[#A78BFA]/20 focus:border-[#A78BFA] appearance-none cursor-pointer font-medium"
+                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 appearance-none cursor-pointer font-medium"
                         >
                             <option value="">All Languages</option>
                             {Array.from(new Set(allVideos.map(v => v.language).filter(Boolean))).sort().map(lang => (
@@ -158,7 +171,7 @@ export const StudentVideosPage = () => {
             {/* Content Area */}
             {loading ? (
                 <div className="flex items-center justify-center h-96">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A78BFA]"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
                 </div>
             ) : viewMode === 'topic' ? (
                 <TopicAccordion 
@@ -167,15 +180,15 @@ export const StudentVideosPage = () => {
                     onResourceClick={handleVideoClick} 
                 />
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {allVideos.filter(v => !selectedLanguage || v.language === selectedLanguage).map((video, idx) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                    {allVideos.filter(v => (!selectedLanguage || v.language === selectedLanguage) && (!searchQuery || v.title.toLowerCase().includes(searchQuery.toLowerCase()))).map((video, idx) => (
                         <motion.div
                             key={video.id}
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: idx * 0.05 }}
                             onClick={() => handleVideoClick(video)}
-                            className="group relative bg-white rounded-[24px] overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl hover:border-[#A78BFA]/30 transition-all cursor-pointer"
+                            className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 hover:shadow-xl hover:border-violet-300 transition-all cursor-pointer"
                         >
                             <div className="relative aspect-video bg-gray-900">
                                 {video.thumbnail_url ? (
@@ -185,7 +198,7 @@ export const StudentVideosPage = () => {
                                         className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 group-hover:from-gray-700 group-hover:to-gray-800 transition-all">
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-900 to-gray-900 group-hover:from-violet-800 group-hover:to-gray-800 transition-all">
                                         <IconVideo className="w-12 h-12 text-gray-600 group-hover:text-gray-500" />
                                     </div>
                                 )}
@@ -199,8 +212,8 @@ export const StudentVideosPage = () => {
                                 </div>
                             </div>
 
-                            <div className="p-5">
-                                <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-[#A78BFA] transition-colors" title={video.title}>
+                            <div className="p-3 sm:p-4 md:p-5">
+                                <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-1 group-hover:text-violet-500 transition-colors" title={video.title}>
                                     {video.title}
                                 </h3>
                                 <div className="flex items-center justify-between mt-auto">

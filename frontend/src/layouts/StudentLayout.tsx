@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar, SidebarBody, SidebarLink } from '@/components/ui/sidebar';
 import {
   IconSchool,
@@ -8,6 +8,7 @@ import {
   IconLogout,
   IconSettings,
   IconChecklist,
+  IconBrandZoom,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
@@ -15,6 +16,7 @@ import { useAuthStore } from '../store/authStore';
 export const StudentLayout = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
 
   const handleLogout = () => {
@@ -34,14 +36,19 @@ export const StudentLayout = () => {
       icon: <IconFileText className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
     {
-      label: 'Video Library',
+      label: 'Videos',
       href: '/student/videos',
       icon: <IconVideo className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
     {
-      label: 'My Tests',
+      label: 'Tests',
       href: '/student/tests',
       icon: <IconChecklist className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
+    },
+    {
+      label: 'Live Classes',
+      href: '/student/live-classes',
+      icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
     {
       label: 'Settings',
@@ -50,54 +57,97 @@ export const StudentLayout = () => {
     },
   ];
 
-  return (
-    <div className="flex w-full h-screen bg-[#E8E6E1]">
-      <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-10">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            {open ? <Logo /> : <LogoIcon />}
-            <div className="mt-8 flex flex-col gap-1">
-              {links.map((link, idx) => (
-                <SidebarLink key={idx} link={link} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <SidebarLink
-              link={{
-                label: user?.name || 'Student',
-                href: '/student/profile',
-                icon: (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
-                    {user?.name?.charAt(0).toUpperCase() || 'S'}
-                  </div>
-                ),
-              }}
-            />
-            <button
-              onClick={handleLogout}
-              className="mt-2 flex w-full items-center gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 text-white"
-              title="Logout"
-            >
-              <IconLogout className="h-6 w-6 shrink-0" strokeWidth={2} />
-              <motion.span
-                animate={{
-                  display: open ? 'inline-block' : 'none',
-                  opacity: open ? 1 : 0,
-                }}
-                className="!m-0 inline-block whitespace-pre !p-0 text-sm font-semibold"
-              >
-                Logout
-              </motion.span>
-            </button>
-          </div>
-        </SidebarBody>
-      </Sidebar>
+  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
 
-      <div className="flex flex-1 overflow-auto">
-        <main className="w-full p-5 md:p-7">
-          <Outlet />
-        </main>
+  return (
+    <div className="flex w-full h-screen bg-[#F5F0EB]">
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div className="hidden md:flex">
+        <Sidebar open={open} setOpen={setOpen}>
+          <SidebarBody className="justify-between gap-10">
+            <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+              {open ? <Logo /> : <LogoIcon />}
+              <div className="mt-8 flex flex-col gap-1">
+                {links.map((link, idx) => (
+                  <SidebarLink key={idx} link={link} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <SidebarLink
+                link={{
+                  label: user?.name || 'Student',
+                  href: '/student/profile',
+                  icon: (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
+                      {user?.name?.charAt(0).toUpperCase() || 'S'}
+                    </div>
+                  ),
+                }}
+              />
+              <button
+                onClick={handleLogout}
+                className="mt-2 flex w-full items-center gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 text-white"
+                title="Logout"
+              >
+                <IconLogout className="h-6 w-6 shrink-0" strokeWidth={2} />
+                <motion.span
+                  animate={{
+                    display: open ? 'inline-block' : 'none',
+                    opacity: open ? 1 : 0,
+                  }}
+                  className="!m-0 inline-block whitespace-pre !p-0 text-sm font-semibold"
+                >
+                  Logout
+                </motion.span>
+              </button>
+            </div>
+          </SidebarBody>
+        </Sidebar>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex flex-1 flex-col min-h-0 w-full">
+        <div className="flex-1 overflow-auto pb-[72px] md:pb-0">
+          <main className="w-full p-3 sm:p-4 md:p-7">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="fixed bottom-3 left-2 right-2 z-50 md:hidden">
+        <div className="bg-gray-900 rounded-[20px] px-1 py-1.5 flex items-center justify-around shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-gray-800">
+          {links.map((item, idx) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={idx}
+                to={item.href}
+                className={`relative flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-0 rounded-xl transition-all duration-300 ${
+                  active ? 'bg-white shadow-lg scale-105' : 'hover:bg-white/5'
+                }`}
+              >
+                <span className={`[&>svg]:h-5 [&>svg]:w-5 ${active ? '[&>svg]:text-gray-900' : '[&>svg]:text-gray-500'}`}>
+                  {item.icon}
+                </span>
+                <span className={`text-[8px] font-bold truncate max-w-[48px] ${
+                  active ? 'text-gray-900' : 'text-gray-500'
+                }`}>
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-0 rounded-xl transition-all duration-300 hover:bg-white/5"
+          >
+            <IconLogout className="h-5 w-5 text-gray-500" strokeWidth={2} />
+            <span className="text-[8px] font-bold text-gray-500">Exit</span>
+          </button>
+        </div>
       </div>
     </div>
   );

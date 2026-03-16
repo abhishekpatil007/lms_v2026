@@ -17,6 +17,7 @@ import { DocumentsPage } from './pages/admin/DocumentsPage';
 import { LiveClassesPage } from './pages/admin/LiveClassesPage';
 import { CoursesPage } from './pages/admin/CoursesPage';
 import { InvoicesPage } from './pages/admin/InvoicesPage';
+import { AdminBatchDetailPage } from './pages/admin/AdminBatchDetailPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 import { InstructorDashboard } from './pages/instructor/InstructorDashboard';
 import { BatchDetailPage } from './pages/instructor/BatchDetailPage';
@@ -34,6 +35,7 @@ import { InstructorWebinarsPage } from './pages/instructor/InstructorWebinarsPag
 import { InstructorTestsPage } from './pages/instructor/InstructorTestsPage';
 import { InstructorEvaluationsPage } from './pages/instructor/InstructorEvaluationsPage';
 import { EvaluationGradingPage } from './pages/instructor/EvaluationGradingPage';
+import { StudentLiveClassesPage } from './pages/student/StudentLiveClassesPage';
 import { StudentTestsPage } from './pages/student/StudentTestsPage';
 import { TestTakingPage } from './pages/student/TestTakingPage';
 import { TestResultPage } from './pages/student/TestResultPage';
@@ -68,6 +70,7 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="courses" element={<CoursesPage />} />
           <Route path="batches" element={<BatchesPage />} />
+          <Route path="batches/:batchId" element={<AdminBatchDetailPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="videos" element={<VideosPage />} />
           <Route path="documents" element={<DocumentsPage />} />
@@ -111,6 +114,7 @@ function App() {
           <Route path="tests" element={<StudentTestsPage />} />
           <Route path="tests/:testId/take" element={<TestTakingPage />} />
           <Route path="tests/:attemptId/result" element={<TestResultPage />} />
+          <Route path="live-classes" element={<StudentLiveClassesPage />} />
           <Route path="settings" element={<StudentSettingsPage />} />
         </Route>
 

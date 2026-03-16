@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
-  IconLayoutDashboard,
-  IconUsers,
   IconBook,
-  IconSchool,
-  IconSettings,
-  IconLogout,
   IconSearch,
   IconPlus,
-  IconFilter,
-  IconVideo,
-  IconFile,
-  IconBrandZoom,
   IconX,
   IconEdit,
   IconTrash,
@@ -21,13 +11,11 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
-import { Logo, LogoIcon } from "./AdminDashboard";
 import { coursesApi } from "@/api/endpoints/courses";
 import type { Course } from "@/types";
 
 export const CoursesPage = () => {
-  const { user, logout } = useAuthStore();
-  const [open, setOpen] = useState(false);
+  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterLevel, setFilterLevel] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [courses, setCourses] = useState<Course[]>([]);
@@ -42,59 +30,6 @@ export const CoursesPage = () => {
     duration: 0,
     level: "beginner" as "beginner" | "intermediate" | "advanced",
   });
-
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
-  };
-
-  const links = [
-    {
-      label: "Dashboard",
-      href: "/admin/dashboard",
-      icon: <IconLayoutDashboard className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Users",
-      href: "/admin/users",
-      icon: <IconUsers className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Courses",
-      href: "/admin/courses",
-      icon: <IconBook className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Batches",
-      href: "/admin/batches",
-      icon: <IconSchool className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Videos",
-      href: "/admin/videos",
-      icon: <IconVideo className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Documents",
-      href: "/admin/documents",
-      icon: <IconFile className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Live Classes",
-      href: "/admin/live-classes",
-      icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Webinars",
-      href: "/admin/webinars",
-      icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Settings",
-      href: "/admin/settings",
-      icon: <IconSettings className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-  ];
 
   useEffect(() => {
     fetchCourses();
@@ -202,126 +137,83 @@ export const CoursesPage = () => {
   const advancedCourses = (courses || []).filter(c => c.level === "advanced").length;
 
   return (
-    <div className="flex w-full h-screen bg-[#E8E6E1]">
-      <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-10">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            {open ? <Logo /> : <LogoIcon />}
-            <div className="mt-8 flex flex-col gap-1">
-              {links.map((link, idx) => (
-                <SidebarLink key={idx} link={link} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <SidebarLink
-              link={{
-                label: user?.name || "Admin",
-                href: "/admin/profile",
-                icon: (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
-                    {user?.name?.charAt(0)?.toUpperCase() || 'A'}
-                  </div>
-                ),
-              }}
-            />
-            <button
-              onClick={handleLogout}
-              className="mt-2 flex w-full items-center gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 text-white"
-              title="Logout"
-            >
-              <IconLogout className="h-6 w-6 shrink-0" strokeWidth={2} />
-              <motion.span
-                animate={{
-                  display: open ? "inline-block" : "none",
-                  opacity: open ? 1 : 0,
-                }}
-                className="!m-0 inline-block whitespace-pre !p-0 text-sm font-semibold"
-              >
-                Logout
-              </motion.span>
-            </button>
-          </div>
-        </SidebarBody>
-      </Sidebar>
-
+    <>
       <div className="flex flex-1 overflow-auto">
-        <div className="flex h-full w-full flex-1 flex-col gap-5 p-5 md:p-7">
+        <div className="flex h-full w-full flex-1 flex-col gap-5 p-3 sm:p-4 md:p-7">
           {/* Welcome Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-2"
           >
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-2">
               Welcome, {user?.name?.split(' ')[0] || 'Admin'}!
             </h1>
-            <p className="text-lg text-gray-500">
+            <p className="text-sm md:text-base text-gray-500">
               Create and manage courses for your learning platform.
             </p>
           </motion.div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-5 shadow-lg"
+              className="rounded-2xl bg-amber-200 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                  <IconBook className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-900/10 flex items-center justify-center">
+                  <IconBook className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-white/90">Total Courses</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900/60">Total Courses</span>
               </div>
-              <p className="text-4xl font-bold text-white">{totalCourses}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{totalCourses}</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#B4F481] to-[#9FE66F] p-5 shadow-lg"
+              className="rounded-2xl bg-emerald-200 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-[#2D2D2D]/10 flex items-center justify-center">
-                  <IconBook className="w-5 h-5 text-[#2D2D2D]" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-900/10 flex items-center justify-center">
+                  <IconBook className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-[#2D2D2D]/80">Beginner</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900/60">Beginner</span>
               </div>
-              <p className="text-4xl font-bold text-[#2D2D2D]">{beginnerCourses}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{beginnerCourses}</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#FCD34D] to-[#F59E0B] p-5 shadow-lg"
+              className="rounded-2xl bg-amber-200 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-[#2D2D2D]/10 flex items-center justify-center">
-                  <IconBook className="w-5 h-5 text-[#2D2D2D]" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-900/10 flex items-center justify-center">
+                  <IconBook className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-[#2D2D2D]/80">Intermediate</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900/60">Intermediate</span>
               </div>
-              <p className="text-4xl font-bold text-[#2D2D2D]">{intermediateCourses}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{intermediateCourses}</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#F87171] to-[#DC2626] p-5 shadow-lg"
+              className="rounded-2xl bg-gray-900 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                  <IconBook className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 flex items-center justify-center">
+                  <IconBook className="w-4 h-4 sm:w-5 sm:h-5 text-white" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-white/90">Advanced</span>
+                <span className="text-xs sm:text-sm font-semibold text-white/90">Advanced</span>
               </div>
-              <p className="text-4xl font-bold text-white">{advancedCourses}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{advancedCourses}</p>
             </motion.div>
           </div>
 
@@ -330,15 +222,15 @@ export const CoursesPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="rounded-[28px] bg-white p-6 shadow-lg"
+            className="rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200"
           >
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] flex items-center justify-center">
-                  <IconBook className="w-7 h-7 text-white" strokeWidth={2} />
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shrink-0">
+                  <IconBook className="w-5 h-5 sm:w-7 sm:h-7 text-white" strokeWidth={2} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Courses Management</h2>
+                  <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Courses Management</h2>
                   <p className="mt-0.5 text-xs text-gray-500">
                     Showing {filteredCourses.length} of {totalCourses} courses
                   </p>
@@ -346,7 +238,7 @@ export const CoursesPage = () => {
               </div>
               <button
                 onClick={handleOpenCreateModal}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
               >
                 <IconPlus className="h-4 w-4" strokeWidth={2.5} />
                 Create Course
@@ -362,14 +254,14 @@ export const CoursesPage = () => {
                   placeholder="Search courses by title, category, or description..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                  className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                 />
               </div>
               <div className="flex gap-2.5">
                 <select
                   value={filterLevel}
                   onChange={(e) => setFilterLevel(e.target.value as any)}
-                  className="rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
+                  className="rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
                 >
                   <option value="all">All Levels</option>
                   <option value="beginner">Beginner</option>
@@ -389,21 +281,21 @@ export const CoursesPage = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg"
+              className="flex flex-col items-center justify-center h-64 rounded-2xl bg-white border border-gray-200"
             >
               <IconBook className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
               <p className="text-gray-900 font-semibold text-lg mb-1">No courses found</p>
               <p className="text-gray-500 text-sm mb-4">Try adjusting your search or create a new course</p>
               <button
                 onClick={handleOpenCreateModal}
-                className="flex items-center gap-2 rounded-xl bg-[#2D2D2D] px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
+                className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
               >
                 <IconPlus className="h-4 w-4" strokeWidth={2.5} />
                 Create Course
               </button>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {(filteredCourses || []).map((course, idx) => {
                 const levelColors = getLevelColor(course.level);
                 return (
@@ -412,11 +304,11 @@ export const CoursesPage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="rounded-[24px] bg-white p-5 shadow-lg hover:shadow-xl transition-all group"
+                    className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200 hover:shadow-lg transition-all group"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] text-base font-bold text-white shadow-md">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-500 text-base font-bold text-white shadow-md">
                           {course.title.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -495,7 +387,7 @@ export const CoursesPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-gray-900">Create New Course</h3>
@@ -517,7 +409,7 @@ export const CoursesPage = () => {
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="Enter course title"
                   />
                 </div>
@@ -530,7 +422,7 @@ export const CoursesPage = () => {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={4}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 resize-none"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
                     placeholder="Enter course description"
                   />
                 </div>
@@ -544,7 +436,7 @@ export const CoursesPage = () => {
                       type="text"
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                       placeholder="e.g., Programming, Design"
                     />
                   </div>
@@ -558,7 +450,7 @@ export const CoursesPage = () => {
                       min="0"
                       value={formData.duration}
                       onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                       placeholder="Course duration"
                     />
                   </div>
@@ -572,7 +464,7 @@ export const CoursesPage = () => {
                     required
                     value={formData.level}
                     onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
                   >
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
@@ -590,7 +482,7 @@ export const CoursesPage = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                    className="flex-1 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
                   >
                     Create Course
                   </button>
@@ -616,7 +508,7 @@ export const CoursesPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-gray-900">Edit Course</h3>
@@ -638,7 +530,7 @@ export const CoursesPage = () => {
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="Enter course title"
                   />
                 </div>
@@ -651,7 +543,7 @@ export const CoursesPage = () => {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={4}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 resize-none"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
                     placeholder="Enter course description"
                   />
                 </div>
@@ -665,7 +557,7 @@ export const CoursesPage = () => {
                       type="text"
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                       placeholder="e.g., Programming, Design"
                     />
                   </div>
@@ -679,7 +571,7 @@ export const CoursesPage = () => {
                       min="0"
                       value={formData.duration}
                       onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                       placeholder="Course duration"
                     />
                   </div>
@@ -693,7 +585,7 @@ export const CoursesPage = () => {
                     required
                     value={formData.level}
                     onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
                   >
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
@@ -711,7 +603,7 @@ export const CoursesPage = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                    className="flex-1 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
                   >
                     Update Course
                   </button>
@@ -721,6 +613,6 @@ export const CoursesPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 };

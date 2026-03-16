@@ -1,24 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
-  IconLayoutDashboard,
-  IconUsers,
-  IconBook,
-  IconSchool,
-  IconSettings,
-  IconLogout,
   IconSearch,
   IconPlus,
-  IconFilter,
-  IconVideo,
-  IconFile,
-  IconBrandZoom,
   IconX,
   IconEdit,
   IconTrash,
   IconClock,
   IconCalendar,
   IconUserCheck,
+  IconUsers,
   IconCopy,
   IconCheck,
   IconDownload,
@@ -28,14 +18,12 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
-import { Logo, LogoIcon } from "./AdminDashboard";
 import { webinarsApi } from "@/api/endpoints/webinars";
 import type { Webinar, WebinarStatus, WebinarRegistration } from "@/types";
 import toast from "react-hot-toast";
 
 export const WebinarsPage = () => {
-  const { user, logout } = useAuthStore();
-  const [open, setOpen] = useState(false);
+  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<WebinarStatus | "all">("all");
   const [webinars, setWebinars] = useState<Webinar[]>([]);
@@ -57,59 +45,6 @@ export const WebinarsPage = () => {
     is_public: true,
     status: "scheduled" as WebinarStatus,
   });
-
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
-  };
-
-  const links = [
-    {
-      label: "Dashboard",
-      href: "/admin/dashboard",
-      icon: <IconLayoutDashboard className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Users",
-      href: "/admin/users",
-      icon: <IconUsers className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Courses",
-      href: "/admin/courses",
-      icon: <IconBook className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Batches",
-      href: "/admin/batches",
-      icon: <IconSchool className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Videos",
-      href: "/admin/videos",
-      icon: <IconVideo className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Documents",
-      href: "/admin/documents",
-      icon: <IconFile className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Live Classes",
-      href: "/admin/live-classes",
-      icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Webinars",
-      href: "/admin/webinars",
-      icon: <IconPresentation className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-    {
-      label: "Settings",
-      href: "/admin/settings",
-      icon: <IconSettings className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
-  ];
 
   useEffect(() => {
     fetchWebinars();
@@ -300,13 +235,13 @@ export const WebinarsPage = () => {
   const getStatusColor = (status: WebinarStatus) => {
     switch (status) {
       case "scheduled":
-        return { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" };
+        return { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" };
       case "ongoing":
-        return { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" };
+        return { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" };
       case "completed":
-        return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
+        return { bg: "bg-violet-100", text: "text-violet-700", dot: "bg-violet-500" };
       case "cancelled":
-        return { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500" };
+        return { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" };
       default:
         return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
     }
@@ -328,111 +263,68 @@ export const WebinarsPage = () => {
   const totalRegistrations = (webinars || []).reduce((acc, w) => acc + (w.registrations_count || 0), 0);
 
   return (
-    <div className="flex w-full h-screen bg-[#E8E6E1]">
-      <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-10">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            {open ? <Logo /> : <LogoIcon />}
-            <div className="mt-8 flex flex-col gap-1">
-              {links.map((link, idx) => (
-                <SidebarLink key={idx} link={link} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <SidebarLink
-              link={{
-                label: user?.name || "Admin",
-                href: "/admin/profile",
-                icon: (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
-                    {user?.name?.charAt(0).toUpperCase() || 'A'}
-                  </div>
-                ),
-              }}
-            />
-            <button
-              onClick={handleLogout}
-              className="mt-2 flex w-full items-center gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 text-white"
-              title="Logout"
-            >
-              <IconLogout className="h-6 w-6 shrink-0" strokeWidth={2} />
-              <motion.span
-                animate={{
-                  display: open ? "inline-block" : "none",
-                  opacity: open ? 1 : 0,
-                }}
-                className="!m-0 inline-block whitespace-pre !p-0 text-sm font-semibold"
-              >
-                Logout
-              </motion.span>
-            </button>
-          </div>
-        </SidebarBody>
-      </Sidebar>
-
+    <>
       <div className="flex flex-1 overflow-auto">
-        <div className="flex h-full w-full flex-1 flex-col gap-5 p-5 md:p-7">
+        <div className="flex h-full w-full flex-1 flex-col gap-5 p-3 sm:p-4 md:p-7">
           {/* Welcome Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-2"
           >
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-2">
               Welcome, {user?.name?.split(' ')[0] || 'Admin'}!
             </h1>
-            <p className="text-lg text-gray-500">
+            <p className="text-sm md:text-base text-gray-500">
               Manage webinars for lead generation and engagement.
             </p>
           </motion.div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3 md:gap-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] p-5 shadow-lg"
+              className="rounded-2xl bg-violet-200 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                  <IconPresentation className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-900/10 flex items-center justify-center">
+                  <IconPresentation className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-white/90">Total Webinars</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900/60">Total Webinars</span>
               </div>
-              <p className="text-4xl font-bold text-white">{totalWebinars}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{totalWebinars}</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#B4F481] to-[#9FE66F] p-5 shadow-lg"
+              className="rounded-2xl bg-emerald-200 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-[#2D2D2D]/10 flex items-center justify-center">
-                  <IconCalendar className="w-5 h-5 text-[#2D2D2D]" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-900/10 flex items-center justify-center">
+                  <IconCalendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-[#2D2D2D]/80">Upcoming</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900/60">Upcoming</span>
               </div>
-              <p className="text-4xl font-bold text-[#2D2D2D]">{upcomingWebinars}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{upcomingWebinars}</p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="rounded-[24px] bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] p-5 shadow-lg"
+              className="col-span-2 md:col-span-1 rounded-2xl bg-amber-200 p-3 sm:p-4 md:p-5 border border-gray-200"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                  <IconUserCheck className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-900/10 flex items-center justify-center">
+                  <IconUserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-gray-900" strokeWidth={2} />
                 </div>
-                <span className="text-sm font-semibold text-white/90">Total Registrations</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900/60">Total Registrations</span>
               </div>
-              <p className="text-4xl font-bold text-white">{totalRegistrations}</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{totalRegistrations}</p>
             </motion.div>
           </div>
 
@@ -441,15 +333,15 @@ export const WebinarsPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="rounded-[28px] bg-white p-6 shadow-lg"
+            className="rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200"
           >
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] flex items-center justify-center">
-                  <IconPresentation className="w-7 h-7 text-white" strokeWidth={2} />
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-violet-300 to-violet-500 flex items-center justify-center shrink-0">
+                  <IconPresentation className="w-5 h-5 sm:w-7 sm:h-7 text-white" strokeWidth={2} />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Webinars Management</h2>
+                  <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Webinars Management</h2>
                   <p className="mt-0.5 text-xs text-gray-500">
                     Showing {filteredWebinars.length} of {totalWebinars} webinars
                   </p>
@@ -457,7 +349,7 @@ export const WebinarsPage = () => {
               </div>
               <button
                 onClick={handleOpenCreateModal}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-violet-300 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all w-full sm:w-auto"
               >
                 <IconPlus className="h-4 w-4" strokeWidth={2.5} />
                 Create Webinar
@@ -473,14 +365,14 @@ export const WebinarsPage = () => {
                   placeholder="Search webinars by title or description..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                  className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                 />
               </div>
               <div className="flex gap-2.5">
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value as any)}
-                  className="rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
+                  className="rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
                 >
                   <option value="all">All Webinars</option>
                   <option value="scheduled">Upcoming</option>
@@ -501,14 +393,14 @@ export const WebinarsPage = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center h-64 rounded-[28px] bg-white shadow-lg"
+              className="flex flex-col items-center justify-center h-64 rounded-2xl bg-white border border-gray-200"
             >
               <IconPresentation className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
               <p className="text-gray-900 font-semibold text-lg mb-1">No webinars found</p>
               <p className="text-gray-500 text-sm mb-4">Try adjusting your search or create a new webinar</p>
               <button
                 onClick={handleOpenCreateModal}
-                className="flex items-center gap-2 rounded-xl bg-[#2D2D2D] px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
+                className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
               >
                 <IconPlus className="h-4 w-4" strokeWidth={2.5} />
                 Create Webinar
@@ -529,11 +421,11 @@ export const WebinarsPage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="rounded-[24px] bg-white p-5 shadow-lg hover:shadow-xl transition-all group"
+                    className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200 hover:shadow-lg transition-all group"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] text-base font-bold text-white shadow-md">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-300 to-violet-500 text-base font-bold text-white shadow-md">
                           {webinar.title.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -627,7 +519,7 @@ export const WebinarsPage = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleViewRegistrations(webinar)}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-3 py-2 text-xs font-bold text-white hover:shadow-md transition-all"
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-3 py-2 text-xs font-bold text-white hover:shadow-md transition-all"
                       >
                         <IconEye className="w-3.5 h-3.5" strokeWidth={2} />
                         View Registrations
@@ -663,7 +555,7 @@ export const WebinarsPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-gray-900">Create New Webinar</h3>
@@ -685,7 +577,7 @@ export const WebinarsPage = () => {
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="Enter webinar title"
                   />
                 </div>
@@ -698,7 +590,7 @@ export const WebinarsPage = () => {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={4}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 resize-none"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
                     placeholder="Enter webinar description"
                   />
                 </div>
@@ -713,7 +605,7 @@ export const WebinarsPage = () => {
                       required
                       value={formData.scheduled_at}
                       onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     />
                   </div>
 
@@ -727,7 +619,7 @@ export const WebinarsPage = () => {
                       min="1"
                       value={formData.duration_minutes}
                       onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || 60 })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                       placeholder="60"
                     />
                   </div>
@@ -742,7 +634,7 @@ export const WebinarsPage = () => {
                     min="1"
                     value={formData.max_attendees || ""}
                     onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="Leave empty for unlimited"
                   />
                 </div>
@@ -755,7 +647,7 @@ export const WebinarsPage = () => {
                     type="url"
                     value={formData.meeting_url}
                     onChange={(e) => setFormData({ ...formData, meeting_url: e.target.value })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="https://zoom.us/j/..."
                   />
                 </div>
@@ -766,7 +658,7 @@ export const WebinarsPage = () => {
                     id="is_public"
                     checked={formData.is_public}
                     onChange={(e) => setFormData({ ...formData, is_public: e.target.checked })}
-                    className="w-4 h-4 text-[#A78BFA] focus:ring-[#A78BFA] rounded"
+                    className="w-4 h-4 text-violet-500 focus:ring-violet-500 rounded"
                   />
                   <label htmlFor="is_public" className="text-sm font-semibold text-gray-700">
                     Make this webinar public (anyone can register)
@@ -783,7 +675,7 @@ export const WebinarsPage = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 rounded-xl bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                    className="flex-1 rounded-xl bg-gradient-to-br from-violet-300 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
                   >
                     Create Webinar
                   </button>
@@ -809,7 +701,7 @@ export const WebinarsPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-gray-900">Edit Webinar</h3>
@@ -831,7 +723,7 @@ export const WebinarsPage = () => {
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="Enter webinar title"
                   />
                 </div>
@@ -844,7 +736,7 @@ export const WebinarsPage = () => {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={4}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 resize-none"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 resize-none"
                     placeholder="Enter webinar description"
                   />
                 </div>
@@ -859,7 +751,7 @@ export const WebinarsPage = () => {
                       required
                       value={formData.scheduled_at}
                       onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     />
                   </div>
 
@@ -873,7 +765,7 @@ export const WebinarsPage = () => {
                       min="1"
                       value={formData.duration_minutes}
                       onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || 60 })}
-                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                      className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                       placeholder="60"
                     />
                   </div>
@@ -888,7 +780,7 @@ export const WebinarsPage = () => {
                     min="1"
                     value={formData.max_attendees || ""}
                     onChange={(e) => setFormData({ ...formData, max_attendees: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="Leave empty for unlimited"
                   />
                 </div>
@@ -901,7 +793,7 @@ export const WebinarsPage = () => {
                     type="url"
                     value={formData.meeting_url}
                     onChange={(e) => setFormData({ ...formData, meeting_url: e.target.value })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
                     placeholder="https://zoom.us/j/..."
                   />
                 </div>
@@ -914,7 +806,7 @@ export const WebinarsPage = () => {
                     required
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as WebinarStatus })}
-                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20 cursor-pointer"
+                    className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
                   >
                     <option value="scheduled">Scheduled</option>
                     <option value="completed">Completed</option>
@@ -928,7 +820,7 @@ export const WebinarsPage = () => {
                     id="is_public_edit"
                     checked={formData.is_public}
                     onChange={(e) => setFormData({ ...formData, is_public: e.target.checked })}
-                    className="w-4 h-4 text-[#A78BFA] focus:ring-[#A78BFA] rounded"
+                    className="w-4 h-4 text-violet-500 focus:ring-violet-500 rounded"
                   />
                   <label htmlFor="is_public_edit" className="text-sm font-semibold text-gray-700">
                     Make this webinar public (anyone can register)
@@ -945,7 +837,7 @@ export const WebinarsPage = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 rounded-xl bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                    className="flex-1 rounded-xl bg-gradient-to-br from-violet-300 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
                   >
                     Update Webinar
                   </button>
@@ -971,7 +863,7 @@ export const WebinarsPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-4xl rounded-[28px] bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-4xl rounded-[28px] bg-white p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-5 flex items-center justify-between">
                 <div>
@@ -986,7 +878,7 @@ export const WebinarsPage = () => {
                 </button>
               </div>
 
-              <div className="mb-4 flex items-center justify-between p-4 rounded-xl bg-gradient-to-br from-[#60A5FA]/20 to-[#3B82F6]/20 border border-[#60A5FA]/30">
+              <div className="mb-4 flex items-center justify-between p-4 rounded-xl bg-gradient-to-br from-blue-400/20 to-blue-500/20 border border-blue-400/30">
                 <div>
                   <p className="text-sm font-semibold text-gray-700">Total Registrations</p>
                   <p className="text-3xl font-bold text-gray-900">{registrations.length}</p>
@@ -994,7 +886,7 @@ export const WebinarsPage = () => {
                 {registrations.length > 0 && (
                   <button
                     onClick={handleExportCSV}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#60A5FA] to-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
                   >
                     <IconDownload className="h-4 w-4" strokeWidth={2} />
                     Export CSV
@@ -1052,6 +944,6 @@ export const WebinarsPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 };
