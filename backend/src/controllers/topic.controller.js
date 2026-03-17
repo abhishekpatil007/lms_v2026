@@ -74,6 +74,9 @@ export const deleteTopic = async (req, res) => {
 export const listTopicsByBatch = async (req, res) => {
     try {
         const { batch_id } = req.params;
+        const { page = 1, limit = 10, search = '' } = req.query;
+        const offset = (page - 1) * limit;
+
         const userId = req.user?.user?.id || req.user?.id;
         const role = req.user?.role;
 
@@ -92,22 +95,29 @@ export const listTopicsByBatch = async (req, res) => {
                 nest: true
             });
             const batchIds = enrollments.map(e => e.batch_id);
-            if (batchIds.length === 0) return res.json([]);
+            if (batchIds.length === 0) return res.json({ topics: [], total: 0, totalPages: 0, currentPage: parseInt(page) });
             whereClause.batch_id = batchIds;
         } else {
             whereClause.batch_id = batch_id;
         }
 
-        const topics = await Topic.findAll({
+        if (search) {
+            whereClause.title = { [db.Sequelize.Op.like]: `%${search}%` };
+        }
+
+        const { count, rows } = await Topic.findAndCountAll({
             where: whereClause,
             order: [['order_index', 'ASC'], ['created_at', 'ASC']],
-            include: [
-                { model: Video, as: 'videos' },
-                { model: Document, as: 'documents' }
-            ]
+            limit: parseInt(limit),
+            offset: parseInt(offset),
         });
 
-        res.json({ topics });
+        res.json({
+            topics: rows,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
+        });
     } catch (error) {
         logger.error(`Error listing topics: ${error.message}`);
         res.status(500).json({ message: 'Error listing topics', error: error.message });

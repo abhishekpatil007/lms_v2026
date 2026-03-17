@@ -1,7 +1,7 @@
 // src/controllers/batch.controller.js
-import { Op } from 'sequelize';;
+import { Op } from 'sequelize';
 import db from '../models/index.js';
-const { Course, Batch, User, BatchStudent } = db;
+const { Course, Batch, User, BatchStudent, Topic, Video, Document, LiveClass, Test } = db;
 import { sendWelcomeEmail, notifyInstructor } from '../services/batchEmail.service.js';
 import batchLogger from '../utils/logger/individualLogger/batchLogger.js';
 
@@ -159,14 +159,117 @@ export const getBatchById = async (req, res) => {
             return res.status(404).json({ message: 'Batch not found' });
         }
 
+        // Fetch counts for other associations for the overview summary
+        const [studentCount, topicCount, videoCount, documentCount, liveClassCount, testCount] = await Promise.all([
+            batch.countStudents(),
+            Topic.count({ where: { batch_id: batch.id, is_active: true } }),
+            Video.count({
+                where: { is_active: true },
+                include: [{
+                    model: Batch,
+                    as: 'batches',
+                    where: { id: batch.id },
+                    required: true
+                }]
+            }),
+            Document.count({
+                where: { is_active: true },
+                include: [{
+                    model: Batch,
+                    as: 'batches',
+                    where: { id: batch.id },
+                    required: true
+                }]
+            }),
+            LiveClass.count({ where: { batch_id: batch.id } }),
+            Test.count({ where: { batch_id: batch.id, is_active: true } })
+        ]);
+
         batchLogger.info(`Batch retrieved - Batch ID: ${batch.id}`);
-        res.json({ batch });
+        res.json({ 
+            batch,
+            counts: {
+                students: studentCount,
+                topics: topicCount,
+                videos: videoCount,
+                documents: documentCount,
+                liveClasses: liveClassCount,
+                tests: testCount
+            }
+        });
     } catch (err) {
         batchLogger.error(`Error in getBatchById: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
 
+
+// --------------------------
+// Admin/Instructor: Get paginated batch students
+// --------------------------
+export const getBatchStudents = async (req, res) => {
+    try {
+        const batchId = req.params.id;
+        const { page = 1, limit = 10, search = '' } = req.query;
+        const offset = (page - 1) * limit;
+
+        const batch = await Batch.findByPk(batchId);
+        if (!batch) {
+            return res.status(404).json({ message: 'Batch not found' });
+        }
+
+        const role = req.user?.role || req.user?.user?.role;
+        const userId = req.user?.id || req.user?.user?.id;
+        
+        // Instructor authorization check
+        if (role === 'instructor' && batch.instructor_id !== userId) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        // Build search filter for User inclusions
+        const userFilter = search ? {
+            [Op.or]: [
+                { name: { [Op.like]: `%${search}%` } },
+                { email: { [Op.like]: `%${search}%` } }
+            ]
+        } : {};
+
+        const { count, rows } = await BatchStudent.findAndCountAll({
+            where: { batch_id: batchId },
+            include: [{
+                model: User,
+                as: 'student',
+                attributes: ['id', 'name', 'email', 'is_active'],
+                where: userFilter, // Apply search filter to the included model
+            }],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+        });
+
+        // Extract student objects from the mapping table
+        const students = rows.map(row => row.student);
+
+        // Also get total active vs inactive count if needed
+        const activeCount = await BatchStudent.count({
+            where: { batch_id: batchId },
+            include: [{ model: User, as: 'student', where: { is_active: true } }]
+        });
+
+        batchLogger.info(`Paginated students fetched for Batch: ${batchId} - Count: ${students.length}`);
+        
+        return res.json({
+            students,
+            total: count,
+            activeCount: activeCount,
+            inactiveCount: count - activeCount,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
+        });
+    } catch (err) {
+        batchLogger.error(`Error in getBatchStudents: ${err.message}`);
+        res.status(500).json({ message: err.message });
+    }
+};
 
 // --------------------------
 // Admin: Deactivate batch

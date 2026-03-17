@@ -83,16 +83,26 @@ export const createLiveClass = async (req, res) => {
 export const getBatchLiveClasses = async (req, res) => {
     try {
         const { batch_id } = req.params;
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
 
-        const classes = await LiveClass.findAll({
+        const { count, rows } = await LiveClass.findAndCountAll({
             where: { batch_id },
-            order: [["start_time", "ASC"]],
+            order: [["start_time", "DESC"]], // Show newest first usually makes sense for pagination
+            limit: parseInt(limit),
+            offset: parseInt(offset),
         });
 
-        liveClassLogger.info(`Batch live classes retrieved - Batch ID: ${batch_id}, Count: ${classes.length}`);
+        liveClassLogger.info(`Batch live classes retrieved - Batch ID: ${batch_id}, Count: ${rows.length}`);
+        
+        // Return standard data format, but we keep data: ... for backward compatibility if needed, though best to format consistently
         res.status(200).json({
             message: "Live classes fetched successfully.",
-            data: classes,
+            data: rows, // Keep 'data' so existing logic doesn't break if not using 'liveClasses' key directly
+            liveClasses: rows,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page)
         });
     } catch (error) {
         liveClassLogger.error(`Error in getBatchLiveClasses: ${error.message}`);

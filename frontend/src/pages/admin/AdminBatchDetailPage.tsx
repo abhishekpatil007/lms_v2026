@@ -186,7 +186,7 @@ const LanguageBadge = ({ language }: { language?: string }) => {
   );
 };
 
-const cardVariants = {
+const cardVariants: any = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
@@ -202,37 +202,34 @@ export const AdminBatchDetailPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [loading, setLoading] = useState(true);
   const [batch, setBatch] = useState<Batch | null>(null);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [liveClasses, setLiveClasses] = useState<LiveClass[]>([]);
-  const [tests, setTests] = useState<Test[]>([]);
+  const [counts, setCounts] = useState<{
+    students: number;
+    topics: number;
+    videos: number;
+    documents: number;
+    liveClasses: number;
+    tests: number;
+  }>({
+    students: 0,
+    topics: 0,
+    videos: 0,
+    documents: 0,
+    liveClasses: 0,
+    tests: 0,
+  });
 
   useEffect(() => {
     if (batchId) {
-      fetchAllData();
+      fetchBatchDetails();
     }
   }, [batchId]);
 
-  const fetchAllData = async () => {
+  const fetchBatchDetails = async () => {
     try {
       setLoading(true);
-      const [batchRes, topicsRes, videosRes, documentsRes, liveClassesRes, testsRes] =
-        await Promise.all([
-          batchesApi.getById(batchId!),
-          topicsApi.listByBatch(batchId!).catch(() => ({ topics: [] })),
-          videosApi.list({ batch_id: batchId! }).catch(() => ({ videos: [] })),
-          documentsApi.list({ batch_id: batchId! }).catch(() => ({ documents: [] })),
-          liveClassesApi.listByBatch(batchId!).catch(() => ({ liveClasses: [] })),
-          testsApi.list({ batch_id: batchId! }).catch(() => ({ tests: [] })),
-        ]);
-
-      setBatch(batchRes.batch);
-      setTopics(topicsRes.topics || []);
-      setVideos(videosRes.videos || []);
-      setDocuments(documentsRes.documents || []);
-      setLiveClasses(liveClassesRes.liveClasses || []);
-      setTests(testsRes.tests || []);
+      const res = await batchesApi.getById(batchId!);
+      setBatch(res.batch);
+      setCounts(res.counts);
     } catch (error) {
       console.error("Error fetching batch details:", error);
     } finally {
@@ -272,37 +269,37 @@ export const AdminBatchDetailPage = () => {
   const statCards = [
     {
       label: "Students",
-      count: students.length,
+      count: counts.students,
       icon: <IconUsers size={22} />,
       gradient: "from-violet-500 to-purple-600",
     },
     {
       label: "Topics",
-      count: topics.length,
+      count: counts.topics,
       icon: <IconBook size={22} />,
       gradient: "from-emerald-500 to-teal-600",
     },
     {
       label: "Videos",
-      count: videos.length,
+      count: counts.videos,
       icon: <IconVideo size={22} />,
       gradient: "from-sky-500 to-blue-600",
     },
     {
       label: "Documents",
-      count: documents.length,
+      count: counts.documents,
       icon: <IconFile size={22} />,
       gradient: "from-amber-500 to-orange-600",
     },
     {
       label: "Live Classes",
-      count: liveClasses.length,
+      count: counts.liveClasses,
       icon: <IconBrandZoom size={22} />,
       gradient: "from-rose-500 to-pink-600",
     },
     {
       label: "Tests",
-      count: tests.length,
+      count: counts.tests,
       icon: <IconClipboard size={22} />,
       gradient: "from-indigo-500 to-violet-600",
     },
@@ -408,20 +405,14 @@ export const AdminBatchDetailPage = () => {
         transition={{ duration: 0.3 }}
       >
         {activeTab === "overview" && (
-          <OverviewTab
-            batch={batch}
-            videos={videos}
-            documents={documents}
-            liveClasses={liveClasses}
-            tests={tests}
-          />
+          <OverviewTab batch={batch} />
         )}
-        {activeTab === "students" && <StudentsTab students={students} />}
-        {activeTab === "topics" && <TopicsTab topics={topics} />}
-        {activeTab === "videos" && <VideosTab videos={videos} />}
-        {activeTab === "documents" && <DocumentsTab documents={documents} />}
-        {activeTab === "liveclasses" && <LiveClassesTab liveClasses={liveClasses} />}
-        {activeTab === "tests" && <TestsTab tests={tests} />}
+        {activeTab === "students" && <StudentsTab batchId={batchId!} />}
+        {activeTab === "topics" && <TopicsTab batchId={batchId!} />}
+        {activeTab === "videos" && <VideosTab batchId={batchId!} />}
+        {activeTab === "documents" && <DocumentsTab batchId={batchId!} />}
+        {activeTab === "liveclasses" && <LiveClassesTab batchId={batchId!} />}
+        {activeTab === "tests" && <TestsTab batchId={batchId!} />}
       </motion.div>
     </div>
   );
@@ -429,60 +420,13 @@ export const AdminBatchDetailPage = () => {
 
 /* --- Tab Components -------------------------------------------------------- */
 
-const OverviewTab = ({
-  batch,
-  videos,
-  documents,
-  liveClasses,
-  tests,
-}: {
-  batch: Batch;
-  videos: Video[];
-  documents: Document[];
-  liveClasses: LiveClass[];
-  tests: Test[];
-}) => {
+const OverviewTab = ({ batch }: { batch: Batch }) => {
   const now = new Date();
   const start = new Date(batch.start_date);
   const end = new Date(batch.end_date);
   const totalDuration = end.getTime() - start.getTime();
   const elapsed = now.getTime() - start.getTime();
   const progressPct = totalDuration > 0 ? Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100))) : 0;
-
-  const videosByStatus = useMemo(() => {
-    const map: Record<string, number> = {};
-    videos.forEach((v) => {
-      map[v.upload_status] = (map[v.upload_status] || 0) + 1;
-    });
-    return map;
-  }, [videos]);
-
-  const testsByStatus = useMemo(() => {
-    const map: Record<string, number> = {};
-    tests.forEach((t) => {
-      map[t.status] = (map[t.status] || 0) + 1;
-    });
-    return map;
-  }, [tests]);
-
-  const classesByTime = useMemo(() => {
-    const upcoming = liveClasses.filter((lc) => new Date(lc.start_time) > now);
-    const past = liveClasses.filter((lc) => new Date(lc.start_time) <= now);
-    return { upcoming: upcoming.length, past: past.length };
-  }, [liveClasses]);
-
-  // Upcoming schedule: merge live classes and tests, sort by date
-  const upcomingEvents = useMemo(() => {
-    const events: { type: "class" | "test"; title: string; date: string; status: string }[] = [];
-    liveClasses
-      .filter((lc) => new Date(lc.start_time) > now)
-      .forEach((lc) => events.push({ type: "class", title: lc.topic, date: lc.start_time, status: lc.status }));
-    tests
-      .filter((t) => new Date(t.start_time) > now)
-      .forEach((t) => events.push({ type: "test", title: t.title, date: t.start_time, status: t.status }));
-    events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return events.slice(0, 5);
-  }, [liveClasses, tests]);
 
   return (
     <div className="space-y-6">
@@ -513,220 +457,102 @@ const OverviewTab = ({
         </p>
       </div>
 
-      {/* Content Summary */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Videos summary */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 p-1.5 text-white">
-              <IconVideo size={16} />
-            </div>
-            <span className="text-sm font-semibold text-gray-700">Videos</span>
-            <span className="ml-auto text-lg font-bold text-gray-900">{videos.length}</span>
-          </div>
-          <div className="space-y-1 text-xs text-gray-500">
-            {Object.entries(videosByStatus).map(([status, count]) => (
-              <div key={status} className="flex justify-between">
-                <span className="capitalize">{status}</span>
-                <span className="font-medium">{count}</span>
-              </div>
-            ))}
-            {videos.length === 0 && <span className="text-gray-400">No videos yet</span>}
-          </div>
-        </div>
-
-        {/* Documents summary */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 p-1.5 text-white">
-              <IconFile size={16} />
-            </div>
-            <span className="text-sm font-semibold text-gray-700">Documents</span>
-            <span className="ml-auto text-lg font-bold text-gray-900">{documents.length}</span>
-          </div>
-          <div className="space-y-1 text-xs text-gray-500">
-            {(() => {
-              const byType: Record<string, number> = {};
-              documents.forEach((d) => { byType[d.file_type] = (byType[d.file_type] || 0) + 1; });
-              return Object.entries(byType).map(([type, count]) => (
-                <div key={type} className="flex justify-between">
-                  <span className="uppercase">{type}</span>
-                  <span className="font-medium">{count}</span>
-                </div>
-              ));
-            })()}
-            {documents.length === 0 && <span className="text-gray-400">No documents yet</span>}
-          </div>
-        </div>
-
-        {/* Live Classes summary */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 p-1.5 text-white">
-              <IconBrandZoom size={16} />
-            </div>
-            <span className="text-sm font-semibold text-gray-700">Live Classes</span>
-            <span className="ml-auto text-lg font-bold text-gray-900">{liveClasses.length}</span>
-          </div>
-          <div className="space-y-1 text-xs text-gray-500">
-            <div className="flex justify-between">
-              <span>Upcoming</span>
-              <span className="font-medium">{classesByTime.upcoming}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Completed</span>
-              <span className="font-medium">{classesByTime.past}</span>
-            </div>
-            {liveClasses.length === 0 && <span className="text-gray-400">No classes yet</span>}
-          </div>
-        </div>
-
-        {/* Tests summary */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 p-1.5 text-white">
-              <IconClipboard size={16} />
-            </div>
-            <span className="text-sm font-semibold text-gray-700">Tests</span>
-            <span className="ml-auto text-lg font-bold text-gray-900">{tests.length}</span>
-          </div>
-          <div className="space-y-1 text-xs text-gray-500">
-            {Object.entries(testsByStatus).map(([status, count]) => (
-              <div key={status} className="flex justify-between">
-                <span className="capitalize">{status}</span>
-                <span className="font-medium">{count}</span>
-              </div>
-            ))}
-            {tests.length === 0 && <span className="text-gray-400">No tests yet</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* Upcoming Schedule + Batch Info */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Upcoming Schedule */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-            Upcoming Schedule
-          </h3>
-          {upcomingEvents.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-400">No upcoming events</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingEvents.map((event, i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
-                  <div
-                    className={cn(
-                      "shrink-0 rounded-lg p-1.5 text-white",
-                      event.type === "class"
-                        ? "bg-gradient-to-br from-rose-500 to-pink-600"
-                        : "bg-gradient-to-br from-indigo-500 to-violet-600"
-                    )}
-                  >
-                    {event.type === "class" ? <IconBrandZoom size={14} /> : <IconClipboard size={14} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">{event.title}</p>
-                    <p className="text-xs text-gray-500">{formatDateTime(event.date)}</p>
-                  </div>
-                  <span className="shrink-0 text-xs font-medium text-violet-600">
-                    {relativeTime(event.date)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Batch Info + Course/Instructor (compact) */}
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Batch Details
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Registration Info
             </h3>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Status</dt>
-                <dd><StatusBadge status={batch.status} /></dd>
-              </div>
-              {batch.description && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-violet-50 p-2 text-violet-600">
+                   <IconSchool size={20} />
+                </div>
                 <div>
-                  <dt className="mb-0.5 text-gray-500">Description</dt>
-                  <dd className="text-gray-700">{batch.description}</dd>
+                  <p className="text-xs font-medium text-gray-500">Course</p>
+                  <p className="text-sm font-semibold text-gray-900">{batch.course?.title}</p>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Duration</dt>
-                <dd className="font-medium text-gray-900">
-                  {formatDate(batch.start_date)} &ndash; {formatDate(batch.end_date)}
-                </dd>
               </div>
-              {batch.createdAt && (
-                <div className="flex justify-between">
-                  <dt className="text-gray-500">Created</dt>
-                  <dd className="font-medium text-gray-900">{formatDate(batch.createdAt)}</dd>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600">
+                   <IconUsers size={20} />
                 </div>
-              )}
-            </dl>
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Instructor</p>
+                  <p className="text-sm font-semibold text-gray-900">{batch.instructor?.name || "Not assigned"}</p>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {batch.course && (
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 p-1.5 text-white">
-                    <IconSchool size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{batch.course.title}</p>
-                    <p className="text-[10px] text-gray-400">Course</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {batch.instructor && (
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 p-1.5 text-white">
-                    <IconUsers size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{batch.instructor.name}</p>
-                    <p className="truncate text-[10px] text-gray-400">{batch.instructor.email}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Description */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Description
+          </h3>
+          <p className="text-sm leading-relaxed text-gray-600">
+            {batch.description || "No description provided for this batch."}
+          </p>
         </div>
       </div>
     </div>
   );
 };
 
-const StudentsTab = ({ students }: { students: Batch["students"] }) => {
-  const list = students || [];
+
+const StudentsTab = ({ batchId }: { batchId: string }) => {
+  const [list, setList] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [loading, setLoading] = useState(false);
+  
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
+  const itemsPerPage = 10;
 
-  const filtered = useMemo(() => {
-    return list.filter((s) => {
-      const matchesSearch =
-        !search ||
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.email.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" && s.is_active) ||
-        (statusFilter === "inactive" && !s.is_active);
-      return matchesSearch && matchesStatus;
-    });
-  }, [list, search, statusFilter]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
-  const activeCount = list.filter((s) => s.is_active).length;
-  const inactiveCount = list.length - activeCount;
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchStudents();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [batchId, currentPage, search]);
 
-  if (list.length === 0) {
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const res = await batchesApi.getStudents(batchId, {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: search.trim() !== "" ? search.trim() : undefined
+      });
+      setList(res.students);
+      setTotalPages(res.totalPages || 1);
+      setTotalStudents(res.total || 0);
+      setActiveCount(res.activeCount || 0);
+    } catch (error) {
+      console.error("Error fetching paginated students:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && list.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-violet-500" />
+      </div>
+    );
+  }
+
+  if (!loading && list.length === 0 && !search) {
     return (
       <EmptyState
         icon={<IconUsers size={32} />}
@@ -751,12 +577,10 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-semibold text-gray-900">
-            {list.length} Student{list.length !== 1 ? "s" : ""}
+            {totalStudents} Student{totalStudents !== 1 ? "s" : ""}
           </h3>
           <div className="flex gap-1.5">
-            <FilterPill label="All" active={statusFilter === "all"} count={list.length} onClick={() => setStatusFilter("all")} />
-            {/* <FilterPill label="Active" active={statusFilter === "active"} count={activeCount} onClick={() => setStatusFilter("active")} />
-            <FilterPill label="Inactive" active={statusFilter === "inactive"} count={inactiveCount} onClick={() => setStatusFilter("inactive")} /> */}
+            <FilterPill label="All" active={true} count={totalStudents} onClick={() => {}} />
           </div>
         </div>
         <div className="relative">
@@ -783,7 +607,7 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((student, i) => (
+              {list.map((student, i) => (
                 <motion.tr
                   key={student.id}
                   custom={i}
@@ -806,31 +630,19 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
                       {student.email}
                     </span>
                   </td>
-                  {/* <td className="px-6 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                        student.is_active
-                          ? "border-emerald-200 bg-emerald-100 text-emerald-700"
-                          : "border-rose-200 bg-rose-100 text-rose-700"
-                      )}
-                    >
-                      {student.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td> */}
                 </motion.tr>
               ))}
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-gray-400">No students match your filters.</p>
+        {!loading && list.length === 0 && (
+          <p className="py-8 text-center text-sm text-gray-400">No students match your search.</p>
         )}
       </div>
 
       {/* Mobile Cards */}
       <div className="space-y-3 md:hidden">
-        {filtered.map((student, i) => (
+        {list.map((student, i) => (
           <motion.div
             key={student.id}
             custom={i}
@@ -847,28 +659,75 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
                 <p className="truncate font-semibold text-gray-900">{student.name}</p>
                 <p className="truncate text-xs text-gray-500">{student.email}</p>
               </div>
-              {/* <span
-                className={cn(
-                  "shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                  student.is_active
-                    ? "border-emerald-200 bg-emerald-100 text-emerald-700"
-                    : "border-rose-200 bg-rose-100 text-rose-700"
-                )}
-              >
-                {student.is_active ? "Active" : "Inactive"}
-              </span> */}
             </div>
           </motion.div>
         ))}
-        {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-gray-400">No students match your filters.</p>
+        {!loading && list.length === 0 && (
+          <p className="py-8 text-center text-sm text-gray-400">No students match your search.</p>
         )}
       </div>
+      
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-bold text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-const TopicsTab = ({ topics }: { topics: Topic[] }) => {
+const TopicsTab = ({ batchId }: { batchId: string }) => {
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    fetchTopics();
+  }, [batchId, currentPage]);
+
+  const fetchTopics = async () => {
+    try {
+      setLoading(true);
+      const res = await topicsApi.listByBatch(batchId, {
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+      setTopics(res.topics || []);
+      setTotalPages(res.totalPages || 1);
+    } catch (error) {
+      console.error("Error fetching topics:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && topics.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-violet-500" />
+      </div>
+    );
+  }
+
   if (topics.length === 0) {
     return (
       <EmptyState
@@ -908,30 +767,70 @@ const TopicsTab = ({ topics }: { topics: Topic[] }) => {
           </div>
         </motion.div>
       ))}
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-bold text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-const VideosTab = ({ videos }: { videos: Video[] }) => {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+const VideosTab = ({ batchId }: { batchId: string }) => {
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 6; // Grid looks better with 6
 
-  const statusCounts = useMemo(() => {
-    const map: Record<string, number> = { all: videos.length };
-    videos.forEach((v) => {
-      map[v.upload_status] = (map[v.upload_status] || 0) + 1;
-    });
-    return map;
-  }, [videos]);
+  // For VideosTab, we might want a server-side status filter if we had it, 
+  // but let's just use the server-side pagination for now and remove the local status filter 
+  // since it would only filter the current page anyway.
+  useEffect(() => {
+    fetchVideos();
+  }, [batchId, currentPage]);
 
-  const filtered = useMemo(
-    () => (statusFilter === "all" ? videos : videos.filter((v) => v.upload_status === statusFilter)),
-    [videos, statusFilter]
-  );
+  const fetchVideos = async () => {
+    try {
+      setLoading(true);
+      const res = await videosApi.list({
+        batch_id: batchId,
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+      setVideos(res.videos || []);
+      setTotalPages(res.totalPages || 1);
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const totalDuration = useMemo(
-    () => videos.reduce((acc, v) => acc + (v.duration || 0), 0),
-    [videos]
-  );
+  if (loading && videos.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-violet-500" />
+      </div>
+    );
+  }
 
   if (videos.length === 0) {
     return (
@@ -943,34 +842,18 @@ const VideosTab = ({ videos }: { videos: Video[] }) => {
     );
   }
 
-  const statusOptions = ["all", "ready", "processing", "uploading", "errored"];
-
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          {statusOptions.map((s) =>
-            statusCounts[s] !== undefined || s === "all" ? (
-              <FilterPill
-                key={s}
-                label={s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                active={statusFilter === s}
-                count={statusCounts[s] || 0}
-                onClick={() => setStatusFilter(s)}
-              />
-            ) : null
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 text-sm text-gray-500">
-          <IconClock size={14} />
-          <span>Total: <span className="font-semibold text-gray-700">{formatDuration(totalDuration)}</span></span>
+           <FilterPill label="All" active={true} count={videos.length} onClick={() => {}} />
         </div>
       </div>
 
       {/* Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((video, i) => (
+        {videos.map((video, i) => (
           <motion.div
             key={video.id}
             custom={i}
@@ -1002,27 +885,72 @@ const VideosTab = ({ videos }: { videos: Video[] }) => {
           </motion.div>
         ))}
       </div>
+      
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-bold text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-const DocumentsTab = ({ documents }: { documents: Document[] }) => {
+const DocumentsTab = ({ batchId }: { batchId: string }) => {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 6;
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  const typeCounts = useMemo(() => {
-    const map: Record<string, number> = { all: documents.length };
-    documents.forEach((d) => {
-      map[d.file_type] = (map[d.file_type] || 0) + 1;
-    });
-    return map;
-  }, [documents]);
+  useEffect(() => {
+    fetchDocuments();
+  }, [batchId, currentPage, typeFilter]);
 
-  const filtered = useMemo(
-    () => (typeFilter === "all" ? documents : documents.filter((d) => d.file_type === typeFilter)),
-    [documents, typeFilter]
-  );
+  const fetchDocuments = async () => {
+    try {
+      setLoading(true);
+      const res = await documentsApi.list({
+        batch_id: batchId,
+        page: currentPage,
+        limit: itemsPerPage,
+        file_type: typeFilter === "all" ? undefined : (typeFilter as any),
+      });
+      setDocuments(res.documents || []);
+      setTotalPages(res.totalPages || 1);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (documents.length === 0) {
+  if (loading && documents.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-violet-500" />
+      </div>
+    );
+  }
+
+  if (!loading && documents.length === 0 && typeFilter === "all") {
     return (
       <EmptyState
         icon={<IconFile size={32} />}
@@ -1032,7 +960,8 @@ const DocumentsTab = ({ documents }: { documents: Document[] }) => {
     );
   }
 
-  const typeOptions = ["all", ...Object.keys(typeCounts).filter((k) => k !== "all")];
+  // Common file types for filter
+  const typeOptions = ["all", "pdf", "docx", "pptx", "xlsx", "txt", "zip"];
 
   return (
     <div className="space-y-4">
@@ -1043,15 +972,17 @@ const DocumentsTab = ({ documents }: { documents: Document[] }) => {
             key={t}
             label={t === "all" ? "All" : t.toUpperCase()}
             active={typeFilter === t}
-            count={typeCounts[t] || 0}
-            onClick={() => setTypeFilter(t)}
+            onClick={() => {
+              setTypeFilter(t);
+              setCurrentPage(1);
+            }}
           />
         ))}
       </div>
 
       {/* Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((doc, i) => (
+        {documents.map((doc, i) => (
           <motion.div
             key={doc.id}
             custom={i}
@@ -1082,18 +1013,65 @@ const DocumentsTab = ({ documents }: { documents: Document[] }) => {
           </motion.div>
         ))}
       </div>
+
+      {!loading && documents.length === 0 && (
+        <p className="py-8 text-center text-sm text-gray-400">No documents match your filter.</p>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-bold text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-const LiveClassesTab = ({ liveClasses }: { liveClasses: LiveClass[] }) => {
+const LiveClassesTab = ({ batchId }: { batchId: string }) => {
+  const [liveClasses, setLiveClasses] = useState<LiveClass[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 6;
   const [timeFilter, setTimeFilter] = useState<"all" | "upcoming" | "past">("all");
   const now = new Date();
 
-  const counts = useMemo(() => {
-    const upcoming = liveClasses.filter((lc) => new Date(lc.start_time) > now).length;
-    return { all: liveClasses.length, upcoming, past: liveClasses.length - upcoming };
-  }, [liveClasses]);
+  useEffect(() => {
+    fetchLiveClasses();
+  }, [batchId, currentPage]);
+
+  const fetchLiveClasses = async () => {
+    try {
+      setLoading(true);
+      const res = await liveClassesApi.listByBatch(batchId, {
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+      setLiveClasses(res.liveClasses || []);
+      setTotalPages(res.totalPages || 1);
+    } catch (error) {
+      console.error("Error fetching live classes:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const sorted = [...liveClasses].sort(
@@ -1104,7 +1082,15 @@ const LiveClassesTab = ({ liveClasses }: { liveClasses: LiveClass[] }) => {
     return sorted;
   }, [liveClasses, timeFilter]);
 
-  if (liveClasses.length === 0) {
+  if (loading && liveClasses.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-violet-500" />
+      </div>
+    );
+  }
+
+  if (!loading && liveClasses.length === 0 && timeFilter === "all") {
     return (
       <EmptyState
         icon={<IconBrandZoom size={32} />}
@@ -1118,9 +1104,9 @@ const LiveClassesTab = ({ liveClasses }: { liveClasses: LiveClass[] }) => {
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <FilterPill label="All" active={timeFilter === "all"} count={counts.all} onClick={() => setTimeFilter("all")} />
-        <FilterPill label="Upcoming" active={timeFilter === "upcoming"} count={counts.upcoming} onClick={() => setTimeFilter("upcoming")} />
-        <FilterPill label="Past" active={timeFilter === "past"} count={counts.past} onClick={() => setTimeFilter("past")} />
+        <FilterPill label="All" active={timeFilter === "all"} onClick={() => setTimeFilter("all")} />
+        <FilterPill label="Upcoming" active={timeFilter === "upcoming"} onClick={() => setTimeFilter("upcoming")} />
+        <FilterPill label="Past" active={timeFilter === "past"} onClick={() => setTimeFilter("past")} />
       </div>
 
       {/* Grid */}
@@ -1187,27 +1173,76 @@ const LiveClassesTab = ({ liveClasses }: { liveClasses: LiveClass[] }) => {
           );
         })}
       </div>
+
+      {!loading && filtered.length === 0 && (
+        <p className="py-8 text-center text-sm text-gray-400">No classes match your filter.</p>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-bold text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
-const TestsTab = ({ tests }: { tests: Test[] }) => {
+const TestsTab = ({ batchId }: { batchId: string }) => {
+  const [tests, setTests] = useState<Test[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 6;
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const statusCounts = useMemo(() => {
-    const map: Record<string, number> = { all: tests.length };
-    tests.forEach((t) => {
-      map[t.status] = (map[t.status] || 0) + 1;
-    });
-    return map;
-  }, [tests]);
+  useEffect(() => {
+    fetchTests();
+  }, [batchId, currentPage, statusFilter]);
 
-  const filtered = useMemo(
-    () => (statusFilter === "all" ? tests : tests.filter((t) => t.status === statusFilter)),
-    [tests, statusFilter]
-  );
+  const fetchTests = async () => {
+    try {
+      setLoading(true);
+      const res = await testsApi.list({
+        batch_id: batchId,
+        page: currentPage,
+        limit: itemsPerPage,
+        status: statusFilter === "all" ? undefined : statusFilter,
+      });
+      setTests(res.tests || []);
+      setTotalPages(res.totalPages || 1);
+    } catch (error) {
+      console.error("Error fetching tests:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (tests.length === 0) {
+  if (loading && tests.length === 0) {
+    return (
+      <div className="flex justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-violet-500" />
+      </div>
+    );
+  }
+
+  if (!loading && tests.length === 0 && statusFilter === "all") {
     return (
       <EmptyState
         icon={<IconClipboard size={32} />}
@@ -1228,15 +1263,17 @@ const TestsTab = ({ tests }: { tests: Test[] }) => {
             key={s}
             label={s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
             active={statusFilter === s}
-            count={statusCounts[s] || 0}
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              setStatusFilter(s);
+              setCurrentPage(1);
+            }}
           />
         ))}
       </div>
 
       {/* Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((test, i) => {
+        {tests.map((test, i) => {
           const questionCount = test.blocks?.reduce((acc, b) => acc + (b.total_questions || 0), 0) || 0;
           return (
             <motion.div
@@ -1281,14 +1318,40 @@ const TestsTab = ({ tests }: { tests: Test[] }) => {
                   <IconCalendar size={12} />
                   {formatDate(test.start_time)} &ndash; {formatDate(test.end_time)}
                 </p>
-                <p className="mt-0.5 text-[10px]">
-                  {formatDateTime(test.start_time)} &ndash; {formatDateTime(test.end_time)}
-                </p>
               </div>
             </motion.div>
           );
         })}
       </div>
+
+      {!loading && tests.length === 0 && (
+        <p className="py-8 text-center text-sm text-gray-400">No tests match your filter.</p>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-bold text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
+
+export default AdminBatchDetailPage;

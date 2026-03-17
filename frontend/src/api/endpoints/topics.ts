@@ -12,11 +12,19 @@ export const topicsApi = {
     return response.data;
   },
 
-  listByBatch: async (batchId: string): Promise<{ topics: Topic[] }> => {
-    const response = await apiClient.get(`/api/topics/batch/${batchId}`);
+  listByBatch: async (
+    batchId: string,
+    params?: { page?: number; limit?: number; search?: string }
+  ): Promise<{ topics: Topic[]; total?: number; totalPages?: number; currentPage?: number }> => {
+    const response = await apiClient.get(`/api/topics/batch/${batchId}`, { params });
     // Handle both { topics: [...] } and direct array [...] from backend
     const topics = Array.isArray(response.data) ? response.data : (response.data.topics || []);
-    return { topics };
+    return { 
+      topics,
+      total: response.data.total,
+      totalPages: response.data.totalPages,
+      currentPage: response.data.currentPage
+    };
   },
 
   update: async (

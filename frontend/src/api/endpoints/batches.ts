@@ -13,8 +13,26 @@ export const batchesApi = {
     return response.data;
   },
 
-  getById: async (id: string): Promise<{ batch: Batch }> => {
+  getById: async (id: string): Promise<{ 
+    batch: Batch; 
+    counts: { 
+      students: number; 
+      topics: number; 
+      videos: number; 
+      documents: number; 
+      liveClasses: number; 
+      tests: number; 
+    } 
+  }> => {
     const response = await apiClient.get(`/api/batches/${id}`);
+    return response.data;
+  },
+
+  getStudents: async (
+    id: string,
+    params?: { page?: number; limit?: number; search?: string }
+  ): Promise<{ students: any[]; total: number; activeCount: number; inactiveCount: number; totalPages: number; currentPage: number }> => {
+    const response = await apiClient.get(`/api/batches/${id}/students`, { params });
     return response.data;
   },
 

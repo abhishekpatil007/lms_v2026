@@ -25,9 +25,17 @@ export const liveClassesApi = {
   /**
    * List live classes for a batch
    */
-  listByBatch: async (batchId: string): Promise<{ liveClasses: LiveClass[] }> => {
-    const response = await apiClient.get(`/api/live-classes/batch/${batchId}`);
-    return { liveClasses: response.data.data };
+  listByBatch: async (
+    batchId: string,
+    params?: { page?: number; limit?: number; search?: string }
+  ): Promise<{ liveClasses: LiveClass[]; total: number; totalPages: number; currentPage: number }> => {
+    const response = await apiClient.get(`/api/live-classes/batch/${batchId}`, { params });
+    return { 
+      liveClasses: response.data.data, 
+      total: response.data.total || 0,
+      totalPages: response.data.totalPages || 1,
+      currentPage: response.data.currentPage || 1
+    };
   },
 
   /**
