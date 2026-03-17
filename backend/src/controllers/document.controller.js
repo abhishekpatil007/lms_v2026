@@ -85,6 +85,9 @@ export const listDocuments = async (req, res) => {
         // query filters
         if (req.query.language) filters.language = req.query.language;
         if (req.query.visibility) filters.visibility = req.query.visibility;
+        if (req.query.search) {
+            filters.title = { [Op.like]: `%${req.query.search}%` };
+        }
 
         if (role === 'admin') {
             const { page = 1, limit = 10 } = req.query;

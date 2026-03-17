@@ -2,7 +2,13 @@ import apiClient from '../client';
 import type { Test, Block, Question } from '../../types';
 
 export const testsApi = {
-    list: async (params?: { batch_id?: string }): Promise<{ tests: Test[] }> => {
+    list: async (params?: { 
+        batch_id?: string;
+        status?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{ tests: Test[]; total?: number; page?: number; totalPages?: number }> => {
         const response = await apiClient.get('/api/tests', { params });
         return response.data;
     },

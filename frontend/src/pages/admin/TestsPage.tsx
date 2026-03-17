@@ -36,18 +36,39 @@ export const TestsPage = () => {
         shuffle_questions: false,
     });
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const itemsPerPage = 9;
+
     useEffect(() => {
-        fetchTests();
+        setCurrentPage(1);
+    }, [filterBatch, filterStatus, searchQuery]);
+
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            fetchTests();
+        }, 300);
+        return () => clearTimeout(delayDebounceFn);
+    }, [currentPage, filterBatch, filterStatus, searchQuery]);
+
+    useEffect(() => {
         fetchBatches();
-    }, [filterBatch]);
+    }, []);
 
     const fetchTests = async () => {
         try {
             setLoading(true);
-            const params: Record<string, string> = {};
+            const params: Record<string, any> = {
+                page: currentPage,
+                limit: itemsPerPage
+            };
             if (filterBatch !== "all") params.batch_id = filterBatch;
-            const { tests: data } = await testsApi.list(params);
-            setTests(data);
+            if (filterStatus !== "all") params.status = filterStatus;
+            if (searchQuery.trim() !== "") params.search = searchQuery.trim();
+            
+            const response = await testsApi.list(params);
+            setTests(response.tests);
+            if (response.totalPages) setTotalPages(response.totalPages);
         } catch (error) {
             console.error("Error fetching tests:", error);
         } finally {
@@ -91,11 +112,7 @@ export const TestsPage = () => {
         }
     };
 
-    const filteredTests = (tests || []).filter((test) => {
-        const matchesSearch = test.title.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = filterStatus === "all" || test.status === filterStatus;
-        return matchesSearch && matchesStatus;
-    });
+    const filteredTests = tests || [];
 
     return (
         <>
@@ -211,8 +228,9 @@ export const TestsPage = () => {
                             </button>
                         </motion.div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                            {(filteredTests || []).map((test, idx) => (
+                        <>
+                            <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                                {(filteredTests || []).map((test, idx) => (
                                 <motion.div
                                     key={test.id}
                                     initial={{ opacity: 0, y: 20 }}
@@ -275,6 +293,30 @@ export const TestsPage = () => {
                                 </motion.div>
                             ))}
                         </div>
+                        
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-3 mt-8 pb-4">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-sm font-bold text-gray-700 px-2">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
+                    </>
                     )}
                 </div>
             </div >

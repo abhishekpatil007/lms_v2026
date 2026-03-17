@@ -26,11 +26,19 @@ export const documentsApi = {
     language?: string;
     batch_id?: string;
     file_type?: DocumentType;
-  }): Promise<{ documents: Document[] }> => {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ documents: Document[]; total?: number; totalPages?: number; currentPage?: number }> => {
     const response = await apiClient.get('/api/documents', { params });
     // Robustly handle both { documents: [...] } and direct array [...] from backend
     const documents = Array.isArray(response.data) ? response.data : (response.data.documents || []);
-    return { documents };
+    return { 
+      documents, 
+      total: response.data.total, 
+      totalPages: response.data.totalPages, 
+      currentPage: response.data.currentPage 
+    };
   },
 
   /**

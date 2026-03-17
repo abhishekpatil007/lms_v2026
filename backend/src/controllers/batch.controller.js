@@ -5,29 +5,7 @@ const { Course, Batch, User, BatchStudent } = db;
 import { sendWelcomeEmail, notifyInstructor } from '../services/batchEmail.service.js';
 import batchLogger from '../utils/logger/individualLogger/batchLogger.js';
 
-// --------------------------
-// Helper: Auto-update batch status
-// --------------------------
-const updateBatchStatusIfNeeded = async (batch) => {
-    const today = new Date();
-    let newStatus = batch.status;
 
-    if (batch.start_date && batch.end_date) {
-        const start = new Date(batch.start_date);
-        const end = new Date(batch.end_date);
-
-        if (today < start) newStatus = 'draft';
-        else if (today >= start && today <= end) newStatus = 'ongoing';
-        else if (today > end) newStatus = 'completed';
-    }
-
-    if (newStatus !== batch.status) {
-        await batch.update({ status: newStatus });
-        batch.status = newStatus;
-    }
-
-    return batch;
-};
 
 // --------------------------
 // Admin: Create Batch
@@ -103,7 +81,11 @@ export const updateBatch = async (req, res) => {
 // --------------------------
 export const listBatches = async (req, res) => {
     try {
-        const { status, course_id } = req.query;
+        let { status, course_id, search, page = 1, limit = 10 } = req.query;
+        page = parseInt(page, 10) || 1;
+        limit = parseInt(limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
         const instructorId = req.user.user.id;
         const where = {
             is_active: true,
@@ -114,8 +96,11 @@ export const listBatches = async (req, res) => {
 
         if (status) where.status = status;
         if (course_id) where.course_id = course_id;
+        if (search) {
+            where.batch_name = { [Op.like]: `%${search}%` };
+        }
 
-        const batches = await Batch.findAll({
+        const { count, rows: batches } = await Batch.findAndCountAll({
             where,
             include: [
                 { model: User, as: 'instructor', attributes: ['id', 'name', 'email'] },
@@ -131,12 +116,19 @@ export const listBatches = async (req, res) => {
                 { model: Course, as: 'course' },
             ],
             order: [['createdAt', 'DESC']],
+            limit,
+            offset,
+            distinct: true, // required to get accurate counts when including many-to-many models
         });
 
-        await Promise.all(batches.map(updateBatchStatusIfNeeded));
-
-        batchLogger.info(`Batches listed - Count: ${batches.length}, Role: ${req.user.user.role}`);
-        res.json({ batches });
+        batchLogger.info(`Batches listed - Page: ${page}, Limit: ${limit}, Count: ${count}, Role: ${req.user.user.role}`);
+        res.json({ 
+            batches,
+            total: count,
+            page,
+            limit,
+            totalPages: Math.ceil(count / limit)
+         });
     } catch (err) {
         batchLogger.error(`Error in listBatches: ${err.message}`);
         res.status(500).json({ message: err.message });

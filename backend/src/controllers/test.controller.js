@@ -197,26 +197,43 @@ export const publishTest = async (req, res) => {
 
 export const listTests = async (req, res) => {
     try {
-        const { batch_id } = req.query;
+        let { batch_id, status, search, page = 1, limit = 10 } = req.query;
+        page = parseInt(page, 10) || 1;
+        limit = parseInt(limit, 10) || 10;
+        const offset = (page - 1) * limit;
+
         const where = {};
 
         if (batch_id) where.batch_id = batch_id;
+        if (status) where.status = status;
+
+        if (search) {
+            where.title = { [db.Sequelize.Op.like]: `%${search}%` };
+        }
 
         // If student, only show published tests
         if (req.user.user.role === 'student') {
             where.status = 'published';
         }
 
-        const tests = await Test.findAll({
+        const { count, rows: tests } = await Test.findAndCountAll({
             where,
             include: [
                 { model: Batch, as: 'batch', attributes: ['id', 'batch_name'] },
                 { model: User, as: 'creator', attributes: ['id', 'name'] }
             ],
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
+            limit,
+            offset
         });
 
-        res.json({ tests });
+        res.json({
+            tests,
+            total: count,
+            page,
+            limit,
+            totalPages: Math.ceil(count / limit)
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error listing tests', error: error.message });
     }

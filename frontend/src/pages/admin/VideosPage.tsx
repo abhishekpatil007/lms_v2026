@@ -32,19 +32,39 @@ export const VideosPage = () => {
   const [selectedVideoForBatch, setSelectedVideoForBatch] = useState<Video | null>(null);
   const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 9;
+
   useEffect(() => {
-    fetchVideos();
+    setCurrentPage(1);
+  }, [filterStatus, filterLanguage, searchQuery]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchVideos();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [currentPage, filterStatus, filterLanguage, searchQuery]);
+
+  useEffect(() => {
     fetchBatches();
-  }, [filterStatus, filterLanguage]);
+  }, []);
 
   const fetchVideos = async () => {
     try {
       setLoading(true);
-      const params: Record<string, string> = {};
+      const params: Record<string, any> = {
+        page: currentPage,
+        limit: itemsPerPage
+      };
       if (filterStatus !== "all") params.upload_status = filterStatus;
       if (filterLanguage !== "all") params.language = filterLanguage;
-      const { videos: data } = await videosApi.list(params as any);
-      setVideos(data);
+      if (searchQuery.trim() !== "") params.search = searchQuery.trim();
+      
+      const response = await videosApi.list(params);
+      setVideos(response.videos);
+      if (response.totalPages) setTotalPages(response.totalPages);
     } catch (error) {
       console.error("Error fetching videos:", error);
     } finally {
@@ -66,11 +86,7 @@ export const VideosPage = () => {
     }
   };
 
-  const filteredVideos = (videos || []).filter(
-    (video) =>
-      video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      video.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVideos = videos || [];
 
   const getStatusColor = (status: VideoStatus) => {
     switch (status) {
@@ -300,8 +316,9 @@ export const VideosPage = () => {
               <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 xl:grid-cols-3">
-              {filteredVideos.map((video, idx) => {
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                {filteredVideos.map((video, idx) => {
                 const statusColor = getStatusColor(video.upload_status);
                 const isReady = video.upload_status === "ready";
                 return (
@@ -426,6 +443,30 @@ export const VideosPage = () => {
                 );
               })}
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-3 mt-8 pb-4">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-bold text-gray-700 px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
           )}
         </div>
       </div>

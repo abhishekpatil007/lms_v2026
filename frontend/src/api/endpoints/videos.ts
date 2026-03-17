@@ -53,11 +53,19 @@ export const videosApi = {
     batch_id?: string;
     language?: string;
     upload_status?: VideoStatus;
-  }): Promise<{ videos: Video[] }> => {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ videos: Video[]; total?: number; totalPages?: number; currentPage?: number }> => {
     const response = await apiClient.get('/api/videos', { params });
     // Robustly handle both { videos: [...] } and direct array [...] from backend
     const videos = Array.isArray(response.data) ? response.data : (response.data.videos || []);
-    return { videos };
+    return { 
+      videos, 
+      total: response.data.total, 
+      totalPages: response.data.totalPages, 
+      currentPage: response.data.currentPage 
+    };
   },
 
   /**

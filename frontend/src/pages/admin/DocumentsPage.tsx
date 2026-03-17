@@ -29,18 +29,40 @@ export const DocumentsPage = () => {
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 9;
+
   useEffect(() => {
-    fetchDocuments();
+    setCurrentPage(1);
+  }, [filterLanguage, filterFileType, searchQuery]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchDocuments();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [currentPage, filterLanguage, filterFileType, searchQuery]);
+
+  useEffect(() => {
     fetchLanguages();
     fetchBatches();
-  }, [filterLanguage]);
+  }, []);
 
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const params = filterLanguage !== "all" ? { language: filterLanguage } : {};
-      const { documents: data } = await documentsApi.list(params);
-      setDocuments(data);
+      const params: Record<string, any> = {
+        page: currentPage,
+        limit: itemsPerPage
+      };
+      if (filterLanguage !== "all") params.language = filterLanguage;
+      if (filterFileType !== "all") params.file_type = filterFileType as DocumentType;
+      if (searchQuery.trim() !== "") params.search = searchQuery.trim();
+
+      const response = await documentsApi.list(params);
+      setDocuments(response.documents);
+      if (response.totalPages) setTotalPages(response.totalPages);
     } catch (error) {
       console.error("Error fetching documents:", error);
     } finally {
@@ -66,14 +88,7 @@ export const DocumentsPage = () => {
     }
   };
 
-  const filteredDocuments = (documents || []).filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (doc.file_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFileType =
-      filterFileType === "all" || doc.file_type === filterFileType;
-    return matchesSearch && matchesFileType;
-  });
+  const filteredDocuments = documents || [];
 
   // Derive unique file types from fetched documents for filter pills
   const availableFileTypes = Array.from(
@@ -310,6 +325,29 @@ export const DocumentsPage = () => {
                   </div>
                 </motion.div>
               ))}
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-3 mt-8 pb-4">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                Previous
+              </button>
+              <span className="text-sm font-bold text-gray-700 px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>

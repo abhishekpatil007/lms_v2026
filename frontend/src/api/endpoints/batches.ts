@@ -5,7 +5,10 @@ export const batchesApi = {
   list: async (params?: {
     status?: BatchStatus;
     course_id?: number;
-  }): Promise<{ batches: Batch[] }> => {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ batches: Batch[]; total?: number; page?: number; totalPages?: number }> => {
     const response = await apiClient.get('/api/batches', { params });
     return response.data;
   },

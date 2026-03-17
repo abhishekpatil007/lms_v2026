@@ -39,20 +39,40 @@ export const BatchesPage = () => {
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
   const [showTopicManager, setShowTopicManager] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 9;
+
   useEffect(() => {
-    fetchBatches();
+    setCurrentPage(1);
+  }, [filterStatus, filterCourse, searchQuery]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchBatches();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [currentPage, filterStatus, filterCourse, searchQuery]);
+
+  useEffect(() => {
     fetchCourses();
     fetchUsers();
-  }, [filterStatus, filterCourse]);
+  }, []);
 
   const fetchBatches = async () => {
     try {
       setLoading(true);
-      const params: Record<string, any> = {};
+      const params: Record<string, any> = {
+        page: currentPage,
+        limit: itemsPerPage
+      };
       if (filterStatus !== "all") params.status = filterStatus;
       if (filterCourse !== "all") params.course_id = Number(filterCourse);
-      const { batches: data } = await batchesApi.list(params);
-      setBatches(data);
+      if (searchQuery.trim() !== "") params.search = searchQuery.trim();
+      
+      const response = await batchesApi.list(params);
+      setBatches(response.batches);
+      if (response.totalPages) setTotalPages(response.totalPages);
     } catch (error) {
       console.error("Error fetching batches:", error);
     } finally {
@@ -111,12 +131,7 @@ export const BatchesPage = () => {
     }
   };
 
-  const filteredBatches = (batches || []).filter(
-    (batch) =>
-      batch.batch_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      batch.course?.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      batch.instructor?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredBatches = batches || [];
 
   const getStatusColor = (status: BatchStatus) => {
     switch (status) {
@@ -320,8 +335,9 @@ export const BatchesPage = () => {
               <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 xl:grid-cols-3">
-              {(filteredBatches || []).map((batch, idx) => {
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 xl:grid-cols-3">
+                {(filteredBatches || []).map((batch, idx) => {
                 const statusColor = getStatusColor(batch.status);
                 const isOngoing = batch.status === "ongoing";
                 return (
@@ -523,6 +539,30 @@ export const BatchesPage = () => {
                 );
               })}
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-3 mt-8 pb-4">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-bold text-gray-700 px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
           )}
         </div>
       </div>

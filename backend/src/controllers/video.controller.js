@@ -244,6 +244,9 @@ export const listVideos = async (req, res) => {
         // query filters
         if (req.query.language) filters.language = req.query.language;
         if (req.query.upload_status) filters.upload_status = req.query.upload_status;
+        if (req.query.search) {
+            filters.title = { [Op.like]: `%${req.query.search}%` };
+        }
 
         // For many-to-many, we'll fetch videos that are associated to relevant batches
         if (role === 'admin') {
