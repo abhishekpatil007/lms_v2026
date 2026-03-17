@@ -755,8 +755,8 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
           </h3>
           <div className="flex gap-1.5">
             <FilterPill label="All" active={statusFilter === "all"} count={list.length} onClick={() => setStatusFilter("all")} />
-            <FilterPill label="Active" active={statusFilter === "active"} count={activeCount} onClick={() => setStatusFilter("active")} />
-            <FilterPill label="Inactive" active={statusFilter === "inactive"} count={inactiveCount} onClick={() => setStatusFilter("inactive")} />
+            {/* <FilterPill label="Active" active={statusFilter === "active"} count={activeCount} onClick={() => setStatusFilter("active")} />
+            <FilterPill label="Inactive" active={statusFilter === "inactive"} count={inactiveCount} onClick={() => setStatusFilter("inactive")} /> */}
           </div>
         </div>
         <div className="relative">
@@ -779,7 +779,7 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
               <tr className="border-b border-gray-100 text-left">
                 <th className="px-6 py-3 font-semibold text-gray-500">Student</th>
                 <th className="px-6 py-3 font-semibold text-gray-500">Email</th>
-                <th className="px-6 py-3 font-semibold text-gray-500">Status</th>
+                {/* <th className="px-6 py-3 font-semibold text-gray-500">Status</th> */}
               </tr>
             </thead>
             <tbody>
@@ -806,7 +806,7 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
                       {student.email}
                     </span>
                   </td>
-                  <td className="px-6 py-3">
+                  {/* <td className="px-6 py-3">
                     <span
                       className={cn(
                         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
@@ -817,7 +817,7 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
                     >
                       {student.is_active ? "Active" : "Inactive"}
                     </span>
-                  </td>
+                  </td> */}
                 </motion.tr>
               ))}
             </tbody>
@@ -847,7 +847,7 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
                 <p className="truncate font-semibold text-gray-900">{student.name}</p>
                 <p className="truncate text-xs text-gray-500">{student.email}</p>
               </div>
-              <span
+              {/* <span
                 className={cn(
                   "shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
                   student.is_active
@@ -856,7 +856,7 @@ const StudentsTab = ({ students }: { students: Batch["students"] }) => {
                 )}
               >
                 {student.is_active ? "Active" : "Inactive"}
-              </span>
+              </span> */}
             </div>
           </motion.div>
         ))}
