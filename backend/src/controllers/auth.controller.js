@@ -269,8 +269,12 @@ export async function refresh(req, res) {
         const newRefreshToken = signRefreshToken({ userId: payload.userId });
         await RefreshToken.create({ user_id: payload.userId, token_hash: sha256Hex(newRefreshToken), expires_at: refreshTokenExpiryDate() });
 
-        const accessToken = signAccessToken({ userId: payload.userId, user: { id: user.id, name: user.name, email: user.email, role: user.role }, role: payload.role || 'student' });
-        authLogger.info(`Token refreshed successfully - User ID: ${payload.userId}`);
+        const accessToken = signAccessToken({ 
+            userId: user.id, 
+            user: { id: user.id, name: user.name, email: user.email, role: user.role }, 
+            role: user.role 
+        });
+        authLogger.info(`Token refreshed successfully - User ID: ${payload.userId}, Role: ${user.role}`);
         return res.json({ accessToken, refreshToken: newRefreshToken });
     } catch (err) {
         authLogger.error(`Error in refresh: ${err.message}`);
