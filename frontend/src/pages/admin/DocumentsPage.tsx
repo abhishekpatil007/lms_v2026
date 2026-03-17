@@ -80,9 +80,10 @@ export const DocumentsPage = () => {
     new Set((documents || []).map((d) => d.file_type).filter(Boolean))
   ) as string[];
 
-  const getFileIcon = (fileType: DocumentType) => {
+  const getFileIcon = (fileType: DocumentType | string) => {
     if (fileType === "pdf") return <IconFileTypePdf className="w-8 h-8" strokeWidth={1.5} />;
     if (fileType === "doc" || fileType === "docx") return <IconFileTypeDoc className="w-8 h-8" strokeWidth={1.5} />;
+    if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(fileType.toLowerCase())) return <IconFileTypeDoc className="w-8 h-8" strokeWidth={1.5} />; // Reusing Doc icon or can substitute with an image icon later if tabler-icons has it
     return <IconFile className="w-8 h-8" strokeWidth={1.5} />;
   };
 
@@ -459,7 +460,7 @@ const UploadDocumentModal = ({
             <input
               type="file"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt"
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.gif,.webp,.svg"
               className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
             />
           </div>
