@@ -32,12 +32,7 @@ router.get('/:id/playback', verifyToken, getPlaybackUrl);
 // Delete (instructor owning batch or admin)
 router.delete('/:id', verifyToken, requireRole(['instructor', 'admin']), deleteVideo);
 
-// Webhook - must use raw body parser in route registration (see below)
-import expressRaw from 'express';
-router.post('/webhooks/mux', expressRaw.raw({ type: 'application/json' }), (req, res, next) => {
-    // attach rawBody so controller can use it
-    req.rawBody = req.body;
-    return muxWebhookHandler(req, res, next);
-});
+// Webhook - raw body parsing is handled in app.js before express.json()
+router.post('/webhooks/mux', muxWebhookHandler);
 
 export default router;

@@ -34,6 +34,10 @@ const logger = createModuleLogger('app');
 
 const app = express();
 app.use(cors());
+
+// Mux webhook needs raw body for signature verification — must be before express.json()
+app.use('/api/videos/webhooks/mux', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 const server = http.createServer(app);
