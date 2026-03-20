@@ -207,7 +207,7 @@ export const StudentVideosPage = () => {
 
         const topicList: Topic[] = topics.map(t => ({
             ...t,
-            videos: sortVideos(filtered.filter(v => v.topic_id === t.id))
+            videos: sortVideos(filtered.filter(v => String(v.topic_id) === String(t.id)))
         }));
 
         const untrackedVideos = filtered.filter(v => !v.topic_id);
