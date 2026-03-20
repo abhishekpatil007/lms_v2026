@@ -136,12 +136,12 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed inset-0 z-[100] flex h-full w-full flex-col justify-between bg-white p-10",
+                "fixed inset-0 z-[100] flex h-full w-full flex-col justify-between bg-white p-5 sm:p-10",
                 className
               )}
             >
               <div
-                className="absolute right-10 top-10 z-50 text-gray-700 cursor-pointer"
+                className="absolute right-5 top-5 sm:right-10 sm:top-10 z-50 text-gray-700 cursor-pointer"
                 onClick={() => setOpen(!open)}
               >
                 <IconX />

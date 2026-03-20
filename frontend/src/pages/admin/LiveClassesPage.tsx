@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   IconSchool,
   IconSearch,
@@ -10,60 +10,216 @@ import {
   IconTrash,
   IconCheck,
   IconAlertCircle,
+  IconCircleCheck,
+  IconSortAscending,
+  IconFilter,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/authStore";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { LiveClass, LiveClassStatus, Batch } from "@/types";
 
+// ---------------------------------------------------------------------------
+// Toast notification system (same pattern as VideosPage)
+// ---------------------------------------------------------------------------
+interface Toast {
+  id: number;
+  type: "success" | "error" | "info";
+  message: string;
+}
+let toastId = 0;
+
+const ToastContainer = ({
+  toasts,
+  onDismiss,
+}: {
+  toasts: Toast[];
+  onDismiss: (id: number) => void;
+}) => (
+  <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+    <AnimatePresence>
+      {toasts.map((t) => (
+        <motion.div
+          key={t.id}
+          initial={{ opacity: 0, x: 60, scale: 0.95 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 60, scale: 0.95 }}
+          className={cn(
+            "flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg border text-sm font-medium",
+            t.type === "success" && "bg-emerald-50 border-emerald-200 text-emerald-800",
+            t.type === "error" && "bg-red-50 border-red-200 text-red-800",
+            t.type === "info" && "bg-blue-50 border-blue-200 text-blue-800"
+          )}
+        >
+          {t.type === "success" && <IconCircleCheck className="w-5 h-5 text-emerald-500 shrink-0" />}
+          {t.type === "error" && <IconAlertCircle className="w-5 h-5 text-red-500 shrink-0" />}
+          {t.type === "info" && <IconBrandZoom className="w-5 h-5 text-blue-500 shrink-0" />}
+          <span className="flex-1">{t.message}</span>
+          <button onClick={() => onDismiss(t.id)} className="text-gray-400 hover:text-gray-600 shrink-0">
+            <IconX className="w-4 h-4" />
+          </button>
+        </motion.div>
+      ))}
+    </AnimatePresence>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Sort helpers
+// ---------------------------------------------------------------------------
+type SortOption = "newest" | "oldest" | "topic_az" | "topic_za";
+const sortLabels: Record<SortOption, string> = {
+  newest: "Newest First",
+  oldest: "Oldest First",
+  topic_az: "Topic A \u2192 Z",
+  topic_za: "Topic Z \u2192 A",
+};
+const applySortClasses = (classes: LiveClass[], sort: SortOption): LiveClass[] => {
+  const sorted = [...classes];
+  switch (sort) {
+    case "newest":
+      return sorted.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+    case "oldest":
+      return sorted.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    case "topic_az":
+      return sorted.sort((a, b) => a.topic.localeCompare(b.topic));
+    case "topic_za":
+      return sorted.sort((a, b) => b.topic.localeCompare(a.topic));
+    default:
+      return sorted;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Skeleton card for loading state
+// ---------------------------------------------------------------------------
+const SkeletonCard = () => (
+  <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200 animate-pulse">
+    <div className="flex items-center gap-4">
+      <div className="w-14 h-14 rounded-xl bg-gray-200 shrink-0" />
+      <div className="flex-1 min-w-0 space-y-2.5">
+        <div className="h-4 bg-gray-200 rounded-lg w-2/3" />
+        <div className="flex items-center gap-3">
+          <div className="h-3 bg-gray-100 rounded w-20" />
+          <div className="h-3 bg-gray-100 rounded w-16" />
+          <div className="h-3 bg-gray-100 rounded w-14" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-6 bg-gray-100 rounded-full w-24" />
+          <div className="h-6 bg-gray-100 rounded-full w-28" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="h-9 bg-gray-200 rounded-xl w-24" />
+        <div className="h-9 w-9 bg-gray-100 rounded-xl" />
+      </div>
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 export const LiveClassesPage = () => {
-  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<LiveClassStatus | "all">("all");
-  const [liveClasses, setLiveClasses] = useState<LiveClass[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [allClasses, setAllClasses] = useState<LiveClass[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  useEffect(() => {
-    fetchBatches();
+  // Toast state
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const addToast = useCallback((type: Toast["type"], message: string) => {
+    const id = ++toastId;
+    setToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  }, []);
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  // Fetch batches on mount, then fetch all classes
   useEffect(() => {
-    if (selectedBatch !== "all") {
-      fetchLiveClassesByBatch(selectedBatch);
-    }
-  }, [selectedBatch]);
+    fetchAllData();
+  }, []);
 
-  const fetchBatches = async () => {
-    try {
-      const { batches: data } = await batchesApi.list();
-      setBatches(data);
-    } catch (error) {
-      console.error("Error fetching batches:", error);
-    }
-  };
-
-  const fetchLiveClassesByBatch = async (batchId: string) => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      const { liveClasses: data } = await liveClassesApi.listByBatch(batchId);
-      setLiveClasses(data);
+      const { batches: batchData } = await batchesApi.list();
+      setBatches(batchData);
+
+      if (batchData.length > 0) {
+        await fetchAllClasses(batchData);
+      } else {
+        setAllClasses([]);
+      }
     } catch (error) {
-      console.error("Error fetching live classes:", error);
+      console.error("Error fetching data:", error);
+      addToast("error", "Failed to load data. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredClasses = (liveClasses || []).filter((cls) => {
-    const matchesSearch = cls.topic.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === "all" || cls.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const fetchAllClasses = async (batchList: Batch[]) => {
+    try {
+      const results = await Promise.allSettled(
+        batchList.map((batch) => liveClassesApi.listByBatch(batch.id))
+      );
+
+      const merged: LiveClass[] = [];
+      const seen = new Set<number>();
+
+      results.forEach((result) => {
+        if (result.status === "fulfilled" && result.value?.liveClasses) {
+          result.value.liveClasses.forEach((cls: LiveClass) => {
+            if (!seen.has(cls.id)) {
+              seen.add(cls.id);
+              merged.push(cls);
+            }
+          });
+        }
+      });
+
+      setAllClasses(merged);
+    } catch (error) {
+      console.error("Error fetching all classes:", error);
+      addToast("error", "Failed to load live classes.");
+    }
+  };
+
+  // Derive filtered + sorted classes
+  const filteredClasses = useMemo(() => {
+    let classes = [...allClasses];
+
+    // Batch filter
+    if (selectedBatch !== "all") {
+      classes = classes.filter((cls) => cls.batch_id === selectedBatch);
+    }
+
+    // Status filter
+    if (filterStatus !== "all") {
+      classes = classes.filter((cls) => cls.status === filterStatus);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      classes = classes.filter(
+        (cls) =>
+          cls.topic.toLowerCase().includes(q) ||
+          cls.description?.toLowerCase().includes(q) ||
+          cls.batch?.batch_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return applySortClasses(classes, sortBy);
+  }, [allClasses, selectedBatch, filterStatus, searchQuery, sortBy]);
 
   const getStatusColor = (status: LiveClassStatus) => {
     switch (status) {
@@ -88,102 +244,157 @@ export const LiveClassesPage = () => {
     };
   };
 
-  const handleDelete = async (classId: number) => {
-    if (!confirm("Are you sure you want to delete this live class?")) return;
+  const handleDelete = async (cls: LiveClass) => {
+    if (!confirm(`Delete "${cls.topic}"? This action cannot be undone.`)) return;
 
     try {
-      await liveClassesApi.delete(classId);
-      if (selectedBatch !== "all") {
-        await fetchLiveClassesByBatch(selectedBatch);
-      }
+      await liveClassesApi.delete(cls.id);
+      setAllClasses((prev) => prev.filter((c) => c.id !== cls.id));
+      addToast("success", `"${cls.topic}" deleted successfully`);
     } catch (error) {
       console.error("Error deleting live class:", error);
-      alert("Failed to delete live class");
+      addToast("error", "Failed to delete live class. Please try again.");
     }
   };
 
+  const handleCreateSuccess = async () => {
+    setShowCreateModal(false);
+    addToast("success", "Live class scheduled successfully!");
+    // Reload all data
+    if (batches.length > 0) {
+      setLoading(true);
+      await fetchAllClasses(batches);
+      setLoading(false);
+    }
+  };
+
+  // Active filters detection
+  const hasActiveFilters =
+    filterStatus !== "all" || selectedBatch !== "all" || searchQuery.trim() !== "" || sortBy !== "newest";
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setFilterStatus("all");
+    setSelectedBatch("all");
+    setSortBy("newest");
+  };
+
+  // Stats
+  const scheduledCount = allClasses.filter((c) => c.status === "scheduled").length;
+  const liveCount = allClasses.filter((c) => c.status === "live").length;
+  const completedCount = allClasses.filter((c) => c.status === "completed").length;
+
+  // Empty state helpers
+  const isFilteredEmpty = filteredClasses.length === 0 && !loading;
+  const isCompletelyEmpty = allClasses.length === 0 && !loading;
+
   return (
     <>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <div className="flex flex-1 overflow-auto">
-        <div className="flex h-full w-full flex-1 flex-col gap-6 p-3 sm:p-4 md:p-7">
+        <div className="flex h-full w-full flex-1 flex-col gap-4 sm:gap-6 p-3 sm:p-4 md:p-7">
           {/* Welcome Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
+            className="flex flex-col sm:flex-row sm:items-end justify-between gap-3"
           >
-            <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-2">
-              Live Classes
-            </h1>
-            <p className="text-sm md:text-base text-gray-500">
-              Schedule and manage Zoom live classes for your batches.
-            </p>
+            <div>
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-2">
+                Live Classes
+              </h1>
+              <p className="text-sm md:text-base text-gray-500">
+                Schedule and manage Zoom live classes for your batches.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 w-full sm:w-auto shrink-0"
+            >
+              <IconPlus className="h-4 w-4" strokeWidth={2.5} />
+              Schedule Class
+            </button>
           </motion.div>
 
-          {/* Header Card */}
+          {/* Stats Summary */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200"
+            className="grid grid-cols-2 gap-2.5 sm:gap-3 md:gap-5 md:grid-cols-4"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md shrink-0">
-                  <IconBrandZoom className="w-5 h-5 sm:w-7 sm:h-7 text-white" strokeWidth={2} />
+            <div className="rounded-2xl bg-blue-50 p-3 sm:p-4 md:p-5 border border-blue-100">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-200 flex items-center justify-center">
+                  <IconBrandZoom className="w-4 h-4 sm:w-5 sm:h-5 text-blue-700" strokeWidth={2} />
                 </div>
-                <div>
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Scheduled Classes</h2>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {(liveClasses || []).length} total classes
-                  </p>
-                </div>
+                <p className="text-xs font-semibold text-gray-500">Total Classes</p>
               </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                disabled={selectedBatch === "all"}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 w-full sm:w-auto"
-              >
-                <IconPlus className="h-4 w-4" strokeWidth={2.5} />
-                Schedule Class
-              </button>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{allClasses.length}</p>
             </div>
 
-            {/* Search & Batch Selector */}
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              <div className="relative flex-1">
-                <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
-                <input
-                  type="text"
-                  placeholder="Search classes by title..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
-                />
+            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <IconCalendar className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" strokeWidth={2} />
+                </div>
+                <p className="text-xs font-semibold text-gray-500">Scheduled</p>
               </div>
-              <select
-                value={selectedBatch}
-                onChange={(e) => setSelectedBatch(e.target.value)}
-                className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
-              >
-                <option value="all">Select Batch</option>
-                {(batches || []).map((batch) => (
-                  <option key={batch.id} value={batch.id}>
-                    {batch.batch_name}
-                  </option>
-                ))}
-              </select>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{scheduledCount}</p>
             </div>
 
-            {/* Status Filter Pills */}
-            <div className="flex flex-wrap items-center gap-2 mt-3">
+            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <IconCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" strokeWidth={2} />
+                </div>
+                <p className="text-xs font-semibold text-gray-500">Live Now</p>
+              </div>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{liveCount}</p>
+            </div>
+
+            <div className="rounded-2xl bg-violet-50 p-3 sm:p-4 md:p-5 border border-violet-100">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-violet-200 flex items-center justify-center">
+                  <IconCheck className="w-4 h-4 sm:w-5 sm:h-5 text-violet-700" strokeWidth={2} />
+                </div>
+                <p className="text-xs font-semibold text-gray-500">Completed</p>
+              </div>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{completedCount}</p>
+            </div>
+          </motion.div>
+
+          {/* Filters & Search */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-2xl bg-white p-4 sm:p-5 border border-gray-200 space-y-3"
+          >
+            {/* Search bar */}
+            <div className="relative">
+              <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
+              <input
+                type="text"
+                placeholder="Search classes by topic, description, or batch..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border-0 bg-gray-50 py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+              />
+            </div>
+
+            {/* Filter row */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Status pills */}
               <span className="text-xs font-semibold text-gray-500 mr-1">Status:</span>
               {(["all", "scheduled", "live", "completed", "cancelled"] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
                   className={cn(
-                    "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+                    "rounded-xl px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-xs font-semibold transition-all",
                     filterStatus === status
                       ? "bg-gray-900 text-white shadow-sm"
                       : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
@@ -192,11 +403,105 @@ export const LiveClassesPage = () => {
                   {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
                 </button>
               ))}
+
+              <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
+
+              {/* Batch filter */}
+              <div className="flex items-center gap-1.5">
+                <IconFilter className="w-3.5 h-3.5 text-gray-400" />
+                <select
+                  value={selectedBatch}
+                  onChange={(e) => setSelectedBatch(e.target.value)}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer max-w-[130px] sm:max-w-[160px]"
+                >
+                  <option value="all">All Batches</option>
+                  {(batches || []).map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.batch_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort */}
+              <div className="flex items-center gap-1.5 sm:ml-auto">
+                <IconSortAscending className="w-3.5 h-3.5 text-gray-400" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
+                >
+                  {Object.entries(sortLabels).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {/* Active filter chips */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <span className="text-xs text-gray-400">Active filters:</span>
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                    &ldquo;{searchQuery}&rdquo;
+                    <button onClick={() => setSearchQuery("")} className="hover:text-gray-900">
+                      <IconX className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {filterStatus !== "all" && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                    {filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+                    <button onClick={() => setFilterStatus("all")} className="hover:text-gray-900">
+                      <IconX className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedBatch !== "all" && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                    {batches.find((b) => b.id === selectedBatch)?.batch_name || "Batch"}
+                    <button onClick={() => setSelectedBatch("all")} className="hover:text-gray-900">
+                      <IconX className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {sortBy !== "newest" && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                    {sortLabels[sortBy]}
+                    <button onClick={() => setSortBy("newest")} className="hover:text-gray-900">
+                      <IconX className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                <button
+                  onClick={clearAllFilters}
+                  className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors ml-1"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </motion.div>
 
           {/* Classes List */}
-          {selectedBatch === "all" ? (
+          {loading ? (
+            <div className="grid grid-cols-1 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + i * 0.05 }}
+                >
+                  <SkeletonCard />
+                </motion.div>
+              ))}
+            </div>
+          ) : isCompletelyEmpty ? (
+            /* No classes at all */
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -206,34 +511,10 @@ export const LiveClassesPage = () => {
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4">
                 <IconBrandZoom className="w-10 h-10 text-white" strokeWidth={1.5} />
               </div>
-              <p className="text-gray-900 font-semibold text-base mb-1">Select a Batch</p>
-              <p className="text-gray-500 text-sm">Choose a batch to view its live classes</p>
-            </motion.div>
-          ) : loading ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center justify-center h-64 rounded-2xl bg-white border border-gray-200"
-            >
-              <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-3 animate-pulse">
-                  <IconBrandZoom className="w-6 h-6 text-white" />
-                </div>
-                <p className="text-gray-500 text-sm font-medium">Loading classes...</p>
-              </div>
-            </motion.div>
-          ) : filteredClasses.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-col items-center justify-center h-64 rounded-2xl bg-white border border-gray-200"
-            >
-              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                <IconBrandZoom className="w-10 h-10 text-gray-400" strokeWidth={1.5} />
-              </div>
-              <p className="text-gray-900 font-semibold text-base mb-1">No classes scheduled</p>
-              <p className="text-gray-500 text-sm mb-4">Schedule your first live class for this batch</p>
+              <p className="text-gray-900 font-semibold text-base mb-1">No live classes yet</p>
+              <p className="text-gray-500 text-sm mb-4">
+                Get started by scheduling your first Zoom live class
+              </p>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
@@ -242,9 +523,34 @@ export const LiveClassesPage = () => {
                 Schedule Class
               </button>
             </motion.div>
+          ) : isFilteredEmpty ? (
+            /* Classes exist but filters yield nothing */
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="flex flex-col items-center justify-center h-64 rounded-2xl bg-white border border-gray-200"
+            >
+              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <IconSearch className="w-10 h-10 text-gray-400" strokeWidth={1.5} />
+              </div>
+              <p className="text-gray-900 font-semibold text-base mb-1">No classes match your filters</p>
+              <p className="text-gray-500 text-sm mb-4">
+                {selectedBatch !== "all"
+                  ? `No classes found in "${batches.find((b) => b.id === selectedBatch)?.batch_name || "this batch"}" with the current filters`
+                  : "Try adjusting your search or filter criteria"}
+              </p>
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-2 rounded-xl bg-gray-100 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-all"
+              >
+                <IconX className="h-4 w-4" strokeWidth={2.5} />
+                Clear All Filters
+              </button>
+            </motion.div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {(filteredClasses || []).map((cls, idx) => {
+              {filteredClasses.map((cls, idx) => {
                 const statusColor = getStatusColor(cls.status);
                 const { date, time } = formatDateTime(cls.start_time);
                 const StatusIcon = statusColor.icon;
@@ -268,20 +574,20 @@ export const LiveClassesPage = () => {
                         <h3 className="font-bold text-base text-gray-900 mb-1">
                           {cls.topic}
                         </h3>
-                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-2 flex-wrap">
                           <span className="flex items-center gap-1">
                             <IconCalendar className="w-3.5 h-3.5" strokeWidth={2} />
                             {date}
                           </span>
-                          <span>•</span>
+                          <span className="hidden sm:inline">&#8226;</span>
                           <span className="flex items-center gap-1">
                             <IconClock className="w-3.5 h-3.5" strokeWidth={2} />
                             {time}
                           </span>
-                          <span>•</span>
+                          <span className="hidden sm:inline">&#8226;</span>
                           <span>{cls.duration} min</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={cn(
                               "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold shadow-sm",
@@ -302,16 +608,17 @@ export const LiveClassesPage = () => {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         {cls.status === "scheduled" && (
                           <button className="rounded-xl px-4 py-2.5 text-sm font-bold bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-lg transition-all flex items-center gap-2">
                             <IconBrandZoom className="w-4 h-4" strokeWidth={2} />
-                            Join Class
+                            <span className="hidden sm:inline">Join Class</span>
                           </button>
                         )}
                         <button
-                          onClick={() => handleDelete(cls.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-red-600 hover:text-red-700 p-2"
+                          onClick={() => handleDelete(cls)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-xl transition-all"
+                          title="Delete class"
                         >
                           <IconTrash className="w-4 h-4" strokeWidth={2} />
                         </button>
@@ -319,7 +626,7 @@ export const LiveClassesPage = () => {
                     </div>
 
                     {cls.description && (
-                      <div className="mt-3 pl-[72px]">
+                      <div className="mt-3 pl-0 sm:pl-[72px]">
                         <p className="text-sm text-gray-600">{cls.description}</p>
                       </div>
                     )}
@@ -336,13 +643,9 @@ export const LiveClassesPage = () => {
         {showCreateModal && (
           <CreateLiveClassModal
             onClose={() => setShowCreateModal(false)}
-            onSuccess={() => {
-              setShowCreateModal(false);
-              if (selectedBatch !== "all") {
-                fetchLiveClassesByBatch(selectedBatch);
-              }
-            }}
-            batchId={selectedBatch}
+            onSuccess={handleCreateSuccess}
+            batchId={selectedBatch !== "all" ? selectedBatch : undefined}
+            batches={batches}
           />
         )}
       </AnimatePresence>
@@ -350,17 +653,22 @@ export const LiveClassesPage = () => {
   );
 };
 
+// ---------------------------------------------------------------------------
 // Create Live Class Modal Component
+// ---------------------------------------------------------------------------
 const CreateLiveClassModal = ({
   onClose,
   onSuccess,
   batchId,
+  batches,
 }: {
   onClose: () => void;
   onSuccess: () => void;
-  batchId: string;
+  batchId?: string;
+  batches: Batch[];
 }) => {
   const [formData, setFormData] = useState({
+    batch_id: batchId || "",
     topic: "",
     description: "",
     start_time: "",
@@ -373,6 +681,10 @@ const CreateLiveClassModal = ({
     e.preventDefault();
     setError("");
 
+    if (!formData.batch_id) {
+      setError("Please select a batch");
+      return;
+    }
     if (!formData.topic || !formData.start_time) {
       setError("Please fill in all required fields");
       return;
@@ -381,7 +693,7 @@ const CreateLiveClassModal = ({
     try {
       setLoading(true);
       await liveClassesApi.create({
-        batch_id: batchId,
+        batch_id: formData.batch_id,
         topic: formData.topic,
         description: formData.description || undefined,
         start_time: formData.start_time,
@@ -443,6 +755,27 @@ const CreateLiveClassModal = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Batch Selector — shown when no batchId was pre-selected */}
+          {!batchId && (
+            <div>
+              <label className="block text-sm font-bold text-gray-900 mb-2.5">
+                Batch <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.batch_id}
+                onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer"
+              >
+                <option value="">Select a batch...</option>
+                {(batches || []).map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {batch.batch_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Title */}
           <div>
             <label className="block text-sm font-bold text-gray-900 mb-2.5">

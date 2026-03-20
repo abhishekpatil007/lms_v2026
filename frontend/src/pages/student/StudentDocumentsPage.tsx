@@ -20,6 +20,7 @@ import {
     IconCalendar,
     IconLanguage,
     IconUser,
+    IconPhoto,
 } from '@tabler/icons-react';
 import { documentsApi } from '@/api/endpoints/documents';
 import { topicsApi } from '@/api/endpoints/topics';
@@ -56,6 +57,36 @@ const fileTypeConfig: Record<string, { icon: React.ReactNode; iconLg: React.Reac
         iconLg: <IconFileTypePpt className="w-10 h-10 text-orange-500" />,
         color: 'text-orange-500', bg: 'bg-orange-50', bgLight: 'bg-orange-50/60', border: 'border-orange-100', label: 'PPTX',
     },
+    png: {
+        icon: <IconPhoto className="w-6 h-6 text-emerald-500" />,
+        iconLg: <IconPhoto className="w-10 h-10 text-emerald-500" />,
+        color: 'text-emerald-500', bg: 'bg-emerald-50', bgLight: 'bg-emerald-50/60', border: 'border-emerald-100', label: 'PNG',
+    },
+    jpg: {
+        icon: <IconPhoto className="w-6 h-6 text-emerald-500" />,
+        iconLg: <IconPhoto className="w-10 h-10 text-emerald-500" />,
+        color: 'text-emerald-500', bg: 'bg-emerald-50', bgLight: 'bg-emerald-50/60', border: 'border-emerald-100', label: 'JPG',
+    },
+    jpeg: {
+        icon: <IconPhoto className="w-6 h-6 text-emerald-500" />,
+        iconLg: <IconPhoto className="w-10 h-10 text-emerald-500" />,
+        color: 'text-emerald-500', bg: 'bg-emerald-50', bgLight: 'bg-emerald-50/60', border: 'border-emerald-100', label: 'JPEG',
+    },
+    gif: {
+        icon: <IconPhoto className="w-6 h-6 text-teal-500" />,
+        iconLg: <IconPhoto className="w-10 h-10 text-teal-500" />,
+        color: 'text-teal-500', bg: 'bg-teal-50', bgLight: 'bg-teal-50/60', border: 'border-teal-100', label: 'GIF',
+    },
+    webp: {
+        icon: <IconPhoto className="w-6 h-6 text-emerald-500" />,
+        iconLg: <IconPhoto className="w-10 h-10 text-emerald-500" />,
+        color: 'text-emerald-500', bg: 'bg-emerald-50', bgLight: 'bg-emerald-50/60', border: 'border-emerald-100', label: 'WEBP',
+    },
+    svg: {
+        icon: <IconPhoto className="w-6 h-6 text-cyan-500" />,
+        iconLg: <IconPhoto className="w-10 h-10 text-cyan-500" />,
+        color: 'text-cyan-500', bg: 'bg-cyan-50', bgLight: 'bg-cyan-50/60', border: 'border-cyan-100', label: 'SVG',
+    },
 };
 const defaultFileType = {
     icon: <IconFileText className="w-6 h-6 text-gray-500" />,
@@ -75,14 +106,17 @@ const DocumentPreviewModal: React.FC<{
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
     const isPdf = doc?.file_type?.toLowerCase() === 'pdf';
+    const imageTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
+    const isImage = imageTypes.includes(doc?.file_type?.toLowerCase() || '');
+    const canPreview = isPdf || isImage;
 
     useEffect(() => {
-        if (!doc || !isPdf) { setPreviewUrl(null); return; }
+        if (!doc || !canPreview) { setPreviewUrl(null); return; }
         let url: string | null = null;
         setLoadingPreview(true);
         documentsApi.download(doc.id)
             .then((blob) => {
-                url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+                url = URL.createObjectURL(isPdf ? new Blob([blob], { type: 'application/pdf' }) : blob);
                 setPreviewUrl(url);
             })
             .catch(() => setPreviewUrl(null))
@@ -155,13 +189,23 @@ const DocumentPreviewModal: React.FC<{
                     </div>
 
                     <div className="flex-1 overflow-auto bg-gray-50 min-h-0">
-                        {isPdf ? (
+                        {canPreview ? (
                             loadingPreview ? (
                                 <div className="flex items-center justify-center h-96">
                                     <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
                                 </div>
                             ) : previewUrl ? (
-                                <iframe src={previewUrl} className="w-full h-[70vh]" title={doc.title} />
+                                isPdf ? (
+                                    <iframe src={previewUrl} className="w-full h-[70vh]" title={doc.title} />
+                                ) : (
+                                    <div className="w-full h-[70vh] flex items-center justify-center p-4 overflow-auto">
+                                        <img
+                                            src={previewUrl}
+                                            alt={doc.title}
+                                            className="max-w-full max-h-full object-contain rounded-lg"
+                                        />
+                                    </div>
+                                )
                             ) : (
                                 <NoPreview doc={doc} onDownload={onDownload} />
                             )
@@ -451,10 +495,10 @@ export const StudentDocumentsPage = () => {
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4"
+                className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4"
             >
                 <div>
-                    <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-1">
+                    <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-1">
                         Document Library
                     </h1>
                     <p className="text-gray-500 text-base">
@@ -497,7 +541,7 @@ export const StudentDocumentsPage = () => {
                     <button
                         onClick={() => setSelectedFileType('all')}
                         className={cn(
-                            "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+                            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-xs font-semibold transition-all",
                             selectedFileType === 'all'
                                 ? "bg-gray-900 text-white shadow-sm"
                                 : "bg-white text-gray-500 hover:bg-gray-50 ring-1 ring-inset ring-gray-200"
@@ -516,7 +560,7 @@ export const StudentDocumentsPage = () => {
                                 key={ft}
                                 onClick={() => setSelectedFileType(selectedFileType === ft ? 'all' : ft)}
                                 className={cn(
-                                    "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
+                                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-xs font-semibold transition-all",
                                     selectedFileType === ft
                                         ? cn(cfg.bg, cfg.color, "ring-1 ring-inset", cfg.border, "shadow-sm")
                                         : "bg-white text-gray-500 hover:bg-gray-50 ring-1 ring-inset ring-gray-200"
@@ -540,7 +584,7 @@ export const StudentDocumentsPage = () => {
                     transition={{ delay: 0.1 }}
                     className="mb-6 flex flex-wrap items-center gap-3"
                 >
-                    <div className="relative flex-1 min-w-[200px]">
+                    <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
                         <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
                         <input
                             type="text"
@@ -550,7 +594,7 @@ export const StudentDocumentsPage = () => {
                             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition-all"
                         />
                     </div>
-                    <div className="relative w-full sm:w-auto sm:min-w-[160px]">
+                    <div className="relative w-full sm:w-auto sm:min-w-[140px]">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <IconLanguage className="h-4 w-4 text-gray-400" />
                         </div>
@@ -565,7 +609,7 @@ export const StudentDocumentsPage = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="relative w-full sm:w-auto sm:min-w-[155px]">
+                    <div className="relative w-full sm:w-auto sm:min-w-[140px]">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             {sortBy.includes('desc') || sortBy === 'oldest' ? <IconSortDescending className="h-4 w-4 text-gray-400" /> : <IconSortAscending className="h-4 w-4 text-gray-400" />}
                         </div>
