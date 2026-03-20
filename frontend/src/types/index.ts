@@ -95,7 +95,7 @@ export interface Video {
   language?: string;
   visibility?: string;
   is_active?: boolean;
-  topic_id?: number;
+  topic_id?: string;
   createdAt: string;
   updatedAt: string;
   batches?: {

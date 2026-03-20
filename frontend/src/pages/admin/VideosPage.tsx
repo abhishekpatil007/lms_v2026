@@ -830,6 +830,7 @@ const UploadVideoModal = ({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    language: "",
     batch_id: "",
     topic_id: "",
   });
@@ -911,7 +912,8 @@ const UploadVideoModal = ({
       const response = await videosApi.createDirectUpload({
         title: formData.title.trim(),
         description: formData.description || undefined,
-        topic_id: formData.topic_id ? parseInt(formData.topic_id) : undefined,
+        language: formData.language || undefined,
+        topic_id: formData.topic_id || undefined,
         batch_ids: formData.batch_id ? [formData.batch_id] : undefined,
       });
 
@@ -1091,6 +1093,23 @@ const UploadVideoModal = ({
               className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent resize-none transition-all disabled:opacity-50"
               placeholder="Add a description for this video..."
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-900 mb-2.5">
+              Language <span className="text-gray-400 font-normal">(Optional)</span>
+            </label>
+            <select
+              value={formData.language}
+              onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+              disabled={uploadPhase !== "idle"}
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all disabled:opacity-50"
+            >
+              <option value="">Select Language</option>
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+              <option value="kn">Kannada</option>
+            </select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
