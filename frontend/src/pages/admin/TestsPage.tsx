@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     IconSearch,
@@ -7,24 +7,111 @@ import {
     IconChecklist,
     IconClock,
     IconEdit,
+    IconSortAscending,
+    IconFilter,
+    IconAlertCircle,
+    IconCircleCheck,
+    IconSend,
+    IconRepeat,
+    IconCalendar,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/authStore";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { Test, Batch } from "@/types";
 
+// ---------------------------------------------------------------------------
+// Toast notification system
+// ---------------------------------------------------------------------------
+interface Toast {
+    id: number;
+    type: "success" | "error" | "info";
+    message: string;
+}
+let toastId = 0;
+
+const ToastContainer = ({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) => (
+    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+        <AnimatePresence>
+            {toasts.map((t) => (
+                <motion.div
+                    key={t.id}
+                    initial={{ opacity: 0, x: 60, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 60, scale: 0.95 }}
+                    className={cn(
+                        "flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg border text-sm font-medium",
+                        t.type === "success" && "bg-emerald-50 border-emerald-200 text-emerald-800",
+                        t.type === "error" && "bg-red-50 border-red-200 text-red-800",
+                        t.type === "info" && "bg-blue-50 border-blue-200 text-blue-800"
+                    )}
+                >
+                    {t.type === "success" && <IconCircleCheck className="w-5 h-5 text-emerald-500 shrink-0" />}
+                    {t.type === "error" && <IconAlertCircle className="w-5 h-5 text-red-500 shrink-0" />}
+                    {t.type === "info" && <IconChecklist className="w-5 h-5 text-blue-500 shrink-0" />}
+                    <span className="flex-1">{t.message}</span>
+                    <button onClick={() => onDismiss(t.id)} className="text-gray-400 hover:text-gray-600 shrink-0">
+                        <IconX className="w-4 h-4" />
+                    </button>
+                </motion.div>
+            ))}
+        </AnimatePresence>
+    </div>
+);
+
+// ---------------------------------------------------------------------------
+// Sort helpers
+// ---------------------------------------------------------------------------
+type SortOption = "newest" | "oldest" | "title_az" | "title_za" | "duration_long" | "duration_short";
+const sortLabels: Record<SortOption, string> = {
+    newest: "Newest First",
+    oldest: "Oldest First",
+    title_az: "Title A \u2192 Z",
+    title_za: "Title Z \u2192 A",
+    duration_long: "Longest Duration",
+    duration_short: "Shortest Duration",
+};
+const applySortTests = (tests: Test[], sort: SortOption): Test[] => {
+    const sorted = [...tests];
+    switch (sort) {
+        case "newest": return sorted.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+        case "oldest": return sorted.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        case "title_az": return sorted.sort((a, b) => a.title.localeCompare(b.title));
+        case "title_za": return sorted.sort((a, b) => b.title.localeCompare(a.title));
+        case "duration_long": return sorted.sort((a, b) => (b.duration_minutes || 0) - (a.duration_minutes || 0));
+        case "duration_short": return sorted.sort((a, b) => (a.duration_minutes || 0) - (b.duration_minutes || 0));
+        default: return sorted;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Date formatting helper
+// ---------------------------------------------------------------------------
+const formatDateTime = (dateStr: string | undefined | null): string => {
+    if (!dateStr) return "N/A";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+};
+
 export const TestsPage = () => {
-    const { user } = useAuthStore();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState("");
     const [filterBatch, setFilterBatch] = useState<string>("all");
     const [filterStatus, setFilterStatus] = useState<string>("all");
+    const [sortBy, setSortBy] = useState<SortOption>("newest");
     const [tests, setTests] = useState<Test[]>([]);
     const [batches, setBatches] = useState<Batch[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [creatingTest, setCreatingTest] = useState(false);
+    const [publishingId, setPublishingId] = useState<number | string | null>(null);
     const [formData, setFormData] = useState({
         title: "",
         description: "",
@@ -38,7 +125,19 @@ export const TestsPage = () => {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
     const itemsPerPage = 9;
+
+    // Toast state
+    const [toasts, setToasts] = useState<Toast[]>([]);
+    const addToast = useCallback((type: Toast["type"], message: string) => {
+        const id = ++toastId;
+        setToasts((prev) => [...prev, { id, type, message }]);
+        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+    }, []);
+    const dismissToast = useCallback((id: number) => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, []);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -65,12 +164,14 @@ export const TestsPage = () => {
             if (filterBatch !== "all") params.batch_id = filterBatch;
             if (filterStatus !== "all") params.status = filterStatus;
             if (searchQuery.trim() !== "") params.search = searchQuery.trim();
-            
+
             const response = await testsApi.list(params);
             setTests(response.tests);
             if (response.totalPages) setTotalPages(response.totalPages);
+            if (response.total !== undefined) setTotalCount(response.total);
         } catch (error) {
             console.error("Error fetching tests:", error);
+            addToast("error", "Failed to load tests. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -102,29 +203,60 @@ export const TestsPage = () => {
     const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            setCreatingTest(true);
             const newTest = await testsApi.create(formData);
             setShowCreateModal(false);
+            addToast("success", `Test "${formData.title}" created successfully!`);
             // Navigate to builder to add questions
             navigate(`/admin/tests/${newTest.id}/builder`);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating test:", error);
-            alert("Failed to create test. Please try again.");
+            const message = error?.response?.data?.message || "Failed to create test. Please try again.";
+            addToast("error", message);
+            // Keep the modal open so the user can retry
+        } finally {
+            setCreatingTest(false);
         }
     };
 
-    const filteredTests = tests || [];
+    const handlePublishTest = async (test: Test) => {
+        try {
+            setPublishingId(test.id);
+            await testsApi.publish(test.id);
+            addToast("success", `"${test.title}" published successfully!`);
+            await fetchTests();
+        } catch (error: any) {
+            console.error("Error publishing test:", error);
+            const message = error?.response?.data?.message || "Failed to publish test. Please try again.";
+            addToast("error", message);
+        } finally {
+            setPublishingId(null);
+        }
+    };
+
+    const displayTests = applySortTests(tests || [], sortBy);
+
+    const hasActiveFilters = filterStatus !== "all" || filterBatch !== "all" || searchQuery.trim() !== "";
+
+    const clearAllFilters = () => {
+        setSearchQuery("");
+        setFilterStatus("all");
+        setFilterBatch("all");
+    };
 
     return (
         <>
+            <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
             <div className="flex flex-1 overflow-auto">
-                <div className="flex h-full w-full flex-1 flex-col gap-5 p-3 sm:p-4 md:p-7">
+                <div className="flex h-full w-full flex-1 flex-col gap-3 sm:gap-5 p-3 sm:p-4 md:p-7">
                     {/* Welcome Header */}
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-2">
+                        <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-2">
                             Tests Management
                         </h1>
                         <p className="text-sm md:text-base text-gray-500">
@@ -137,7 +269,7 @@ export const TestsPage = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200"
+                        className="rounded-2xl bg-white p-3 sm:p-5 md:p-6 border border-gray-200"
                     >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                             <div className="flex items-center gap-3">
@@ -145,9 +277,9 @@ export const TestsPage = () => {
                                     <IconChecklist className="w-5 h-5 sm:w-7 sm:h-7 text-white" strokeWidth={2} />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Tests</h2>
+                                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Tests</h2>
                                     <p className="mt-0.5 text-xs text-gray-500">
-                                        Showing {filteredTests.length} tests
+                                        Showing {displayTests.length}{totalCount > 0 && <> of {totalCount}</>} tests
                                     </p>
                                 </div>
                             </div>
@@ -172,7 +304,7 @@ export const TestsPage = () => {
                             />
                         </div>
 
-                        {/* Filter Pills & Dropdown */}
+                        {/* Filter Pills, Dropdown & Sort */}
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                             <span className="text-xs font-semibold text-gray-500 mr-1">Status:</span>
                             {(["all", "draft", "published"] as const).map((status) => (
@@ -180,7 +312,7 @@ export const TestsPage = () => {
                                     key={status}
                                     onClick={() => setFilterStatus(status)}
                                     className={cn(
-                                        "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all",
+                                        "rounded-xl px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-xs font-semibold transition-all",
                                         filterStatus === status
                                             ? "bg-gray-900 text-white shadow-sm"
                                             : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
@@ -190,27 +322,96 @@ export const TestsPage = () => {
                                 </button>
                             ))}
 
-                            <div className="w-px h-6 bg-gray-200 mx-1" />
-                            <span className="text-xs font-semibold text-gray-500 mr-1">Batch:</span>
-                            <select
-                                value={filterBatch}
-                                onChange={(e) => setFilterBatch(e.target.value)}
-                                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
-                            >
-                                <option value="all">All Batches</option>
-                                {(batches || []).map((batch) => (
-                                    <option key={batch.id} value={batch.id}>{batch.batch_name}</option>
-                                ))}
-                            </select>
+                            <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
+
+                            <div className="flex items-center gap-1.5">
+                                <IconFilter className="w-3.5 h-3.5 text-gray-400" />
+                                <select
+                                    value={filterBatch}
+                                    onChange={(e) => setFilterBatch(e.target.value)}
+                                    className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer max-w-[130px] sm:max-w-[160px]"
+                                >
+                                    <option value="all">All Batches</option>
+                                    {(batches || []).map((batch) => (
+                                        <option key={batch.id} value={batch.id}>{batch.batch_name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Sort */}
+                            <div className="flex items-center gap-1.5 sm:ml-auto">
+                                <IconSortAscending className="w-3.5 h-3.5 text-gray-400" />
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                                    className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900/20 cursor-pointer"
+                                >
+                                    {Object.entries(sortLabels).map(([key, label]) => (
+                                        <option key={key} value={key}>{label}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
+
+                        {/* Active filter chips */}
+                        {hasActiveFilters && (
+                            <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-100 flex-wrap">
+                                <span className="text-xs text-gray-400">Active filters:</span>
+                                {searchQuery && (
+                                    <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                        &ldquo;{searchQuery}&rdquo;
+                                        <button onClick={() => setSearchQuery("")} className="hover:text-gray-900"><IconX className="w-3 h-3" /></button>
+                                    </span>
+                                )}
+                                {filterStatus !== "all" && (
+                                    <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                        {filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+                                        <button onClick={() => setFilterStatus("all")} className="hover:text-gray-900"><IconX className="w-3 h-3" /></button>
+                                    </span>
+                                )}
+                                {filterBatch !== "all" && (
+                                    <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                        {batches.find((b) => b.id === filterBatch)?.batch_name || "Batch"}
+                                        <button onClick={() => setFilterBatch("all")} className="hover:text-gray-900"><IconX className="w-3 h-3" /></button>
+                                    </span>
+                                )}
+                                <button onClick={clearAllFilters} className="text-xs text-blue-600 hover:text-blue-700 font-semibold ml-1">
+                                    Clear all
+                                </button>
+                            </div>
+                        )}
                     </motion.div>
 
                     {/* Tests Grid */}
                     {loading ? (
-                        <div className="flex items-center justify-center h-64">
-                            <div className="text-gray-500 text-lg">Loading tests...</div>
+                        /* Skeleton loading cards */
+                        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="rounded-2xl bg-white border border-gray-200 p-4 sm:p-5 animate-pulse">
+                                    <div className="flex items-start gap-2.5 mb-3">
+                                        <div className="h-12 w-12 rounded-full bg-gray-100 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="h-5 bg-gray-100 rounded-lg w-3/4 mb-2" />
+                                            <div className="h-3 bg-gray-100 rounded-lg w-1/2" />
+                                        </div>
+                                        <div className="h-8 w-8 bg-gray-100 rounded-lg shrink-0" />
+                                    </div>
+                                    <div className="h-4 bg-gray-100 rounded-lg w-full mb-3" />
+                                    <div className="flex gap-2 mb-3">
+                                        <div className="h-7 bg-gray-100 rounded-full w-20" />
+                                        <div className="h-7 bg-gray-100 rounded-full w-14" />
+                                        <div className="h-7 bg-gray-100 rounded-full w-16" />
+                                    </div>
+                                    <div className="h-3 bg-gray-100 rounded-lg w-2/3 mb-2" />
+                                    <div className="h-3 bg-gray-100 rounded-lg w-1/2 mb-4" />
+                                    <div className="flex gap-2">
+                                        <div className="h-9 bg-gray-100 rounded-xl flex-1" />
+                                        <div className="h-9 bg-gray-100 rounded-xl flex-1" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ) : filteredTests.length === 0 ? (
+                    ) : displayTests.length === 0 ? (
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -218,105 +419,179 @@ export const TestsPage = () => {
                         >
                             <IconChecklist className="w-16 h-16 text-gray-300 mb-4" strokeWidth={1.5} />
                             <p className="text-gray-900 font-semibold text-lg mb-1">No tests found</p>
-                            <p className="text-gray-500 text-sm mb-4">Create a new test to get started</p>
-                            <button
-                                onClick={handleOpenCreateModal}
-                                className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
-                            >
-                                <IconPlus className="h-4 w-4" strokeWidth={2.5} />
-                                Create Test
-                            </button>
+                            <p className="text-gray-500 text-sm mb-4">
+                                {hasActiveFilters ? "Try adjusting your search or filters" : "Create a new test to get started"}
+                            </p>
+                            {hasActiveFilters ? (
+                                <button
+                                    onClick={clearAllFilters}
+                                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                                >
+                                    Clear all filters
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleOpenCreateModal}
+                                    className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:shadow-lg transition-all"
+                                >
+                                    <IconPlus className="h-4 w-4" strokeWidth={2.5} />
+                                    Create Test
+                                </button>
+                            )}
                         </motion.div>
                     ) : (
                         <>
+                            {/* Results count */}
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm text-gray-500">
+                                    Showing <span className="font-semibold text-gray-700">{displayTests.length}</span>
+                                    {totalCount > 0 && <> of <span className="font-semibold text-gray-700">{totalCount}</span></>} tests
+                                </p>
+                            </div>
+
                             <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                                {(filteredTests || []).map((test, idx) => (
-                                <motion.div
-                                    key={test.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200 hover:shadow-lg transition-all group"
-                                >
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-500 text-base font-bold text-white shadow-md">
-                                                {test.title.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-semibold text-base text-gray-900 truncate">
-                                                    {test.title}
+                                {(displayTests || []).map((test, idx) => (
+                                    <motion.div
+                                        key={test.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200 hover:shadow-lg transition-all group"
+                                    >
+                                        {/* Header: avatar, title, batch */}
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-500 text-base font-bold text-white shadow-md">
+                                                    {test.title.charAt(0).toUpperCase()}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
-                                                    Batch: {test.batch?.batch_name || 'N/A'}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-semibold text-base text-gray-900 truncate">
+                                                        {test.title}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Batch: {test.batch?.batch_name || 'N/A'}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => navigate(`/admin/tests/${test.id}/builder`)}
-                                            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
-                                            title="Edit Questions"
-                                        >
-                                            <IconEdit className="w-4 h-4" />
-                                        </button>
-                                    </div>
 
-                                    {test.description && (
-                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                            {test.description}
-                                        </p>
-                                    )}
+                                        {test.description && (
+                                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                                {test.description}
+                                            </p>
+                                        )}
 
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className={cn(
-                                            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
-                                            test.status === 'published' ? "bg-emerald-100 text-emerald-700" :
-                                            test.status === 'draft' ? "bg-amber-100 text-amber-700" :
-                                            "bg-gray-100 text-gray-700"
-                                        )}>
-                                            <span className={cn("w-1.5 h-1.5 rounded-full",
-                                                test.status === 'published' ? "bg-emerald-500" :
-                                                test.status === 'draft' ? "bg-amber-500" :
-                                                "bg-gray-500"
-                                            )}></span>
-                                            {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
-                                            <IconClock className="w-3 h-3" strokeWidth={2} />
-                                            {test.duration_minutes}m
-                                        </span>
-                                    </div>
+                                        {/* Status, duration, attempts badges */}
+                                        <div className="flex items-center gap-2 flex-wrap mb-3">
+                                            <span className={cn(
+                                                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
+                                                test.status === 'published' ? "bg-emerald-100 text-emerald-700" :
+                                                    test.status === 'draft' ? "bg-amber-100 text-amber-700" :
+                                                        "bg-gray-100 text-gray-700"
+                                            )}>
+                                                <span className={cn("w-1.5 h-1.5 rounded-full",
+                                                    test.status === 'published' ? "bg-emerald-500" :
+                                                        test.status === 'draft' ? "bg-amber-500" :
+                                                            "bg-gray-500"
+                                                )}></span>
+                                                {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
+                                                <IconClock className="w-3 h-3" strokeWidth={2} />
+                                                {test.duration_minutes}m
+                                            </span>
+                                            {test.max_attempts != null && (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                                                    <IconRepeat className="w-3 h-3" strokeWidth={2} />
+                                                    {test.max_attempts} {test.max_attempts === 1 ? 'attempt' : 'attempts'}
+                                                </span>
+                                            )}
+                                        </div>
 
-                                    <div className="text-xs text-gray-400">
-                                        Starts: {new Date(test.start_time).toLocaleString()}
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                        
-                        {/* Pagination Controls */}
-                        {totalPages > 1 && (
-                            <div className="flex justify-center items-center gap-3 mt-8 pb-4">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                                >
-                                    Previous
-                                </button>
-                                <span className="text-sm font-bold text-gray-700 px-2">
-                                    Page {currentPage} of {totalPages}
-                                </span>
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-5 py-2.5 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                                >
-                                    Next
-                                </button>
+                                        {/* Time info */}
+                                        <div className="rounded-xl bg-gray-50 px-3 py-2.5 mb-3 space-y-1">
+                                            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                                <IconCalendar className="w-3 h-3 text-gray-400 shrink-0" />
+                                                <span className="font-medium text-gray-500">Starts:</span>
+                                                <span>{formatDateTime(test.start_time)}</span>
+                                            </div>
+                                            {test.end_time && (
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                                    <IconCalendar className="w-3 h-3 text-gray-400 shrink-0" />
+                                                    <span className="font-medium text-gray-500">Ends:</span>
+                                                    <span>{formatDateTime(test.end_time)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => navigate(`/admin/tests/${test.id}/builder`)}
+                                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold bg-gradient-to-br from-blue-400 to-blue-500 text-white hover:shadow-lg transition-all hover:scale-[1.02]"
+                                            >
+                                                <IconEdit className="w-3.5 h-3.5" />
+                                                Edit Questions
+                                            </button>
+                                            {test.status === 'draft' && (
+                                                <button
+                                                    onClick={() => handlePublishTest(test)}
+                                                    disabled={publishingId === test.id}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {publishingId === test.id ? (
+                                                        <div className="w-3.5 h-3.5 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+                                                    ) : (
+                                                        <IconSend className="w-3.5 h-3.5" />
+                                                    )}
+                                                    Publish
+                                                </button>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                ))}
                             </div>
-                        )}
-                    </>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex justify-center items-center gap-2 mt-4 pb-4">
+                                    <button
+                                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                    >
+                                        Previous
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                        .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                        .map((page, idx, arr) => (
+                                            <React.Fragment key={page}>
+                                                {idx > 0 && arr[idx - 1] !== page - 1 && (
+                                                    <span className="text-gray-400 text-sm px-1">&hellip;</span>
+                                                )}
+                                                <button
+                                                    onClick={() => setCurrentPage(page)}
+                                                    className={cn(
+                                                        "w-9 h-9 text-sm font-bold rounded-xl transition-all",
+                                                        currentPage === page
+                                                            ? "bg-gray-900 text-white shadow-sm"
+                                                            : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                                                    )}
+                                                >
+                                                    {page}
+                                                </button>
+                                            </React.Fragment>
+                                        ))}
+                                    <button
+                                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div >
@@ -458,9 +733,10 @@ export const TestsPage = () => {
                                         </button>
                                         <button
                                             type="submit"
-                                            className="flex-1 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all"
+                                            disabled={creatingTest}
+                                            className="flex-1 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            Create Test
+                                            {creatingTest ? "Creating..." : "Create Test"}
                                         </button>
                                     </div>
                                 </form>

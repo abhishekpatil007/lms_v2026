@@ -72,10 +72,10 @@ export const InstructorDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-2">
+        <h1 className="text-xl sm:text-2xl md:text-5xl font-bold text-gray-900 mb-2">
           Welcome back, {user?.name.split(' ')[0]}!
         </h1>
-        <p className="text-lg text-gray-500">
+        <p className="text-sm sm:text-base text-gray-500">
           Manage your batches and track student progress
         </p>
       </motion.div>
@@ -94,7 +94,7 @@ export const InstructorDashboard = () => {
             </div>
             <span className="text-xs sm:text-sm font-semibold text-white/80">Total Batches</span>
           </div>
-          <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{batches.length}</p>
+          <p className="text-xl sm:text-2xl md:text-4xl font-bold text-white">{batches.length}</p>
         </motion.div>
 
         <motion.div
@@ -109,7 +109,7 @@ export const InstructorDashboard = () => {
             </div>
             <span className="text-xs sm:text-sm font-semibold text-gray-700">Ongoing Batches</span>
           </div>
-          <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">{ongoingBatches}</p>
+          <p className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900">{ongoingBatches}</p>
         </motion.div>
 
         <motion.div
@@ -124,7 +124,7 @@ export const InstructorDashboard = () => {
             </div>
             <span className="text-xs sm:text-sm font-semibold text-white/80">Total Students</span>
           </div>
-          <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{totalStudents}</p>
+          <p className="text-xl sm:text-2xl md:text-4xl font-bold text-white">{totalStudents}</p>
         </motion.div>
       </div>
 
@@ -135,7 +135,7 @@ export const InstructorDashboard = () => {
         transition={{ delay: 0.25 }}
         className="mb-6"
       >
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Batches</h2>
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-4">Your Batches</h2>
       </motion.div>
 
       {batches.length === 0 ? (
