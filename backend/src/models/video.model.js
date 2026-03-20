@@ -18,6 +18,8 @@ const Video = sequelize.define('Video', {
     mux_upload_id: { type: DataTypes.STRING, allowNull: true },
     mux_asset_id: { type: DataTypes.STRING, allowNull: true },
     mux_playback_id: { type: DataTypes.STRING, allowNull: true },
+    duration: { type: DataTypes.FLOAT, allowNull: true },
+    thumbnail_url: { type: DataTypes.STRING, allowNull: true },
     upload_status: {
         type: DataTypes.ENUM('pending', 'ready', 'failed', 'cancelled'),
         defaultValue: 'pending',

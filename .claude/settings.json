@@ -7,7 +7,14 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(grep -r setBatches /Users/abhishek/lms_v2026-4/backend/src --include=*.js)",
-      "Bash(find /Users/abhishek/lms_v2026-4/frontend/src/pages/instructor -type f -name *.tsx -o -name *.ts)"
+      "Bash(find /Users/abhishek/lms_v2026-4/frontend/src/pages/instructor -type f -name *.tsx -o -name *.ts)",
+      "Bash(find /Users/abhishek/lms_v2026-4 -type f -name *[Vv]ideo*)",
+      "Bash(find /Users/abhishek/lms_v2026-4/frontend/src -name types* -o -name index.ts -path */types/*)",
+      "Bash(grep -r \"interface Video\\\\|type Video\" /Users/abhishek/lms_v2026-4/frontend/src --include=*.ts --include=*.tsx)",
+      "Bash(find /Users/abhishek/lms_v2026-4 -name .env* -type f)",
+      "Bash(find /Users/abhishek/lms_v2026-4/frontend -type f -name *[Vv]ideo*)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(grep -A 5 \"Video.associate\\\\|BatchVideo.associate\\\\|Batch.associate\" /Users/abhishek/lms_v2026-4/backend/src/models/*.js)"
     ]
   }
 }

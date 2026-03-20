@@ -288,12 +288,12 @@ export const VideosPage = () => {
     switch (status) {
       case "ready":
         return { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" };
-      case "processing":
-        return { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" };
-      case "uploading":
+      case "pending":
         return { bg: "bg-yellow-100", text: "text-yellow-700", dot: "bg-yellow-500" };
-      case "errored":
+      case "failed":
         return { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500" };
+      case "cancelled":
+        return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
       default:
         return { bg: "bg-gray-100", text: "text-gray-700", dot: "bg-gray-500" };
     }
@@ -348,8 +348,8 @@ export const VideosPage = () => {
   };
 
   const readyCount = (videos || []).filter((v) => v.upload_status === "ready").length;
-  const processingCount = (videos || []).filter(
-    (v) => v.upload_status === "processing" || v.upload_status === "uploading"
+  const pendingCount = (videos || []).filter(
+    (v) => v.upload_status === "pending"
   ).length;
   const totalDuration = (videos || []).reduce((acc, v) => acc + (v.duration || 0), 0);
 
@@ -422,9 +422,9 @@ export const VideosPage = () => {
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
                   <IconClock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" strokeWidth={2} />
                 </div>
-                <p className="text-xs font-semibold text-gray-500">Processing</p>
+                <p className="text-xs font-semibold text-gray-500">Pending</p>
               </div>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{processingCount}</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{pendingCount}</p>
             </div>
 
             <div className="rounded-2xl bg-emerald-50 p-3 sm:p-4 md:p-5 border border-emerald-100">
@@ -461,7 +461,7 @@ export const VideosPage = () => {
             <div className="flex flex-wrap items-center gap-2">
               {/* Status pills */}
               <span className="text-xs font-semibold text-gray-500 mr-1">Status:</span>
-              {(["all", "ready", "processing", "uploading", "errored"] as const).map((status) => (
+              {(["all", "ready", "pending", "failed", "cancelled"] as const).map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
@@ -834,9 +834,14 @@ const UploadVideoModal = ({
     topic_id: "",
   });
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "creating" | "uploading" | "done">("idle");
   const [error, setError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (formData.batch_id) {
@@ -859,10 +864,40 @@ const UploadVideoModal = ({
     }
   };
 
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith("video/")) {
+      setError("Please select a valid video file");
+      return;
+    }
+    setSelectedFile(file);
+    setError("");
+    if (!formData.title.trim()) {
+      const name = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+      setFormData((prev) => ({ ...prev, title: name }));
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + " GB";
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+    return (bytes / 1024).toFixed(1) + " KB";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    if (!selectedFile) {
+      setError("Please select a video file");
+      return;
+    }
     if (!formData.title.trim()) {
       setError("Please enter a video title");
       return;
@@ -870,6 +905,9 @@ const UploadVideoModal = ({
 
     try {
       setLoading(true);
+      setUploadPhase("creating");
+
+      // Step 1: Create direct upload on backend → get Mux upload URL
       const response = await videosApi.createDirectUpload({
         title: formData.title.trim(),
         description: formData.description || undefined,
@@ -877,14 +915,37 @@ const UploadVideoModal = ({
         batch_ids: formData.batch_id ? [formData.batch_id] : undefined,
       });
 
-      // Copy upload URL to clipboard silently
-      if (response.upload_url) {
-        try { await navigator.clipboard.writeText(response.upload_url); } catch { /* clipboard may not be available */ }
+      if (!response.upload_url) {
+        throw new Error("No upload URL received from server");
       }
 
-      onSuccess(`Video "${formData.title}" created successfully! Upload URL copied to clipboard.`);
+      // Step 2: Upload file directly to Mux via PUT request
+      setUploadPhase("uploading");
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", response.upload_url);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Upload failed with status ${xhr.status}`));
+        };
+
+        xhr.onerror = () => reject(new Error("Upload failed — check your network"));
+        xhr.send(selectedFile);
+      });
+
+      setUploadPhase("done");
+      onSuccess(`Video "${formData.title}" uploaded successfully! It will be ready shortly after processing.`);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create video upload");
+      setError(err.response?.data?.message || err.message || "Failed to upload video");
+      setUploadPhase("idle");
+      setUploadProgress(0);
     } finally {
       setLoading(false);
     }
@@ -913,10 +974,10 @@ const UploadVideoModal = ({
             </div>
             <div>
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Upload Video</h2>
-              <p className="text-sm text-gray-500 mt-1">Create a new video upload</p>
+              <p className="text-sm text-gray-500 mt-1">Select a video file to upload</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100 transition-colors" disabled={uploadPhase === "uploading"}>
             <IconX className="w-6 h-6 text-gray-500" strokeWidth={2} />
           </button>
         </div>
@@ -935,6 +996,75 @@ const UploadVideoModal = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* File Drop Zone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "relative rounded-2xl border-2 border-dashed p-6 sm:p-8 text-center cursor-pointer transition-all",
+              isDragging ? "border-violet-400 bg-violet-50" : selectedFile ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-gray-50 hover:border-violet-300 hover:bg-violet-50/50"
+            )}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+            />
+            {selectedFile ? (
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center shrink-0">
+                  <IconVideo className="w-6 h-6 text-emerald-700" />
+                </div>
+                <div className="text-left min-w-0 flex-1">
+                  <p className="text-sm font-bold text-gray-900 truncate">{selectedFile.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{formatFileSize(selectedFile.size)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
+                  className="rounded-full p-1.5 hover:bg-emerald-200 transition-colors shrink-0"
+                >
+                  <IconX className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
+                  <IconUpload className="w-7 h-7 text-gray-400" />
+                </div>
+                <p className="text-sm font-bold text-gray-700">Drop your video here or click to browse</p>
+                <p className="text-xs text-gray-400 mt-1">MP4, MOV, AVI, MKV, WebM supported</p>
+              </>
+            )}
+          </div>
+
+          {/* Upload Progress */}
+          {uploadPhase !== "idle" && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-gray-700">
+                  {uploadPhase === "creating" && "Preparing upload..."}
+                  {uploadPhase === "uploading" && "Uploading to Mux..."}
+                  {uploadPhase === "done" && "Upload complete!"}
+                </span>
+                {uploadPhase === "uploading" && <span className="font-bold text-violet-600">{uploadProgress}%</span>}
+                {uploadPhase === "done" && <IconCheck className="w-5 h-5 text-emerald-500" />}
+              </div>
+              <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                <motion.div
+                  className={cn("h-full rounded-full", uploadPhase === "done" ? "bg-emerald-500" : "bg-violet-500")}
+                  initial={{ width: 0 }}
+                  animate={{ width: uploadPhase === "creating" ? "10%" : uploadPhase === "done" ? "100%" : `${uploadProgress}%` }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+            </motion.div>
+          )}
+
           <div>
             <label className="block text-sm font-bold text-gray-900 mb-2.5">
               Video Title <span className="text-red-500">*</span>
@@ -943,7 +1073,8 @@ const UploadVideoModal = ({
               type="text"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all"
+              disabled={uploadPhase !== "idle"}
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all disabled:opacity-50"
               placeholder="e.g., Introduction to React Hooks"
             />
           </div>
@@ -956,7 +1087,8 @@ const UploadVideoModal = ({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent resize-none transition-all"
+              disabled={uploadPhase !== "idle"}
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent resize-none transition-all disabled:opacity-50"
               placeholder="Add a description for this video..."
             />
           </div>
@@ -969,7 +1101,8 @@ const UploadVideoModal = ({
               <select
                 value={formData.batch_id}
                 onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
-                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all"
+                disabled={uploadPhase !== "idle"}
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all disabled:opacity-50"
               >
                 <option value="">Select Batch</option>
                 {(batches || []).map((b) => (
@@ -984,7 +1117,7 @@ const UploadVideoModal = ({
               <select
                 value={formData.topic_id}
                 onChange={(e) => setFormData({ ...formData, topic_id: e.target.value })}
-                disabled={!formData.batch_id || loadingTopics}
+                disabled={!formData.batch_id || loadingTopics || uploadPhase !== "idle"}
                 className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all disabled:opacity-50"
               >
                 <option value="">{loadingTopics ? "Loading..." : "Select Topic"}</option>
@@ -999,24 +1132,25 @@ const UploadVideoModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all"
+              disabled={uploadPhase === "uploading"}
+              className="rounded-xl px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !selectedFile || uploadPhase === "done"}
               className="rounded-xl px-6 py-3 text-sm font-bold bg-gradient-to-br from-violet-400 to-violet-600 text-white hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
             >
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating...
+                  {uploadPhase === "creating" ? "Preparing..." : "Uploading..."}
                 </>
               ) : (
                 <>
                   <IconUpload className="w-4 h-4" strokeWidth={2.5} />
-                  Create Upload
+                  Upload Video
                 </>
               )}
             </button>
