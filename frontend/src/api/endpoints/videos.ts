@@ -25,7 +25,8 @@ export const videosApi = {
   createDirectUpload: async (data: {
     title: string;
     description?: string;
-    topic_id?: number;
+    language?: string;
+    topic_id?: string;
     batch_ids?: string[];
   }): Promise<{ id: string; upload_id: string; upload_url: string }> => {
     const response = await apiClient.post('/api/videos/upload', data);

@@ -256,11 +256,25 @@ export const listVideos = async (req, res) => {
             const { page = 1, limit = 10 } = req.query;
             const offset = (page - 1) * limit;
 
+            // If batch_id filter is provided, find video IDs in that batch first
+            let batchVideoFilter = {};
+            if (req.query.batch_id) {
+                const bvRows = await BatchVideo.findAll({
+                    where: { batch_id: req.query.batch_id },
+                    attributes: ['video_id'],
+                    raw: true,
+                });
+                const videoIds = bvRows.map(r => r.video_id);
+                batchVideoFilter = { id: { [Op.in]: videoIds } };
+            }
+
             const { count, rows } = await Video.findAndCountAll({
-                where: filters,
+                where: { ...filters, ...batchVideoFilter },
+                include: [{ model: Batch, as: 'batches', through: { attributes: [] } }],
                 limit: parseInt(limit),
                 offset: parseInt(offset),
-                order: [['created_at', 'DESC']]
+                order: [['created_at', 'DESC']],
+                distinct: true,
             });
 
             videoLogger.info(`Videos listed by admin - Count: ${rows.length}`);
@@ -317,6 +331,10 @@ export const listVideos = async (req, res) => {
         }
 
         // apply video-level filters and restrict to videoIds
+        // Students should only see ready videos
+        if (role === 'student') {
+            filters.upload_status = 'ready';
+        }
         const where = { ...filters, id: { [Op.in]: videoIds } };
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
@@ -406,13 +424,36 @@ export const getVideo = async (req, res) => {
 // -------------------------------------------------------------------
 export const getPlaybackUrl = async (req, res) => {
     try {
-        const video = await Video.findByPk(req.params.id);
+        const user = ensureUser(req);
+        const role = user.user.role;
+        const userId = user.user.id;
+
+        const video = await Video.findByPk(req.params.id, {
+            include: [{ model: Batch, as: 'batches', through: { attributes: [] } }]
+        });
         if (!video || !video.mux_playback_id) {
             videoLogger.warn(`Get Playback - Playback not available for Video: ${req.params.id}`);
             return res.status(404).json({ message: 'Playback not available' });
         }
 
-        // Use public playback. If you use signed playback, implement token signing here.
+        // Authorization: check user has access to this video
+        if (role === 'student') {
+            const videoBatchIds = (video.batches || []).map(b => b.id);
+            const enrolled = await BatchStudent.findOne({
+                where: { student_id: userId, batch_id: { [Op.in]: videoBatchIds } },
+            });
+            if (!enrolled) {
+                return res.status(403).json({ message: 'Access denied' });
+            }
+        } else if (role === 'instructor') {
+            const videoBatchIds = (video.batches || []).map(b => b.id);
+            const owns = await Batch.count({ where: { id: { [Op.in]: videoBatchIds }, instructor_id: userId } });
+            if (owns === 0) {
+                return res.status(403).json({ message: 'Access denied' });
+            }
+        }
+        // admin has full access
+
         const playbackUrl = `https://stream.mux.com/${video.mux_playback_id}.m3u8`;
         videoLogger.info(`Playback URL generated - Video ID: ${req.params.id}`);
         return res.json({ playback_url: playbackUrl, mux_playback_id: video.mux_playback_id });
