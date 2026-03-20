@@ -212,10 +212,10 @@ export type WebinarStatus = 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
 
 export interface Webinar {
   id: string;
-  title: string;
+  topic: string;
   description?: string;
-  scheduled_at: string;
-  duration_minutes: number;
+  start_time: string;
+  duration: number;
   instructor_id: number;
   zoom_meeting_id?: string;
   zoom_join_url?: string;

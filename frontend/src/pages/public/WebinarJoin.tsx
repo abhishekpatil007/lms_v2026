@@ -169,8 +169,8 @@ export const WebinarJoin = () => {
   const getWebinarStatus = (webinar?: Webinar) => {
     if (!webinar) return 'upcoming';
     const now = new Date();
-    const scheduledDate = new Date(webinar.scheduled_at);
-    const endDate = new Date(scheduledDate.getTime() + webinar.duration_minutes * 60000);
+    const scheduledDate = new Date(webinar.start_time);
+    const endDate = new Date(scheduledDate.getTime() + webinar.duration * 60000);
 
     if (now >= scheduledDate && now <= endDate) {
       return 'live';
@@ -253,7 +253,7 @@ export const WebinarJoin = () => {
 
               <div className="text-center mb-8">
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                  {joinData.webinar?.title || 'Webinar Ready'}
+                  {joinData.webinar?.topic || 'Webinar Ready'}
                 </h2>
 
                 {joinData.webinar && (
@@ -290,13 +290,13 @@ export const WebinarJoin = () => {
                       <div className="flex items-center gap-2">
                         <IconCalendar className="w-5 h-5" />
                         <span className="font-semibold">
-                          {formatDate(joinData.webinar.scheduled_at)}
+                          {formatDate(joinData.webinar.start_time)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <IconClock className="w-5 h-5" />
                         <span className="font-semibold">
-                          {formatTime(joinData.webinar.scheduled_at)}
+                          {formatTime(joinData.webinar.start_time)}
                         </span>
                       </div>
                     </div>

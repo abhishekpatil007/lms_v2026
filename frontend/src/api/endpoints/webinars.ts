@@ -13,13 +13,13 @@ export const webinarsApi = {
    * Create a webinar (Instructor/Admin only)
    */
   create: async (data: {
-    title: string;
+    topic: string;
     description?: string;
-    scheduled_at: string;
-    duration_minutes: number;
+    start_time: string;
+    duration: number;
     max_attendees?: number;
     is_public?: boolean;
-  }): Promise<{ message: string; webinar: Webinar }> => {
+  }): Promise<{ message: string; data: Webinar }> => {
     const response = await apiClient.post('/api/webinars', data);
     return response.data;
   },
@@ -30,7 +30,7 @@ export const webinarsApi = {
   list: async (params?: {
     status?: WebinarStatus;
     is_public?: boolean;
-  }): Promise<{ webinars: Webinar[] }> => {
+  }): Promise<{ message: string; data: Webinar[] }> => {
     const response = await apiClient.get('/api/webinars', { params });
     return response.data;
   },
@@ -38,7 +38,7 @@ export const webinarsApi = {
   /**
    * Get webinar by ID (Public)
    */
-  getById: async (webinarId: string): Promise<{ webinar: Webinar }> => {
+  getById: async (webinarId: string): Promise<{ message: string; data: Webinar }> => {
     const response = await apiClient.get(`/api/webinars/${webinarId}`);
     return response.data;
   },
@@ -49,15 +49,15 @@ export const webinarsApi = {
   update: async (
     webinarId: string,
     data: {
-      title?: string;
+      topic?: string;
       description?: string;
-      scheduled_at?: string;
-      duration_minutes?: number;
+      start_time?: string;
+      duration?: number;
       max_attendees?: number;
       status?: WebinarStatus;
       is_public?: boolean;
     }
-  ): Promise<{ message: string; webinar: Webinar }> => {
+  ): Promise<{ message: string; data: Webinar }> => {
     const response = await apiClient.put(`/api/webinars/${webinarId}`, data);
     return response.data;
   },

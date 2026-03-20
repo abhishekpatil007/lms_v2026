@@ -36,10 +36,10 @@ export const InstructorWebinarsPage = () => {
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    title: "",
+    topic: "",
     description: "",
-    scheduled_at: "",
-    duration_minutes: 60,
+    start_time: "",
+    duration: 60,
     max_attendees: undefined as number | undefined,
     is_public: true,
     status: "scheduled" as WebinarStatus,
@@ -52,7 +52,7 @@ export const InstructorWebinarsPage = () => {
   const fetchWebinars = async () => {
     try {
       setLoading(true);
-      const { webinars: data } = await webinarsApi.list();
+      const { data } = await webinarsApi.list();
       // Filter to show only instructor's webinars
       const myWebinars = data.filter(w => w.instructor_id === user?.id);
       setWebinars(myWebinars);
@@ -66,10 +66,10 @@ export const InstructorWebinarsPage = () => {
 
   const handleOpenCreateModal = () => {
     setFormData({
-      title: "",
+      topic: "",
       description: "",
-      scheduled_at: "",
-      duration_minutes: 60,
+      start_time: "",
+      duration: 60,
       max_attendees: undefined,
       is_public: true,
       status: "scheduled",
@@ -80,10 +80,10 @@ export const InstructorWebinarsPage = () => {
   const handleOpenEditModal = (webinar: Webinar) => {
     setSelectedWebinar(webinar);
     setFormData({
-      title: webinar.title,
+      topic: webinar.topic,
       description: webinar.description || "",
-      scheduled_at: webinar.scheduled_at.slice(0, 16), // Format for datetime-local
-      duration_minutes: webinar.duration_minutes,
+      start_time: webinar.start_time.slice(0, 16), // Format for datetime-local
+      duration: webinar.duration,
       max_attendees: webinar.max_attendees,
       is_public: webinar.is_public,
       status: webinar.status,
@@ -95,10 +95,10 @@ export const InstructorWebinarsPage = () => {
     e.preventDefault();
     try {
       await webinarsApi.create({
-        title: formData.title,
+        topic: formData.topic,
         description: formData.description || undefined,
-        scheduled_at: formData.scheduled_at,
-        duration_minutes: formData.duration_minutes,
+        start_time: formData.start_time,
+        duration: formData.duration,
         max_attendees: formData.max_attendees,
         is_public: formData.is_public,
       });
@@ -117,10 +117,10 @@ export const InstructorWebinarsPage = () => {
 
     try {
       await webinarsApi.update(selectedWebinar.id, {
-        title: formData.title,
+        topic: formData.topic,
         description: formData.description || undefined,
-        scheduled_at: formData.scheduled_at,
-        duration_minutes: formData.duration_minutes,
+        start_time: formData.start_time,
+        duration: formData.duration,
         max_attendees: formData.max_attendees,
         is_public: formData.is_public,
         status: formData.status,
@@ -198,7 +198,7 @@ export const InstructorWebinarsPage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `webinar-${selectedWebinar.title.replace(/\s+/g, "-").toLowerCase()}-registrations.csv`;
+    a.download = `webinar-${selectedWebinar.topic.replace(/\s+/g, "-").toLowerCase()}-registrations.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -210,8 +210,8 @@ export const InstructorWebinarsPage = () => {
     if (webinar.status === "cancelled") return "cancelled";
 
     const now = new Date();
-    const scheduledAt = new Date(webinar.scheduled_at);
-    const endTime = new Date(scheduledAt.getTime() + webinar.duration_minutes * 60000);
+    const scheduledAt = new Date(webinar.start_time);
+    const endTime = new Date(scheduledAt.getTime() + webinar.duration * 60000);
 
     if (now >= scheduledAt && now <= endTime) return "ongoing";
     if (now > endTime) return "completed";
@@ -220,7 +220,7 @@ export const InstructorWebinarsPage = () => {
 
   const filteredWebinars = webinars.filter((webinar) => {
     const matchesSearch =
-      webinar.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      webinar.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
       webinar.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const actualStatus = getWebinarStatus(webinar);
@@ -404,11 +404,11 @@ export const InstructorWebinarsPage = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] text-lg font-bold text-white shadow-md">
-                      {webinar.title.charAt(0).toUpperCase()}
+                      {webinar.topic.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-lg text-gray-900 truncate">
-                        {webinar.title}
+                        {webinar.topic}
                       </h3>
                     </div>
                   </div>
@@ -456,11 +456,11 @@ export const InstructorWebinarsPage = () => {
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center gap-2 text-xs text-gray-700">
                     <IconCalendar className="w-4 h-4 text-gray-400" strokeWidth={2} />
-                    {formatDateTime(webinar.scheduled_at)}
+                    {formatDateTime(webinar.start_time)}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-700">
                     <IconClock className="w-4 h-4 text-gray-400" strokeWidth={2} />
-                    {webinar.duration_minutes} minutes
+                    {webinar.duration} minutes
                   </div>
                   {webinar.max_attendees && (
                     <div className="flex items-center gap-2 text-xs text-gray-700">
@@ -546,15 +546,15 @@ export const InstructorWebinarsPage = () => {
               <form onSubmit={handleCreateSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Webinar Title *
+                    Webinar Topic *
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    value={formData.topic}
+                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
                     className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
-                    placeholder="Enter webinar title"
+                    placeholder="Enter webinar topic"
                   />
                 </div>
 
@@ -579,8 +579,8 @@ export const InstructorWebinarsPage = () => {
                     <input
                       type="datetime-local"
                       required
-                      value={formData.scheduled_at}
-                      onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+                      value={formData.start_time}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                       className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
                     />
                   </div>
@@ -593,8 +593,8 @@ export const InstructorWebinarsPage = () => {
                       type="number"
                       required
                       min="1"
-                      value={formData.duration_minutes}
-                      onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || 60 })}
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 60 })}
                       className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
                       placeholder="60"
                     />
@@ -679,15 +679,15 @@ export const InstructorWebinarsPage = () => {
               <form onSubmit={handleUpdateSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Webinar Title *
+                    Webinar Topic *
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    value={formData.topic}
+                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
                     className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
-                    placeholder="Enter webinar title"
+                    placeholder="Enter webinar topic"
                   />
                 </div>
 
@@ -712,8 +712,8 @@ export const InstructorWebinarsPage = () => {
                     <input
                       type="datetime-local"
                       required
-                      value={formData.scheduled_at}
-                      onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+                      value={formData.start_time}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                       className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
                     />
                   </div>
@@ -726,8 +726,8 @@ export const InstructorWebinarsPage = () => {
                       type="number"
                       required
                       min="1"
-                      value={formData.duration_minutes}
-                      onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || 60 })}
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 60 })}
                       className="w-full rounded-xl border-0 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2D2D2D]/20"
                       placeholder="60"
                     />
@@ -818,7 +818,7 @@ export const InstructorWebinarsPage = () => {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900">Webinar Registrations</h3>
-                  <p className="text-sm text-gray-500 mt-1">{selectedWebinar.title}</p>
+                  <p className="text-sm text-gray-500 mt-1">{selectedWebinar.topic}</p>
                 </div>
                 <button
                   onClick={() => setShowRegistrationsModal(false)}
