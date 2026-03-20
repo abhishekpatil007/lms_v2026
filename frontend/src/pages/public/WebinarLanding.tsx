@@ -58,7 +58,7 @@ export const WebinarLanding = () => {
       setLoading(true);
       setNotFound(false);
       const response = await webinarsApi.getById(id!);
-      setWebinar(response.webinar);
+      setWebinar(response.data);
     } catch (error: any) {
       console.error('Error fetching webinar:', error);
       if (error.response?.status === 404) {
@@ -157,8 +157,8 @@ export const WebinarLanding = () => {
   const getWebinarStatus = () => {
     if (!webinar) return 'upcoming';
     const now = new Date();
-    const scheduledDate = new Date(webinar.scheduled_at);
-    const endDate = new Date(scheduledDate.getTime() + webinar.duration_minutes * 60000);
+    const scheduledDate = new Date(webinar.start_time);
+    const endDate = new Date(scheduledDate.getTime() + webinar.duration * 60000);
 
     if (now >= scheduledDate && now <= endDate) {
       return 'live';
@@ -281,7 +281,7 @@ export const WebinarLanding = () => {
               transition={{ delay: 0.3 }}
               className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight"
             >
-              {webinar.title}
+              {webinar.topic}
             </motion.h2>
 
             {/* Description */}
@@ -310,9 +310,9 @@ export const WebinarLanding = () => {
                   <span className="text-white/80 text-sm font-medium">Date & Time</span>
                 </div>
                 <p className="text-white font-semibold text-sm mb-1">
-                  {formatDate(webinar.scheduled_at)}
+                  {formatDate(webinar.start_time)}
                 </p>
-                <p className="text-white text-sm">{formatTime(webinar.scheduled_at)}</p>
+                <p className="text-white text-sm">{formatTime(webinar.start_time)}</p>
               </div>
 
               {/* Duration */}
@@ -322,7 +322,7 @@ export const WebinarLanding = () => {
                   <span className="text-white/80 text-sm font-medium">Duration</span>
                 </div>
                 <p className="text-white font-bold text-2xl">
-                  {webinar.duration_minutes}{' '}
+                  {webinar.duration}{' '}
                   <span className="text-base font-medium">minutes</span>
                 </p>
               </div>
