@@ -3,15 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     IconVideo,
     IconPlayerPlay,
-    IconFilter,
     IconClock,
     IconCalendar,
     IconLayoutGrid,
     IconLayoutList,
     IconSearch,
     IconX,
-    IconSortAscending,
-    IconSortDescending,
     IconChevronLeft,
     IconChevronRight,
     IconPlayerSkipForward,
@@ -606,44 +603,50 @@ export const StudentVideosPage = () => {
         setSelectedVideo(video);
     }, []);
 
+    // Compute stats
+    const totalDurationSecs = allVideos.reduce((acc, v) => acc + (v.duration || 0), 0);
+    const totalDurationStr = (() => {
+        if (totalDurationSecs === 0) return null;
+        const hrs = Math.floor(totalDurationSecs / 3600);
+        const mins = Math.floor((totalDurationSecs % 3600) / 60);
+        if (hrs > 0) return `${hrs}h ${mins}m`;
+        return `${mins}m`;
+    })();
+    const progressMap = getProgressMap();
+    const completedCount = allVideos.filter(v => {
+        const p = progressMap[v.id];
+        return p && p.percent >= 95;
+    }).length;
+    const languages = Array.from(new Set(allVideos.map(v => v.language).filter(Boolean))).sort();
+
     return (
         <div className="max-w-7xl mx-auto">
+            {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6"
+                className="mb-6"
             >
-                <div>
-                    <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-2">
-                        Video Library
-                    </h1>
-                    <p className="text-gray-500 text-sm sm:text-base md:text-lg">
-                        Structured learning content organized for your progress
-                    </p>
-                </div>
-
-                <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl shadow-sm border border-gray-100">
-                    <button
-                        onClick={() => setViewMode('topic')}
-                        className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                            viewMode === 'topic' ? "bg-gray-900 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-1">
+                    Video Library
+                </h1>
+                {!loading && allVideos.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-400">
+                        <span className="font-medium">{allVideos.length} video{allVideos.length !== 1 ? 's' : ''}</span>
+                        {totalDurationStr && (
+                            <>
+                                <span>·</span>
+                                <span className="flex items-center gap-1"><IconClock size={13} />{totalDurationStr} total</span>
+                            </>
                         )}
-                    >
-                        <IconLayoutList size={18} />
-                        Topic View
-                    </button>
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                            viewMode === 'grid' ? "bg-gray-900 text-white shadow-md" : "text-gray-500 hover:bg-gray-50"
+                        {completedCount > 0 && (
+                            <>
+                                <span>·</span>
+                                <span className="text-emerald-500 font-medium">{completedCount} completed</span>
+                            </>
                         )}
-                    >
-                        <IconLayoutGrid size={18} />
-                        Grid View
-                    </button>
-                </div>
+                    </div>
+                )}
             </motion.div>
 
             {/* Continue Watching Carousel */}
@@ -654,50 +657,106 @@ export const StudentVideosPage = () => {
                 />
             )}
 
-            {/* Filters */}
-            {allVideos.length > 0 && (
-                <div className="mb-8 flex flex-wrap items-center gap-3">
-                    <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
-                        <IconSearch className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
+            {/* Unified Toolbar */}
+            {!loading && allVideos.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm"
+                >
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-0">
+                        <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={2} />
                         <input
                             type="text"
                             placeholder="Search videos..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-xl border-0 bg-white py-3 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                            className="w-full rounded-xl bg-gray-50 border-0 py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:bg-white transition-colors"
                         />
                     </div>
-                    <div className="relative w-full sm:w-auto sm:min-w-[140px]">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <IconFilter className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <select
-                            value={selectedLanguage}
-                            onChange={(e) => setSelectedLanguage(e.target.value)}
-                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 appearance-none cursor-pointer font-medium text-sm"
-                        >
-                            <option value="">All Languages</option>
-                            {Array.from(new Set(allVideos.map(v => v.language).filter(Boolean))).sort().map(lang => (
-                                <option key={lang} value={lang!}>{lang}</option>
+
+                    {/* Divider */}
+                    <div className="hidden sm:block w-px h-8 bg-gray-100" />
+
+                    {/* Filter pills row */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Language filter pills */}
+                        {languages.length > 1 && (
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setSelectedLanguage('')}
+                                    className={cn(
+                                        "px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                        !selectedLanguage ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                                    )}
+                                >
+                                    All
+                                </button>
+                                {languages.map(lang => (
+                                    <button
+                                        key={lang}
+                                        onClick={() => setSelectedLanguage(selectedLanguage === lang ? '' : lang!)}
+                                        className={cn(
+                                            "px-2.5 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all",
+                                            selectedLanguage === lang ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                                        )}
+                                    >
+                                        {lang}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Sort pills */}
+                        <div className="flex items-center gap-1 ml-auto">
+                            {([
+                                { value: 'newest', label: 'Newest' },
+                                { value: 'oldest', label: 'Oldest' },
+                                { value: 'title_asc', label: 'A-Z' },
+                            ] as const).map(opt => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => setSortBy(opt.value)}
+                                    className={cn(
+                                        "px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                                        sortBy === opt.value ? "bg-violet-100 text-violet-700" : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                    )}
+                                >
+                                    {opt.label}
+                                </button>
                             ))}
-                        </select>
-                    </div>
-                    <div className="relative w-full sm:w-auto sm:min-w-[140px]">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            {sortBy.includes('desc') || sortBy === 'oldest' ? <IconSortDescending className="h-5 w-5 text-gray-400" /> : <IconSortAscending className="h-5 w-5 text-gray-400" />}
                         </div>
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value as any)}
-                            className="pl-10 pr-10 py-2.5 w-full rounded-xl border border-gray-200 bg-white text-gray-700 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 appearance-none cursor-pointer font-medium text-sm"
-                        >
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
-                            <option value="title_asc">Title A-Z</option>
-                            <option value="title_desc">Title Z-A</option>
-                        </select>
+
+                        {/* Divider */}
+                        <div className="hidden sm:block w-px h-6 bg-gray-100" />
+
+                        {/* View toggle */}
+                        <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-0.5">
+                            <button
+                                onClick={() => setViewMode('topic')}
+                                className={cn(
+                                    "p-1.5 rounded-md transition-all",
+                                    viewMode === 'topic' ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                )}
+                                title="Topic View"
+                            >
+                                <IconLayoutList size={16} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={cn(
+                                    "p-1.5 rounded-md transition-all",
+                                    viewMode === 'grid' ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                )}
+                                title="Grid View"
+                            >
+                                <IconLayoutGrid size={16} />
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </motion.div>
             )}
 
             {/* Content Area */}
@@ -705,6 +764,20 @@ export const StudentVideosPage = () => {
                 <div className="flex items-center justify-center h-96">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
                 </div>
+            ) : allVideos.length === 0 ? (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center justify-center py-24 text-center"
+                >
+                    <div className="w-20 h-20 rounded-2xl bg-gray-50 flex items-center justify-center mb-5 text-gray-300">
+                        <IconVideo size={40} />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No Videos Yet</h3>
+                    <p className="text-gray-500 max-w-sm">
+                        Your learning videos will appear here once they're published by your instructor.
+                    </p>
+                </motion.div>
             ) : viewMode === 'topic' ? (
                 <TopicAccordion
                     topics={groupedTopics}
@@ -712,7 +785,14 @@ export const StudentVideosPage = () => {
                     onResourceClick={handleVideoClick}
                 />
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                <div className={cn(
+                    "grid gap-3 sm:gap-4 md:gap-5",
+                    filteredAndSorted.length <= 2
+                        ? "grid-cols-1 sm:grid-cols-2 max-w-2xl"
+                        : filteredAndSorted.length <= 4
+                        ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                        : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                )}>
                     {filteredAndSorted.map((video, idx) => (
                         <VideoCard
                             key={video.id}
