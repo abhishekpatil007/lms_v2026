@@ -15,7 +15,7 @@ import XLSX from 'xlsx';
 dotenv.config();
 
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 12);
-const sendEmail = false;
+const sendEmail = true;
 
 // export async function register(req, res) {
 //     try {
