@@ -57,6 +57,7 @@ export const batchesApi = {
       end_date: string;
       instructor_id: number;
       description: string;
+      status: string;
     }>
   ): Promise<{ message: string; batch: Batch }> => {
     const response = await apiClient.put(`/api/batches/${id}`, data);
