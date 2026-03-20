@@ -45,6 +45,9 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Add Node.js and npm to PATH (based on your 'which npm' output)
+            export PATH=$PATH:/root/.nvm/versions/node/v24.14.0/bin
+            
             cd ${{ secrets.REMOTE_DIR }}
             git pull origin master
             
@@ -57,3 +60,4 @@ jobs:
             cd ../frontend
             npm install
             npm run build
+
