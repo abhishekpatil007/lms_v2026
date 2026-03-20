@@ -19,6 +19,9 @@ import {
   IconPlayerPlay,
   IconLanguage,
   IconRefresh,
+  IconEdit,
+  IconCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { batchesApi } from "@/api/endpoints/batches";
 import { topicsApi } from "@/api/endpoints/topics";
@@ -201,6 +204,15 @@ export const AdminBatchDetailPage = () => {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [loading, setLoading] = useState(true);
   const [batch, setBatch] = useState<Batch | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState<{
+    batch_name: string;
+    description: string;
+    start_date: string;
+    end_date: string;
+    status: string;
+  }>({ batch_name: "", description: "", start_date: "", end_date: "", status: "draft" });
+  const [editSaving, setEditSaving] = useState(false);
   const [counts, setCounts] = useState<{
     students: number;
     topics: number;
@@ -233,6 +245,36 @@ export const AdminBatchDetailPage = () => {
       console.error("Error fetching batch details:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startEdit = () => {
+    if (!batch) return;
+    setEditData({
+      batch_name: batch.batch_name,
+      description: batch.description || "",
+      start_date: batch.start_date,
+      end_date: batch.end_date,
+      status: batch.status,
+    });
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => {
+    setEditMode(false);
+  };
+
+  const saveEdit = async () => {
+    if (!batchId) return;
+    try {
+      setEditSaving(true);
+      const res = await batchesApi.update(batchId, editData);
+      setBatch(res.batch);
+      setEditMode(false);
+    } catch (error) {
+      console.error("Error updating batch:", error);
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -321,31 +363,113 @@ export const AdminBatchDetailPage = () => {
         </button>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
-                {batch.batch_name}
-              </h1>
-              <StatusBadge status={batch.status} />
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-              {batch.course && (
-                <span className="flex items-center gap-1">
-                  <IconSchool size={14} />
-                  {batch.course.title}
-                </span>
-              )}
-              {batch.instructor && (
-                <span className="flex items-center gap-1">
-                  <IconUsers size={14} />
-                  {batch.instructor.name}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <IconCalendar size={14} />
-                {formatDate(batch.start_date)} &ndash; {formatDate(batch.end_date)}
-              </span>
-            </div>
+          <div className="flex-1">
+            {editMode ? (
+              <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Batch Name</label>
+                    <input
+                      type="text"
+                      value={editData.batch_name}
+                      onChange={(e) => setEditData({ ...editData, batch_name: e.target.value })}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Status</label>
+                    <select
+                      value={editData.status}
+                      onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="completed">Completed</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">Start Date</label>
+                    <input
+                      type="date"
+                      value={editData.start_date}
+                      onChange={(e) => setEditData({ ...editData, start_date: e.target.value })}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">End Date</label>
+                    <input
+                      type="date"
+                      value={editData.end_date}
+                      onChange={(e) => setEditData({ ...editData, end_date: e.target.value })}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-500">Description</label>
+                  <textarea
+                    value={editData.description}
+                    onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={saveEdit}
+                    disabled={editSaving}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <IconCheck size={16} />
+                    {editSaving ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  >
+                    <IconX size={16} />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-gray-900 md:text-3xl">
+                    {batch.batch_name}
+                  </h1>
+                  <StatusBadge status={batch.status} />
+                  <button
+                    onClick={startEdit}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-violet-600"
+                  >
+                    <IconEdit size={14} />
+                    Edit
+                  </button>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+                  {batch.course && (
+                    <span className="flex items-center gap-1">
+                      <IconSchool size={14} />
+                      {batch.course.title}
+                    </span>
+                  )}
+                  {batch.instructor && (
+                    <span className="flex items-center gap-1">
+                      <IconUsers size={14} />
+                      {batch.instructor.name}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <IconCalendar size={14} />
+                    {formatDate(batch.start_date)} &ndash; {formatDate(batch.end_date)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </motion.div>
