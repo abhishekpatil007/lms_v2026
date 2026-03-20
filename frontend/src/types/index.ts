@@ -80,7 +80,7 @@ export interface ApiError {
 }
 
 // Video Module Types
-export type VideoStatus = 'uploading' | 'ready' | 'processing' | 'errored';
+export type VideoStatus = 'pending' | 'ready' | 'failed' | 'cancelled';
 
 export interface Video {
   id: string;

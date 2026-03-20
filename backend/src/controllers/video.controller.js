@@ -132,20 +132,23 @@ export const muxWebhookHandler = async (req, res) => {
                 // playback_ids may be array; prefer first
                 const playbackObj = Array.isArray(asset?.playback_ids) ? asset.playback_ids[0] : null;
                 const playbackId = playbackObj?.id || asset?.playback_id || null;
+                // Extract duration (seconds) and generate thumbnail URL
+                const duration = asset?.duration || null;
+                const thumbnailUrl = playbackId ? `https://image.mux.com/${playbackId}/thumbnail.jpg` : null;
+
+                const updateData = {
+                    mux_asset_id: assetId,
+                    mux_playback_id: playbackId,
+                    upload_status: 'ready',
+                    duration,
+                    thumbnail_url: thumbnailUrl,
+                };
 
                 if (passthrough) {
-                    await Video.update({
-                        mux_asset_id: assetId,
-                        mux_playback_id: playbackId,
-                        upload_status: 'ready',
-                    }, { where: { id: passthrough } });
-                    videoLogger.info(`Asset ready - Video ID: ${passthrough}, Playback ID: ${playbackId}`);
+                    await Video.update(updateData, { where: { id: passthrough } });
+                    videoLogger.info(`Asset ready - Video ID: ${passthrough}, Playback ID: ${playbackId}, Duration: ${duration}s`);
                 } else if (assetId) {
-                    await Video.update({
-                        mux_asset_id: assetId,
-                        mux_playback_id: playbackId,
-                        upload_status: 'ready',
-                    }, { where: { mux_asset_id: assetId } });
+                    await Video.update(updateData, { where: { mux_asset_id: assetId } });
                 }
                 break;
             }
