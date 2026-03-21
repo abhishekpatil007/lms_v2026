@@ -189,6 +189,40 @@ export const muxWebhookHandler = async (req, res) => {
 };
 
 // -------------------------------------------------------------------
+// updateVideo - update video metadata (title, description, language, topic_id)
+// -------------------------------------------------------------------
+export const updateVideo = async (req, res) => {
+    try {
+        ensureUser(req);
+        const videoId = req.params.id;
+
+        const video = await Video.findByPk(videoId);
+        if (!video) {
+            videoLogger.warn(`Update Video - Video not found: ${videoId}`);
+            return res.status(404).json({ message: 'Video not found' });
+        }
+
+        // Only allow updating safe fields
+        const allowedFields = ['title', 'description', 'language', 'topic_id', 'visibility'];
+        const updateData = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updateData[field] = req.body[field];
+            }
+        }
+
+        await video.update(updateData);
+
+        const updated = await Video.findByPk(videoId, { include: [{ model: Batch, as: 'batches' }] });
+        videoLogger.info(`Video updated - Video ID: ${videoId}, Fields: ${Object.keys(updateData).join(', ')}`);
+        return res.json({ message: 'Video updated successfully', video: updated });
+    } catch (err) {
+        videoLogger.error(`Error in updateVideo: ${err.message}`);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// -------------------------------------------------------------------
 // assignBatches - assign a video to multiple batches (replace associations)
 // Body: { batch_ids: ["uuid1","uuid2"] }
 // -------------------------------------------------------------------

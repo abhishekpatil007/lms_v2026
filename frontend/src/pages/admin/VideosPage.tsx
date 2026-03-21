@@ -15,6 +15,7 @@ import {
   IconAlertCircle,
   IconCircleCheck,
   IconLanguage,
+  IconEdit,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -213,6 +214,9 @@ export const VideosPage = () => {
   const [selectedVideoForBatch, setSelectedVideoForBatch] = useState<Video | null>(null);
   const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [previewVideo, setPreviewVideo] = useState<Video | null>(null);
+  const [editVideo, setEditVideo] = useState<Video | null>(null);
+  const [editData, setEditData] = useState({ title: "", description: "", language: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -312,6 +316,31 @@ export const VideosPage = () => {
     const mins = Math.floor((seconds % 3600) / 60);
     if (hrs > 0) return `${hrs}h ${mins}m`;
     return `${mins}m`;
+  };
+
+  const openEditModal = (video: Video) => {
+    setEditData({
+      title: video.title,
+      description: video.description || "",
+      language: video.language || "",
+    });
+    setEditVideo(video);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editVideo) return;
+    try {
+      setEditSaving(true);
+      await videosApi.update(editVideo.id, editData);
+      addToast("success", `"${editData.title}" updated successfully`);
+      setEditVideo(null);
+      await fetchVideos();
+    } catch (error) {
+      console.error("Error updating video:", error);
+      addToast("error", "Failed to update video.");
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleDeleteVideo = async (videoId: string, title: string) => {
@@ -713,6 +742,13 @@ export const VideosPage = () => {
                             Assign
                           </button>
                           <button
+                            onClick={() => openEditModal(video)}
+                            className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 transition-all"
+                            title="Edit video"
+                          >
+                            <IconEdit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteVideo(video.id, video.title)}
                             className="rounded-xl px-3 py-2 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-all"
                             title="Delete video"
@@ -787,6 +823,87 @@ export const VideosPage = () => {
             }}
             batches={batches}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Edit Video Modal */}
+      <AnimatePresence>
+        {editVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setEditVideo(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                    <IconEdit className="w-5 h-5 text-violet-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Edit Video</h3>
+                    <p className="text-xs text-gray-500 truncate max-w-[200px]">{editVideo.title}</p>
+                  </div>
+                </div>
+                <button onClick={() => setEditVideo(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
+                  <IconX className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Title</label>
+                  <input
+                    type="text"
+                    value={editData.title}
+                    onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Description</label>
+                  <textarea
+                    value={editData.description}
+                    onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Language</label>
+                  <input
+                    type="text"
+                    value={editData.language}
+                    onChange={(e) => setEditData({ ...editData, language: e.target.value })}
+                    placeholder="e.g. en, hi, mr"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                <button
+                  onClick={() => setEditVideo(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={editSaving || !editData.title.trim()}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-all disabled:opacity-50"
+                >
+                  {editSaving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
