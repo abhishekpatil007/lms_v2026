@@ -8,6 +8,7 @@ import {
     getPlaybackUrl,
     deleteVideo,
     assignBatches,
+    updateVideo,
 } from '../controllers/video.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -28,6 +29,9 @@ router.get('/:id', verifyToken, getVideo);
 
 // Get playback URL
 router.get('/:id/playback', verifyToken, getPlaybackUrl);
+
+// Update video metadata (instructor/admin)
+router.put('/:id', verifyToken, requireRole(['instructor', 'admin']), updateVideo);
 
 // Delete (instructor owning batch or admin)
 router.delete('/:id', verifyToken, requireRole(['instructor', 'admin']), deleteVideo);

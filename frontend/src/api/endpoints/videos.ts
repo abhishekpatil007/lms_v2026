@@ -86,6 +86,23 @@ export const videosApi = {
   },
 
   /**
+   * Update video metadata (Instructor/Admin only)
+   */
+  update: async (
+    videoId: string,
+    data: Partial<{
+      title: string;
+      description: string;
+      language: string;
+      topic_id: string;
+      visibility: string;
+    }>
+  ): Promise<{ message: string; video: Video }> => {
+    const response = await apiClient.put(`/api/videos/${videoId}`, data);
+    return response.data;
+  },
+
+  /**
    * Delete video (Instructor/Admin only)
    */
   delete: async (videoId: string): Promise<{ message: string }> => {
