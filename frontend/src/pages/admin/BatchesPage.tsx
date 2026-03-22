@@ -8,6 +8,9 @@ import {
   IconUserCheck,
   IconX,
   IconBook,
+  IconDownload,
+  IconUpload,
+  IconFileSpreadsheet
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -18,11 +21,11 @@ import { coursesApi } from "@/api/endpoints/courses";
 import { usersApi } from "@/api/endpoints/users";
 import { TopicManager } from "@/components/topics/TopicManager";
 import type { Batch, Course, BatchStatus, User } from "@/types";
+import { toast } from "react-hot-toast";
 
 export const BatchesPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  console.log("Current User:", user);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<BatchStatus | "all">("all");
   const [filterCourse, setFilterCourse] = useState<string>("all");
@@ -106,28 +109,29 @@ export const BatchesPage = () => {
   const handleAssignInstructor = async () => {
     if (!selectedBatchForAction || !selectedInstructorId) return;
     try {
-      await batchesApi.assignInstructor(selectedBatchForAction.id, selectedInstructorId);
       await fetchBatches();
       setShowAssignInstructorModal(false);
       setSelectedBatchForAction(null);
       setSelectedInstructorId(null);
+      toast.success("Instructor assigned successfully");
     } catch (error) {
       console.error("Error assigning instructor:", error);
-      alert("Failed to assign instructor");
+      toast.error("Failed to assign instructor");
     }
   };
 
   const handleEnrollStudents = async () => {
     if (!selectedBatchForAction || selectedStudentIds.length === 0) return;
     try {
-      await batchesApi.enrollStudents(selectedBatchForAction.id, selectedStudentIds);
       await fetchBatches();
       setShowEnrollStudentsModal(false);
       setSelectedBatchForAction(null);
       setSelectedStudentIds([]);
+      // No toast here as the modal handles it
     } catch (error) {
       console.error("Error enrolling students:", error);
-      alert("Failed to enroll students");
+      // throw error to be caught by modal's handleSubmit
+      throw error;
     }
   };
 
@@ -872,9 +876,8 @@ const AssignInstructorModal = ({
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     if (!selectedInstructorId) {
-      alert("Please select an instructor");
+      toast.error("Please select an instructor");
       return;
     }
     setLoading(true);
@@ -1043,19 +1046,76 @@ const EnrollStudentsModal = ({
   onSubmit: () => void;
 }) => {
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [enrollMode, setEnrollMode] = useState<'manual' | 'bulk'>('manual');
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const handleExport = async () => {
+    try {
+      await batchesApi.exportStudents(batch.id.toString());
+      toast.success("Students template downloaded");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export students");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // File validation
+    const validExtensions = ['.xlsx', '.xls'];
+    const fileName = file.name.toLowerCase();
+    if (!validExtensions.some(ext => fileName.endsWith(ext))) {
+      toast.error("Invalid file format. Please upload an Excel file (.xlsx or .xls)");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const toastId = toast.loading("Uploading enrollment file...");
+    try {
+      setUploading(true);
+      const response = await batchesApi.bulkEnroll(batch.id.toString(), file);
+      toast.success(response.message || `Successfully processed enrollment`, { id: toastId });
+      await onSubmit(); // Refresh batches list
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      const errorMessage = error.response?.data?.message || "Failed to upload enrollment file";
+      toast.error(errorMessage, { id: toastId });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedStudentIds.length === 0) {
-      alert("Please select at least one student");
+      toast.error("Please select at least one student");
       return;
     }
-    setLoading(true);
-    await onSubmit();
-    setLoading(false);
+    
+    const toastId = toast.loading("Enrolling students...");
+    try {
+      setLoading(true);
+      await onSubmit();
+      toast.success("Students enrolled successfully", { id: toastId });
+    } catch (error: any) {
+      console.error("Enrollment error:", error);
+      const errorMessage = error.response?.data?.message || "Failed to enroll students";
+      toast.error(errorMessage, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const enrolledStudentIds = batch.students?.map(s => s.id) || [];
+
+  const filteredStudents = (students || []).filter(student => 
+    student.name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+    student.email?.toLowerCase().includes(studentSearchQuery.toLowerCase())
+  );
 
   return (
     <motion.div
@@ -1093,118 +1153,212 @@ const EnrollStudentsModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Selection Summary */}
-          <div className="mb-6 rounded-xl bg-gradient-to-br from-blue-400/20 to-blue-500/20 border-2 border-blue-400/30 p-4">
-            <p className="text-sm font-bold text-gray-900">
-              {selectedStudentIds.length} student{selectedStudentIds.length !== 1 ? 's' : ''} selected
-            </p>
-            <p className="text-xs text-gray-600 mt-1">
-              Currently enrolled: {enrolledStudentIds.length} student{enrolledStudentIds.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-
-          {/* Students List */}
-          <div className="space-y-2 max-h-[250px] sm:max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2">
-            {(students || []).length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <IconUsers className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="font-medium">No students available</p>
-              </div>
-            ) : (
-              (students || []).map((student) => {
-                const isSelected = selectedStudentIds.includes(student.id);
-                const isCurrentlyEnrolled = enrolledStudentIds.includes(student.id);
-
-                return (
-                  <label
-                    key={student.id}
-                    className={cn(
-                      "flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all hover:shadow-md",
-                      isSelected
-                        ? "bg-gradient-to-br from-blue-400 to-blue-500 border-2 border-blue-500"
-                        : "bg-gray-50 border-2 border-transparent hover:bg-gray-100"
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onToggleStudent(student.id)}
-                      className="w-5 h-5 text-blue-500 focus:ring-blue-500 focus:ring-2 rounded"
-                    />
-                    <div className={cn(
-                      "w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-sm",
-                      isSelected
-                        ? "bg-white text-blue-500"
-                        : "bg-gradient-to-br from-blue-400 to-blue-500 text-white"
-                    )}>
-                      {student.name?.charAt(0) || 'S'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={cn(
-                          "text-sm font-bold truncate",
-                          isSelected ? "text-white" : "text-gray-900"
-                        )}>
-                          {student.name}
-                        </p>
-                        {isCurrentlyEnrolled && (
-                          <span className={cn(
-                            "text-xs font-bold px-2 py-0.5 rounded-full",
-                            isSelected
-                              ? "bg-white/30 text-white"
-                              : "bg-blue-100 text-blue-700"
-                          )}>
-                            Enrolled
-                          </span>
-                        )}
-                      </div>
-                      <p className={cn(
-                        "text-xs truncate",
-                        isSelected ? "text-white/80" : "text-gray-500"
-                      )}>
-                        {student.email}
-                      </p>
-                    </div>
-                    {isSelected && (
-                      <div className="w-6 h-6 rounded bg-white flex items-center justify-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                      </div>
-                    )}
-                  </label>
-                );
-              })
+        {/* Tab Toggle */}
+        <div className="flex p-1 bg-gray-100 rounded-2xl mb-8">
+          <button
+            onClick={() => setEnrollMode('manual')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all",
+              enrollMode === 'manual'
+                ? "bg-white text-gray-900 shadow-md"
+                : "text-gray-500 hover:text-gray-700"
             )}
-          </div>
+          >
+            <IconUsers className="w-4 h-4" />
+            Manual Selection
+          </button>
+          <button
+            onClick={() => setEnrollMode('bulk')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all",
+              enrollMode === 'bulk'
+                ? "bg-white text-gray-900 shadow-md"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <IconFileSpreadsheet className="w-4 h-4" />
+            Bulk Upload
+          </button>
+        </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-6 border-t-2 border-gray-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || selectedStudentIds.length === 0}
-              className="rounded-xl px-6 py-3 text-sm font-bold bg-gradient-to-br from-blue-400 to-blue-500 text-white hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Enrolling...
-                </>
-              ) : (
-                <>
-                  <IconUsers className="w-4 h-4" strokeWidth={2.5} />
-                  Enroll Students
-                </>
-              )}
-            </button>
+        {enrollMode === 'bulk' ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                onClick={handleExport}
+                className="flex items-center justify-center gap-3 p-4 rounded-2xl bg-violet-50 border-2 border-violet-100 hover:border-violet-200 hover:bg-violet-100 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-violet-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                  <IconDownload className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-gray-900">Download Template</p>
+                  <p className="text-xs text-gray-500">Get student list with instructions</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center justify-center gap-3 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-100 hover:border-emerald-200 hover:bg-emerald-100 transition-all group disabled:opacity-50"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                  {uploading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <IconUpload className="w-5 h-5" />
+                  )}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-gray-900">Upload Enrollment</p>
+                  <p className="text-xs text-gray-500">Assign students via Excel</p>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  accept=".xlsx,.xls"
+                />
+              </button>
+            </div>
+            
+            <div className="p-4 rounded-2xl bg-blue-50 border-2 border-blue-100 flex gap-3 text-sm text-blue-700">
+              <IconBook className="w-5 h-5 shrink-0" />
+              <p>
+                <strong>Pro tip:</strong> Use the Bulk Upload for larger classes. 
+                Keep only the students you want to enroll in the "Students" sheet, then upload.
+              </p>
+            </div>
           </div>
-        </form>
+        ) : (
+          <div className="space-y-6">
+            {/* Search Bar */}
+            <div className="relative">
+              <IconSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search students by name or email..."
+                value={studentSearchQuery}
+                onChange={(e) => setStudentSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-2xl border-2 border-gray-100 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Selection Summary */}
+              <div className="rounded-xl bg-gradient-to-br from-blue-400/20 to-blue-500/20 border-2 border-blue-400/30 p-4">
+                <p className="text-sm font-bold text-gray-900">
+                  {selectedStudentIds.length} student{selectedStudentIds.length !== 1 ? 's' : ''} selected
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Currently enrolled: {enrolledStudentIds.length} student{enrolledStudentIds.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {/* Students List */}
+              <div className="space-y-2 max-h-[250px] sm:max-h-[300px] md:max-h-[400px] overflow-y-auto pr-2">
+                {filteredStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <IconSearch className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="font-medium">No matches found for "{studentSearchQuery}"</p>
+                  </div>
+                ) : (
+                  filteredStudents.map((student) => {
+                    const isSelected = selectedStudentIds.includes(student.id);
+                    const isCurrentlyEnrolled = enrolledStudentIds.includes(student.id);
+
+                    return (
+                      <label
+                        key={student.id}
+                        className={cn(
+                          "flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all hover:shadow-md",
+                          isSelected
+                            ? "bg-gradient-to-br from-blue-400 to-blue-500 border-2 border-blue-500"
+                            : "bg-gray-50 border-2 border-transparent hover:bg-gray-100"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => onToggleStudent(student.id)}
+                          className="w-5 h-5 text-blue-500 focus:ring-blue-500 focus:ring-2 rounded"
+                        />
+                        <div className={cn(
+                          "w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-sm",
+                          isSelected
+                            ? "bg-white text-blue-500"
+                            : "bg-gradient-to-br from-blue-400 to-blue-500 text-white"
+                        )}>
+                          {student.name?.charAt(0) || 'S'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={cn(
+                              "text-sm font-bold truncate",
+                              isSelected ? "text-white" : "text-gray-900"
+                            )}>
+                              {student.name}
+                            </p>
+                            {isCurrentlyEnrolled && (
+                              <span className={cn(
+                                "text-xs font-bold px-2 py-0.5 rounded-full",
+                                isSelected
+                                  ? "bg-white/30 text-white"
+                                  : "bg-blue-100 text-blue-700"
+                              )}>
+                                Enrolled
+                              </span>
+                            )}
+                          </div>
+                          <p className={cn(
+                            "text-xs truncate",
+                            isSelected ? "text-white/80" : "text-gray-500"
+                          )}>
+                            {student.email}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div className="w-6 h-6 rounded bg-white flex items-center justify-center">
+                            <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                          </div>
+                        )}
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-6 border-t-2 border-gray-100">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || selectedStudentIds.length === 0}
+                  className="rounded-xl px-6 py-3 text-sm font-bold bg-gradient-to-br from-blue-400 to-blue-500 text-white hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Enrolling...
+                    </>
+                  ) : (
+                    <>
+                      <IconUsers className="w-4 h-4" strokeWidth={2.5} />
+                      Enroll Students
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
