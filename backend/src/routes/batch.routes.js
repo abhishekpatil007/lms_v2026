@@ -11,9 +11,14 @@ import {
     getInstructorBatches,
     getStudentBatches,
     getBatchStudents,
+    exportStudentsToExcel,
+    bulkEnrollStudentsFromExcel,
 } from '../controllers/batch.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
+import multer from 'multer';
+
+const upload = multer({ dest: 'uploads/excel/' });
 
 const router = express.Router();
 
@@ -28,6 +33,8 @@ router.get('/:id/students', verifyToken, requireRole(['admin', 'instructor']), g
 router.patch('/:id/deactivate', verifyToken, requireRole(['admin']), deactivateBatch);
 router.patch('/:id/assign-instructor', verifyToken, requireRole(['admin']), assignInstructor);
 router.post('/:id/enroll', verifyToken, requireRole(['admin']), enrollStudents);
+router.get('/:id/students/export', verifyToken, requireRole(['admin', 'instructor']), exportStudentsToExcel);
+router.post('/:id/students/bulk-enroll', verifyToken, requireRole(['admin']), upload.single('file'), bulkEnrollStudentsFromExcel);
 
 // --------------------------
 // Instructor Routes

@@ -4,6 +4,9 @@ import db from '../models/index.js';
 const { Course, Batch, User, BatchStudent, Topic, Video, Document, LiveClass, Test } = db;
 import { sendWelcomeEmail, notifyInstructor } from '../services/batchEmail.service.js';
 import batchLogger from '../utils/logger/individualLogger/batchLogger.js';
+import XLSX from 'xlsx';
+import fs from 'fs-extra';
+
 
 
 
@@ -388,4 +391,124 @@ export const getStudentBatches = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+// --------------------------
+// Admin/Instructor: Export Students to Excel
+// --------------------------
+export const exportStudentsToExcel = async (req, res) => {
+    try {
+        const students = await User.findAll({
+            where: { role: 'student', is_active: true },
+            attributes: ['id', 'name', 'email']
+        });
+
+        const studentData = students.map(s => ({
+            ID: s.id,
+            Name: s.name,
+            Email: s.email
+        }));
+
+        const instructionData = [
+            { Instructions: '1. This sheet contains a list of all active students.' },
+            { Instructions: '2. To enroll students into the batch, keep only the rows of students you want to enroll.' },
+            { Instructions: '3. Do not modify the Email column as it is used to identify students.' },
+            { Instructions: '4. Save this file and upload it back in the "Enroll Students" modal.' },
+            { Instructions: '5. Students who are already enrolled in this batch will be ignored (no duplicates created).' }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const wsStudents = XLSX.utils.json_to_sheet(studentData);
+        const wsInstructions = XLSX.utils.json_to_sheet(instructionData);
+
+        XLSX.utils.book_append_sheet(wb, wsStudents, 'Students');
+        XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+
+        const fileName = `Students_Export_${Date.now()}.xlsx`;
+        const filePath = `./uploads/temp/${fileName}`;
+        
+        await fs.ensureDir('./uploads/temp');
+        XLSX.writeFile(wb, filePath);
+
+        res.download(filePath, fileName, async (err) => {
+            if (err) {
+                batchLogger.error(`Error downloading file: ${err.message}`);
+            }
+            // Cleanup file after download
+            try {
+                await fs.unlink(filePath);
+            } catch (unlinkErr) {
+                batchLogger.warn(`Failed to delete temp file: ${unlinkErr.message}`);
+            }
+        });
+
+        batchLogger.info(`Students exported to Excel for Batch ID: ${req.params.id}`);
+    } catch (err) {
+        batchLogger.error(`Error in exportStudentsToExcel: ${err.message}`);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// --------------------------
+// Admin: Bulk Enroll Students via Excel
+// --------------------------
+export const bulkEnrollStudentsFromExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Excel file required' });
+        }
+
+        const batchId = req.params.id;
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0]; // Assuming first sheet is students
+        const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (!data || data.length === 0) {
+            return res.status(400).json({ message: 'No student data found in the Excel file' });
+        }
+
+        const emails = data.map(row => row.Email || row.email).filter(Boolean);
+        
+        if (emails.length === 0) {
+            return res.status(400).json({ message: 'No valid student emails found in the file' });
+        }
+
+        // Find students by email
+        const students = await User.findAll({
+            where: {
+                email: emails,
+                role: 'student'
+            },
+            attributes: ['id', 'email']
+        });
+
+        if (students.length === 0) {
+            return res.status(400).json({ message: 'No matching students found in the database' });
+        }
+
+        const studentIds = students.map(s => s.id);
+        const enrollments = studentIds.map(id => ({
+            batch_id: batchId,
+            student_id: id
+        }));
+
+        await BatchStudent.bulkCreate(enrollments, { ignoreDuplicates: true });
+
+        // Trigger welcome emails in parallel (using original service)
+        await Promise.all(studentIds.map(studentId => sendWelcomeEmail(studentId, batchId)));
+
+        // Cleanup uploaded file
+        await fs.unlink(req.file.path);
+
+        batchLogger.info(`Bulk enrollment successful - Batch ID: ${batchId}, Count: ${studentIds.length}`);
+        res.json({ 
+            message: `Successfully processed ${studentIds.length} students`,
+            count: studentIds.length
+        });
+    } catch (err) {
+        if (req.file) await fs.unlink(req.file.path).catch(() => {});
+        batchLogger.error(`Error in bulkEnrollStudentsFromExcel: ${err.message}`);
+        res.status(500).json({ message: err.message });
+    }
+};
+
 // End of batch controller

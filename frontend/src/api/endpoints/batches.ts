@@ -98,4 +98,28 @@ export const batchesApi = {
     const response = await apiClient.get('/api/batches/student/my-batches');
     return response.data;
   },
+  
+  exportStudents: async (id: string) => {
+    const response = await apiClient.get(`/api/batches/${id}/students/export`, {
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Students_Batch_${id}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  bulkEnroll: async (id: string, file: File): Promise<{ message: string; count: number }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/api/batches/${id}/students/bulk-enroll`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
 };
