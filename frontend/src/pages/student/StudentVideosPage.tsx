@@ -644,6 +644,13 @@ export const StudentVideosPage = () => {
         });
     }, [sortBy]);
 
+    // When a batch is selected, keep server order (admin-defined sequence)
+    // Only apply client-side sort when viewing all batches
+    const applySort = useCallback((videos: Video[]) => {
+        if (selectedBatch) return videos; // preserve admin order
+        return sortVideos(videos);
+    }, [selectedBatch, sortVideos]);
+
     const groupedTopics = useMemo(() => {
         const filtered = allVideos.filter(v =>
             (!selectedLanguage || v.language === selectedLanguage) &&
@@ -651,22 +658,22 @@ export const StudentVideosPage = () => {
         );
         const topicList: Topic[] = topics.map(t => ({
             ...t,
-            videos: sortVideos(filtered.filter(v => String(v.topic_id) === String(t.id)))
+            videos: applySort(filtered.filter(v => String(v.topic_id) === String(t.id)))
         }));
         const untracked = filtered.filter(v => !v.topic_id);
         if (untracked.length > 0) {
-            topicList.push({ id: 0, title: 'General Resources', description: '', order_index: 999, batch_id: 'all', createdAt: '', updatedAt: '', videos: sortVideos(untracked) });
+            topicList.push({ id: 0, title: 'General Resources', description: '', order_index: 999, batch_id: 'all', createdAt: '', updatedAt: '', videos: applySort(untracked) });
         }
         return topicList.filter(t => (t.videos?.length || 0) > 0).sort((a, b) => a.order_index - b.order_index);
-    }, [allVideos, topics, selectedLanguage, searchQuery, sortBy, sortVideos]);
+    }, [allVideos, topics, selectedLanguage, searchQuery, applySort]);
 
     const filteredAndSorted = useMemo(() => {
         const filtered = allVideos.filter(v =>
             (!selectedLanguage || v.language === selectedLanguage) &&
             (!searchQuery || v.title.toLowerCase().includes(searchQuery.toLowerCase()))
         );
-        return sortVideos(filtered);
-    }, [allVideos, selectedLanguage, searchQuery, sortBy, sortVideos]);
+        return applySort(filtered);
+    }, [allVideos, selectedLanguage, searchQuery, applySort]);
 
     const handleVideoClick = useCallback((video: any) => {
         if (video.duration) {
