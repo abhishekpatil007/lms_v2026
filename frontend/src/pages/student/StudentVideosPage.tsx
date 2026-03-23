@@ -239,7 +239,11 @@ const VideoPlayerModal: React.FC<{
                     </div>
 
                     {/* Footer */}
-                    <div className="px-3 sm:px-5 py-2.5 bg-gray-800/30 flex flex-wrap items-center justify-between gap-2">
+                    <div className="px-3 sm:px-5 py-2.5 bg-gray-800/30">
+                        {video.description && (
+                            <p className="text-xs text-gray-400 mb-2 line-clamp-2">{video.description}</p>
+                        )}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                             {video.duration != null && <span className="flex items-center gap-1"><IconClock size={13} />{formatDuration(video.duration)}</span>}
                             {video.language && <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 uppercase font-bold text-[10px]">{video.language}</span>}
@@ -253,6 +257,7 @@ const VideoPlayerModal: React.FC<{
                                 <IconChevronRight size={14} />
                             </button>
                         )}
+                        </div>
                     </div>
                 </motion.div>
             </motion.div>
@@ -315,6 +320,9 @@ const VideoRow: React.FC<{
                 )}>
                     {video.title}
                 </h5>
+                {video.description && (
+                    <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1 mt-0.5">{video.description}</p>
+                )}
                 <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
                     {video.duration ? <span>{formatDuration(video.duration)}</span> : null}
                     {video.language && <span className="uppercase font-bold">{video.language}</span>}
@@ -482,7 +490,10 @@ const VideoCard: React.FC<{
                 )}
             </div>
             <div className="p-2.5 sm:p-3">
-                <h3 className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-violet-600 transition-colors">{video.title}</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-gray-900 line-clamp-1 leading-snug group-hover:text-violet-600 transition-colors">{video.title}</h3>
+                {video.description && (
+                    <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1 mt-0.5">{video.description}</p>
+                )}
                 <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400">
                     {video.language && <span className="uppercase font-bold">{video.language}</span>}
                     <span>{new Date(video.createdAt).toLocaleDateString()}</span>
@@ -809,9 +820,20 @@ export const StudentVideosPage = () => {
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4">
-                    {filteredAndSorted.map((video, idx) => (
-                        <VideoCard key={video.id} video={video} idx={idx} onClick={handleVideoClick} />
+                <div className="space-y-6">
+                    {groupedTopics.map((topic, tIdx) => (
+                        <div key={topic.id}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-7 h-7 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold">{tIdx + 1}</div>
+                                <h3 className="text-sm sm:text-base font-bold text-gray-900">{topic.title}</h3>
+                                <span className="text-xs text-gray-400">{topic.videos?.length || 0} videos</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                                {(topic.videos || []).map((video, idx) => (
+                                    <VideoCard key={video.id} video={video} idx={idx} onClick={handleVideoClick} />
+                                ))}
+                            </div>
+                        </div>
                     ))}
                 </div>
             )}
