@@ -9,6 +9,7 @@ import {
     assignInstructor,
     enrollStudents,
     unenrollStudent,
+    reorderBatchVideos,
     getInstructorBatches,
     getStudentBatches,
     getBatchStudents,
@@ -35,6 +36,7 @@ router.patch('/:id/deactivate', verifyToken, requireRole(['admin']), deactivateB
 router.patch('/:id/assign-instructor', verifyToken, requireRole(['admin']), assignInstructor);
 router.post('/:id/enroll', verifyToken, requireRole(['admin']), enrollStudents);
 router.delete('/:id/students/:studentId', verifyToken, requireRole(['admin']), unenrollStudent);
+router.put('/:id/videos/reorder', verifyToken, requireRole(['admin', 'instructor']), reorderBatchVideos);
 router.get('/:id/students/export', verifyToken, requireRole(['admin', 'instructor']), exportStudentsToExcel);
 router.post('/:id/students/bulk-enroll', verifyToken, requireRole(['admin']), upload.single('file'), bulkEnrollStudentsFromExcel);
 

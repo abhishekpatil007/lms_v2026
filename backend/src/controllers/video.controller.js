@@ -357,10 +357,10 @@ export const listVideos = async (req, res) => {
             batchIdsToQuery = [req.query.batch_id];
         }
 
-        // Find video ids linked to these batches via BatchVideo
+        // Find video ids linked to these batches via BatchVideo (with order_index)
         const bvRows = await BatchVideo.findAll({
             where: { batch_id: { [Op.in]: batchIdsToQuery } },
-            attributes: ['video_id'],
+            attributes: ['video_id', 'order_index'],
             raw: true,
         });
 
@@ -369,6 +369,10 @@ export const listVideos = async (req, res) => {
             videoLogger.info(`Videos listed by ${role} - No videos found`);
             return res.json({ videos: [], total: 0, totalPages: 0, currentPage: parseInt(req.query.page || 1) });
         }
+
+        // Build order map for sorting by sequence
+        const orderMap = {};
+        bvRows.forEach(r => { orderMap[r.video_id] = r.order_index || 0; });
 
         // apply video-level filters and restrict to videoIds
         // Students should only see ready videos
@@ -386,9 +390,19 @@ export const listVideos = async (req, res) => {
             order: [['created_at', 'DESC']]
         });
 
-        videoLogger.info(`Videos listed by ${role} - Count: ${rows.length}`);
+        // Attach order_index to each video and sort by it if filtering by specific batch
+        const videosWithOrder = rows.map(v => {
+            const plain = v.toJSON ? v.toJSON() : v;
+            plain.order_index = orderMap[plain.id] || 0;
+            return plain;
+        });
+        if (batchIdsToQuery.length === 1) {
+            videosWithOrder.sort((a, b) => a.order_index - b.order_index);
+        }
+
+        videoLogger.info(`Videos listed by ${role} - Count: ${videosWithOrder.length}`);
         return res.json({
-            videos: rows,
+            videos: videosWithOrder,
             total: count,
             totalPages: Math.ceil(count / limit),
             currentPage: parseInt(page)
