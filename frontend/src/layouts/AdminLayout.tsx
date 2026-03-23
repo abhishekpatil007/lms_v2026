@@ -72,11 +72,11 @@ export const AdminLayout = () => {
       href: "/admin/live-classes",
       icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
-    {
-      label: "Webinars",
-      href: "/admin/webinars",
-      icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
+    // {
+    //   label: "Webinars",
+    //   href: "/admin/webinars",
+    //   icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
+    // },
     {
       label: "Invoices",
       href: "/admin/invoices",
