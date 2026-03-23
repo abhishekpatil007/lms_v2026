@@ -216,16 +216,14 @@ export const LoginPage = () => {
                 className="animate-float ml-16 flex max-w-sm items-start gap-3 rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl"
                 style={{ animationDelay: '0ms' }}
               >
-                <img
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop"
-                  className="h-10 w-10 rounded-2xl object-cover"
-                  alt="User avatar"
-                />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 to-purple-600 text-sm font-bold text-white">
+                  M
+                </div>
                 <div className="text-sm leading-snug text-white">
-                  <p className="font-medium">Alex Thompson</p>
-                  <p className="text-white/60">@alexthompson</p>
+                  <p className="font-medium">MCT Student</p>
+                  <p className="text-white/60">via Instagram</p>
                   <p className="mt-2 text-white/80">
-                    "This platform has transformed the way I work. Highly recommended!"
+                    "I'm genuinely impressed with the quality of teaching. The instructor explains every concept in a clear and practical way. The class has boosted my confidence in analyzing stocks and making smarter decisions."
                   </p>
                 </div>
               </div>
@@ -235,16 +233,14 @@ export const LoginPage = () => {
                 className="animate-float flex max-w-sm items-start gap-3 rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl"
                 style={{ animationDelay: '1000ms' }}
               >
-                <img
-                  src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop"
-                  className="h-10 w-10 rounded-2xl object-cover"
-                  alt="User avatar"
-                />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-sm font-bold text-white">
+                  M
+                </div>
                 <div className="text-sm leading-snug text-white">
-                  <p className="font-medium">Sarah Chen</p>
-                  <p className="text-white/60">@sarahchen</p>
+                  <p className="font-medium">MCT Student</p>
+                  <p className="text-white/60">via Instagram</p>
                   <p className="mt-2 text-white/80">
-                    "Incredible experience! The interface is intuitive and powerful."
+                    "For me MCT and Shubham sir like God. Best mentor and most important best person. Here what you get is a great mentor and teacher for a lifetime along with the bestest supportive backend team."
                   </p>
                 </div>
               </div>
@@ -254,16 +250,14 @@ export const LoginPage = () => {
                 className="animate-float ml-32 flex max-w-sm items-start gap-3 rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl"
                 style={{ animationDelay: '2000ms' }}
               >
-                <img
-                  src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop"
-                  className="h-10 w-10 rounded-2xl object-cover"
-                  alt="User avatar"
-                />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-sm font-bold text-white">
+                  M
+                </div>
                 <div className="text-sm leading-snug text-white">
-                  <p className="font-medium">Michael Rodriguez</p>
-                  <p className="text-white/60">@michaelr</p>
+                  <p className="font-medium">MCT Student</p>
+                  <p className="text-white/60">via Instagram</p>
                   <p className="mt-2 text-white/80">
-                    "Best decision I made this year. Game changer for productivity!"
+                    "Learnt a lot of new things about trading which I didn't even know before. Now I can analyse the market very better than before and can surely become a profitable trader very soon."
                   </p>
                 </div>
               </div>
