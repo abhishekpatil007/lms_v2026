@@ -97,6 +97,14 @@ export const batchesApi = {
     return response.data;
   },
 
+  reorderVideos: async (
+    batchId: string,
+    order: { video_id: string; order_index: number }[]
+  ): Promise<{ message: string }> => {
+    const response = await apiClient.put(`/api/batches/${batchId}/videos/reorder`, { order });
+    return response.data;
+  },
+
   getInstructorBatches: async (): Promise<{ batches: Batch[] }> => {
     const response = await apiClient.get('/api/batches/instructor/my-batches');
     return response.data;

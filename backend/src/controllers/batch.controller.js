@@ -1,7 +1,7 @@
 // src/controllers/batch.controller.js
 import { Op } from 'sequelize';
 import db from '../models/index.js';
-const { Course, Batch, User, BatchStudent, Topic, Video, Document, LiveClass, Test } = db;
+const { Course, Batch, User, BatchStudent, BatchVideo, Topic, Video, Document, LiveClass, Test } = db;
 import { sendWelcomeEmail, notifyInstructor } from '../services/batchEmail.service.js';
 import batchLogger from '../utils/logger/individualLogger/batchLogger.js';
 import XLSX from 'xlsx';
@@ -354,6 +354,36 @@ export const enrollStudents = async (req, res) => {
         res.json({ message: `${newStudentIds.length} students enrolled successfully${skipped > 0 ? `, ${skipped} already enrolled` : ''}` });
     } catch (err) {
         batchLogger.error(`Error in enrollStudents: ${err.message}`);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// --------------------------
+// Reorder videos in a batch
+// Body: { order: [{video_id: "uuid", order_index: 0}, ...] }
+// --------------------------
+export const reorderBatchVideos = async (req, res) => {
+    try {
+        const batchId = req.params.id;
+        const { order } = req.body;
+
+        if (!Array.isArray(order) || order.length === 0) {
+            return res.status(400).json({ message: 'order must be a non-empty array of {video_id, order_index}' });
+        }
+
+        await Promise.all(
+            order.map(({ video_id, order_index }) =>
+                BatchVideo.update(
+                    { order_index },
+                    { where: { batch_id: batchId, video_id } }
+                )
+            )
+        );
+
+        batchLogger.info(`Videos reordered - Batch ID: ${batchId}, Count: ${order.length}`);
+        res.json({ message: 'Video order updated successfully' });
+    } catch (err) {
+        batchLogger.error(`Error in reorderBatchVideos: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };

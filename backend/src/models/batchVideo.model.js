@@ -16,6 +16,10 @@ const BatchVideo = sequelize.define('BatchVideo', {
         type: DataTypes.UUID,
         allowNull: false,
     },
+    order_index: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
 }, {
     tableName: 'batch_videos',
     underscored: true,

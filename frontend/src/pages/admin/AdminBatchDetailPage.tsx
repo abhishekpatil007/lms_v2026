@@ -22,6 +22,9 @@ import {
   IconEdit,
   IconCheck,
   IconX,
+  IconArrowsSort,
+  IconChevronUp,
+  IconChevronDown,
 } from "@tabler/icons-react";
 import { batchesApi } from "@/api/endpoints/batches";
 import { topicsApi } from "@/api/endpoints/topics";
@@ -945,31 +948,44 @@ const TopicsTab = ({ batchId }: { batchId: string }) => {
 const VideosTab = ({ batchId }: { batchId: string }) => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const itemsPerPage = 6; // Grid looks better with 6
+  const [saving, setSaving] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
 
-  // For VideosTab, we might want a server-side status filter if we had it, 
-  // but let's just use the server-side pagination for now and remove the local status filter 
-  // since it would only filter the current page anyway.
   useEffect(() => {
     fetchVideos();
-  }, [batchId, currentPage]);
+  }, [batchId]);
 
   const fetchVideos = async () => {
     try {
       setLoading(true);
-      const res = await videosApi.list({
-        batch_id: batchId,
-        page: currentPage,
-        limit: itemsPerPage,
-      });
+      const res = await videosApi.list({ batch_id: batchId, limit: 500 });
       setVideos(res.videos || []);
-      setTotalPages(res.totalPages || 1);
     } catch (error) {
       console.error("Error fetching videos:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const moveVideo = (index: number, direction: 'up' | 'down') => {
+    const newVideos = [...videos];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newVideos.length) return;
+    [newVideos[index], newVideos[targetIndex]] = [newVideos[targetIndex], newVideos[index]];
+    setVideos(newVideos);
+  };
+
+  const saveOrder = async () => {
+    try {
+      setSaving(true);
+      const order = videos.map((v, idx) => ({ video_id: v.id, order_index: idx }));
+      await batchesApi.reorderVideos(batchId, order);
+      setReorderMode(false);
+    } catch (error) {
+      console.error("Error saving order:", error);
+      alert("Failed to save video order.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -994,69 +1010,98 @@ const VideosTab = ({ batchId }: { batchId: string }) => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-           <FilterPill label="All" active={true} count={videos.length} onClick={() => {}} />
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {videos.length} Video{videos.length !== 1 ? 's' : ''}
+        </h3>
+        <div className="flex items-center gap-2">
+          {reorderMode ? (
+            <>
+              <button
+                onClick={() => { setReorderMode(false); fetchVideos(); }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl text-gray-600 hover:bg-gray-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveOrder}
+                disabled={saving}
+                className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-all disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save Order'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setReorderMode(true)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-1.5"
+            >
+              <IconArrowsSort size={14} />
+              Reorder
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Video List */}
+      <div className="space-y-2">
         {videos.map((video, i) => (
           <motion.div
             key={video.id}
-            custom={i}
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-            className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+            layout={reorderMode}
+            className={cn(
+              "flex items-center gap-3 rounded-xl border p-3 transition-all",
+              reorderMode ? "border-violet-200 bg-violet-50/30" : "border-gray-100 bg-white"
+            )}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <div className="rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 p-2 text-white">
-                <IconVideo size={18} />
+            {/* Reorder controls */}
+            {reorderMode && (
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button
+                  onClick={() => moveVideo(i, 'up')}
+                  disabled={i === 0}
+                  className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <IconChevronUp size={14} />
+                </button>
+                <button
+                  onClick={() => moveVideo(i, 'down')}
+                  disabled={i === videos.length - 1}
+                  className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <IconChevronDown size={14} />
+                </button>
               </div>
-              <div className="flex items-center gap-2">
+            )}
+
+            {/* Order number */}
+            <div className="shrink-0 w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
+              {i + 1}
+            </div>
+
+            {/* Thumbnail */}
+            {video.thumbnail_url ? (
+              <div className="shrink-0 w-20 aspect-video rounded-lg overflow-hidden bg-gray-900">
+                <img src={video.thumbnail_url} alt="" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="shrink-0 w-20 aspect-video rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
+                <IconVideo size={16} className="text-white" />
+              </div>
+            )}
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-gray-900 truncate">{video.title}</h4>
+              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+                {video.duration ? <span>{formatDuration(video.duration)}</span> : null}
                 <LanguageBadge language={video.language} />
                 <StatusBadge status={video.upload_status} />
               </div>
             </div>
-            <h4 className="font-semibold text-gray-900 line-clamp-1">{video.title}</h4>
-            {video.description && (
-              <p className="mt-1 text-sm text-gray-500 line-clamp-2">{video.description}</p>
-            )}
-            <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
-              <span className="flex items-center gap-1">
-                <IconClock size={12} />
-                {formatDuration(video.duration)}
-              </span>
-              <span>{formatDate(video.createdAt)}</span>
-            </div>
           </motion.div>
         ))}
       </div>
-      
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-3 mt-4 pb-2">
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-          >
-            Previous
-          </button>
-          <span className="text-sm font-bold text-gray-700 px-2">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-            className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   );
 };
