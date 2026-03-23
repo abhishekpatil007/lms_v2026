@@ -594,14 +594,23 @@ export const StudentVideosPage = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [{ videos }, { topics: topicData }, batchRes] = await Promise.all([
-                videosApi.list({ limit: 500 }),
+            const [topicRes, batchRes] = await Promise.all([
                 topicsApi.listByBatch('enrolled').catch(() => ({ topics: [] as Topic[] })),
                 batchesApi.getStudentBatches().catch(() => ({ batches: [] as Batch[] })),
             ]);
+            setTopics(topicRes.topics || []);
+            const batchList = batchRes.batches || [];
+            setBatches(batchList);
+
+            // Default to first batch so student sees batch-specific ordered videos
+            const defaultBatchId = batchList.length > 0 ? batchList[0].id : '';
+            setSelectedBatch(defaultBatchId);
+
+            // Fetch videos for default batch
+            const params: any = { limit: 500 };
+            if (defaultBatchId) params.batch_id = defaultBatchId;
+            const { videos } = await videosApi.list(params);
             setAllVideos(videos);
-            setTopics(topicData || []);
-            setBatches(batchRes.batches || []);
         } catch (error) {
             console.error('Error fetching student video data:', error);
             toast.error('Failed to load video library');
@@ -715,22 +724,13 @@ export const StudentVideosPage = () => {
             {!loading && <ContinueWatching videos={allVideos} onVideoClick={handleVideoClick} />}
 
             {/* Batch Tabs */}
-            {!loading && batches.length > 1 && (
+            {!loading && batches.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
                     <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
-                        <button
-                            onClick={() => setSelectedBatch('')}
-                            className={cn(
-                                "shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all",
-                                !selectedBatch ? "bg-gray-900 text-white shadow-md" : "bg-white text-gray-500 border border-gray-100 hover:border-gray-200"
-                            )}
-                        >
-                            All Batches
-                        </button>
                         {batches.map(b => (
                             <button
                                 key={b.id}
-                                onClick={() => setSelectedBatch(selectedBatch === b.id ? '' : b.id)}
+                                onClick={() => setSelectedBatch(b.id)}
                                 className={cn(
                                     "shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all",
                                     selectedBatch === b.id ? "bg-gray-900 text-white shadow-md" : "bg-white text-gray-500 border border-gray-100 hover:border-gray-200"
@@ -739,6 +739,17 @@ export const StudentVideosPage = () => {
                                 {b.batch_name}
                             </button>
                         ))}
+                        {batches.length > 1 && (
+                            <button
+                                onClick={() => setSelectedBatch('')}
+                                className={cn(
+                                    "shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all",
+                                    !selectedBatch ? "bg-gray-900 text-white shadow-md" : "bg-white text-gray-500 border border-gray-100 hover:border-gray-200"
+                                )}
+                            >
+                                All Videos
+                            </button>
+                        )}
                     </div>
                 </motion.div>
             )}
