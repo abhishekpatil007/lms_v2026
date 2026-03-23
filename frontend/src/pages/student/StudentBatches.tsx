@@ -74,10 +74,10 @@ export const StudentBatches = () => {
                     return {
                         id: batch.id,
                         content: {
-                            videos: vRes.videos?.length ?? 0,
-                            documents: dRes.documents?.length ?? 0,
-                            liveClasses: lcRes.liveClasses?.length ?? 0,
-                            tests: tRes.tests?.length ?? 0,
+                            videos: (vRes as any).total ?? vRes.videos?.length ?? 0,
+                            documents: (dRes as any).total ?? dRes.documents?.length ?? 0,
+                            liveClasses: (lcRes as any).total ?? lcRes.liveClasses?.length ?? 0,
+                            tests: (tRes as any).total ?? tRes.tests?.length ?? 0,
                         },
                     };
                 })
