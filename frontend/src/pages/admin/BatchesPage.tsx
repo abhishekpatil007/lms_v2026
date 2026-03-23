@@ -123,14 +123,13 @@ export const BatchesPage = () => {
   const handleEnrollStudents = async () => {
     if (!selectedBatchForAction || selectedStudentIds.length === 0) return;
     try {
+      await batchesApi.enrollStudents(selectedBatchForAction.id, selectedStudentIds);
       await fetchBatches();
       setShowEnrollStudentsModal(false);
       setSelectedBatchForAction(null);
       setSelectedStudentIds([]);
-      // No toast here as the modal handles it
     } catch (error) {
       console.error("Error enrolling students:", error);
-      // throw error to be caught by modal's handleSubmit
       throw error;
     }
   };
