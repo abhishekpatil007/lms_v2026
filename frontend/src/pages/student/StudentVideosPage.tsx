@@ -20,7 +20,8 @@ import {
 } from '@tabler/icons-react';
 import { videosApi } from '@/api/endpoints/videos';
 import { topicsApi } from '@/api/endpoints/topics';
-import type { Video, Topic } from '@/types';
+import { batchesApi } from '@/api/endpoints/batches';
+import type { Video, Topic, Batch } from '@/types';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 
@@ -573,6 +574,8 @@ const ContinueWatching: React.FC<{
 export const StudentVideosPage = () => {
     const [allVideos, setAllVideos] = useState<Video[]>([]);
     const [topics, setTopics] = useState<Topic[]>([]);
+    const [batches, setBatches] = useState<Batch[]>([]);
+    const [selectedBatch, setSelectedBatch] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLanguage, setSelectedLanguage] = useState('');
@@ -583,21 +586,39 @@ export const StudentVideosPage = () => {
 
     useEffect(() => { fetchData(); }, []);
 
+    // Re-fetch videos when batch filter changes
+    useEffect(() => {
+        if (batches.length > 0) fetchVideos();
+    }, [selectedBatch]);
+
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [{ videos }, { topics: topicData }] = await Promise.all([
+            const [{ videos }, { topics: topicData }, batchRes] = await Promise.all([
                 videosApi.list({ limit: 500 }),
-                topicsApi.listByBatch('enrolled')
-            ]).catch(async () => {
-                const { videos: v } = await videosApi.list({ limit: 500 });
-                return [{ videos: v }, { topics: [] as Topic[] }];
-            }) as [{ videos: Video[] }, { topics: Topic[] }];
+                topicsApi.listByBatch('enrolled').catch(() => ({ topics: [] as Topic[] })),
+                batchesApi.getStudentBatches().catch(() => ({ batches: [] as Batch[] })),
+            ]);
             setAllVideos(videos);
             setTopics(topicData || []);
+            setBatches(batchRes.batches || []);
         } catch (error) {
             console.error('Error fetching student video data:', error);
             toast.error('Failed to load video library');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchVideos = async () => {
+        try {
+            setLoading(true);
+            const params: any = { limit: 500 };
+            if (selectedBatch) params.batch_id = selectedBatch;
+            const { videos } = await videosApi.list(params);
+            setAllVideos(videos);
+        } catch (error) {
+            console.error('Error fetching videos:', error);
         } finally {
             setLoading(false);
         }
@@ -654,7 +675,7 @@ export const StudentVideosPage = () => {
     const progressMap = getProgressMap();
     const completedCount = allVideos.filter(v => { const p = progressMap[v.id]; return p && p.percent >= 95; }).length;
     const languages = Array.from(new Set(allVideos.map(v => v.language).filter(Boolean))).sort();
-    const activeFilters = (selectedLanguage ? 1 : 0) + (sortBy !== 'newest' ? 1 : 0);
+    const activeFilters = (selectedLanguage ? 1 : 0) + (sortBy !== 'newest' ? 1 : 0) + (selectedBatch ? 1 : 0);
 
     return (
         <div className="max-w-7xl mx-auto px-1 sm:px-0">
@@ -692,6 +713,35 @@ export const StudentVideosPage = () => {
 
             {/* Continue Watching */}
             {!loading && <ContinueWatching videos={allVideos} onVideoClick={handleVideoClick} />}
+
+            {/* Batch Tabs */}
+            {!loading && batches.length > 1 && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+                    <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+                        <button
+                            onClick={() => setSelectedBatch('')}
+                            className={cn(
+                                "shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all",
+                                !selectedBatch ? "bg-gray-900 text-white shadow-md" : "bg-white text-gray-500 border border-gray-100 hover:border-gray-200"
+                            )}
+                        >
+                            All Batches
+                        </button>
+                        {batches.map(b => (
+                            <button
+                                key={b.id}
+                                onClick={() => setSelectedBatch(selectedBatch === b.id ? '' : b.id)}
+                                className={cn(
+                                    "shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all",
+                                    selectedBatch === b.id ? "bg-gray-900 text-white shadow-md" : "bg-white text-gray-500 border border-gray-100 hover:border-gray-200"
+                                )}
+                            >
+                                {b.batch_name}
+                            </button>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
 
             {/* Search + Filter Bar */}
             {!loading && allVideos.length > 0 && (
@@ -782,7 +832,7 @@ export const StudentVideosPage = () => {
                                     </div>
 
                                     {activeFilters > 0 && (
-                                        <button onClick={() => { setSelectedLanguage(''); setSortBy('newest'); }}
+                                        <button onClick={() => { setSelectedLanguage(''); setSortBy('newest'); setSelectedBatch(''); }}
                                             className="text-[11px] text-red-400 hover:text-red-600 font-semibold ml-auto transition-colors">
                                             Clear all
                                         </button>
