@@ -46,7 +46,7 @@ export async function onboardUser(req, res) {
         if (!name || !email || !role) return res.status(400).json({ message: 'name,email,role required' });
 
         const existing = await User.findOne({ where: { email } });
-        if (existing) {
+        if (existing && existing.is_active) {
             authLogger.warn(`Onboard User - Email already exists: ${email}`);
             return res.status(409).json({ message: 'Email already exists' });
         }
@@ -54,7 +54,15 @@ export async function onboardUser(req, res) {
         const userPassword = password || crypto.randomBytes(4).toString('hex'); // 8 chars
         const hash = await bcrypt.hash(userPassword, SALT_ROUNDS);
 
-        const user = await User.create({ name, email, password_hash: hash, role, preferred_language });
+        let user;
+        if (existing && !existing.is_active) {
+            // Reactivate soft-deleted user
+            await existing.update({ name, password_hash: hash, role, preferred_language, is_active: true });
+            user = existing;
+            authLogger.info(`User reactivated - User ID: ${user.id}, Email: ${email}`);
+        } else {
+            user = await User.create({ name, email, password_hash: hash, role, preferred_language });
+        }
         authLogger.info(`User onboarded successfully - User ID: ${user.id}, Email: ${email}, Role: ${role}`);
 
         // Optionally return tokens
@@ -95,7 +103,7 @@ export async function onboardInstructor(req, res) {
         if (!name || !email) return res.status(400).json({ message: 'name and email required' });
 
         const existing = await User.findOne({ where: { email } });
-        if (existing) {
+        if (existing && existing.is_active) {
             authLogger.warn(`Onboard Instructor - Email already exists: ${email}`);
             return res.status(409).json({ message: 'Email already exists' });
         }
@@ -103,13 +111,20 @@ export async function onboardInstructor(req, res) {
         const instructorPassword = password || crypto.randomBytes(4).toString('hex');
         const hash = await bcrypt.hash(instructorPassword, SALT_ROUNDS);
 
-        const instructor = await User.create({
-            name,
-            email,
-            password_hash: hash,
-            role: 'instructor',
-            preferred_language
-        });
+        let instructor;
+        if (existing && !existing.is_active) {
+            await existing.update({ name, password_hash: hash, role: 'instructor', preferred_language, is_active: true });
+            instructor = existing;
+            authLogger.info(`Instructor reactivated - ID: ${instructor.id}, Email: ${email}`);
+        } else {
+            instructor = await User.create({
+                name,
+                email,
+                password_hash: hash,
+                role: 'instructor',
+                preferred_language
+            });
+        }
         authLogger.info(`Instructor onboarded successfully - Instructor ID: ${instructor.id}, Email: ${email}`);
 
         // Optionally create tokens
