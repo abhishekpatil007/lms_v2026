@@ -522,10 +522,10 @@ export const StudentVideosPage = () => {
         try {
             setLoading(true);
             const [{ videos }, { topics: topicData }] = await Promise.all([
-                videosApi.list(),
+                videosApi.list({ limit: 500 }),
                 topicsApi.listByBatch('enrolled')
             ]).catch(async () => {
-                const { videos: v } = await videosApi.list();
+                const { videos: v } = await videosApi.list({ limit: 500 });
                 return [{ videos: v }, { topics: [] as Topic[] }];
             }) as [{ videos: Video[] }, { topics: Topic[] }];
 
