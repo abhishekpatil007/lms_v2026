@@ -246,8 +246,8 @@ export const StudentDashboard = () => {
 
       const fetchedBatches = batchRes.batches ?? [];
       setBatches(fetchedBatches);
-      setVideosCount(videosRes.videos?.length ?? 0);
-      setDocsCount(docsRes.documents?.length ?? 0);
+      setVideosCount((videosRes as any).total ?? videosRes.videos?.length ?? 0);
+      setDocsCount((docsRes as any).total ?? docsRes.documents?.length ?? 0);
 
       // Pending tests: tests that have no completed attempt
       const completedTestIds = new Set(
@@ -324,8 +324,8 @@ export const StudentDashboard = () => {
       ]);
       const classCount = allLiveClasses.filter((c) => c.batch_id === batchId).length;
       setBatchContentCounts({
-        videos: vRes.videos?.length ?? 0,
-        documents: dRes.documents?.length ?? 0,
+        videos: (vRes as any).total ?? vRes.videos?.length ?? 0,
+        documents: (dRes as any).total ?? dRes.documents?.length ?? 0,
         classes: classCount,
       });
     } catch {
