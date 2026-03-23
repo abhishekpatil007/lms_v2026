@@ -26,6 +26,8 @@ import { batchesApi } from "@/api/endpoints/batches";
 import { videosApi } from "@/api/endpoints/videos";
 import { documentsApi } from "@/api/endpoints/documents";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
+import { useAuthStore } from "@/store/authStore";
+import ZoomMeeting from "@/components/Zoom/ZoomMeeting";
 import type { Batch, Video, Document, LiveClass } from "@/types";
 
 import { BatchTestsTab } from "./tabs/BatchTestsTab";
@@ -51,6 +53,8 @@ export const BatchDetailPage = () => {
   const [showEditVideoModal, setShowEditVideoModal] = useState(false);
   const [editingClass, setEditingClass] = useState<LiveClass | null>(null);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+  const [activeZoomMeeting, setActiveZoomMeeting] = useState<any>(null);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     if (batchId) {
@@ -147,8 +151,15 @@ export const BatchDetailPage = () => {
     toast.success("Zoom link copied to clipboard!");
   };
 
-  const handleJoinClass = (url: string) => {
-    window.open(url, '_blank');
+  const handleJoinClass = async (lcId: number) => {
+    try {
+      const role = user?.role === "admin" || user?.role === "instructor" ? 1 : 0;
+      const signatureResponse = await liveClassesApi.getSignature(lcId, { role });
+      setActiveZoomMeeting(signatureResponse);
+    } catch (error: any) {
+      console.error("Error getting Zoom signature:", error);
+      toast.error(error.response?.data?.message || "Failed to join meeting");
+    }
   };
 
   const handleEditClass = (liveClass: LiveClass) => {
@@ -741,7 +752,7 @@ export const BatchDetailPage = () => {
                           Copy Link
                         </button>
                         <button
-                          onClick={() => handleJoinClass(liveClass.zoom_start_url)}
+                          onClick={() => handleJoinClass(liveClass.id)}
                           className={cn(
                             "flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-sm",
                             isUpcoming
@@ -750,7 +761,7 @@ export const BatchDetailPage = () => {
                           )}
                         >
                           <IconExternalLink className="w-4 h-4" strokeWidth={2} />
-                          Join
+                          Start Class
                         </button>
                         <button
                           onClick={() => handleDeleteLiveClass(liveClass.id)}
@@ -838,6 +849,20 @@ export const BatchDetailPage = () => {
           setEditingClass(null);
         }}
       />
+      <AnimatePresence>
+        {activeZoomMeeting && user && (
+          <ZoomMeeting
+            status={true}
+            meetingNumber={activeZoomMeeting.meetingNumber}
+            userName={user.name}
+            userEmail={user.email}
+            signature={activeZoomMeeting.signature}
+            sdkKey={activeZoomMeeting.sdkKey}
+            passWord={activeZoomMeeting.passWord}
+            onLeave={() => setActiveZoomMeeting(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

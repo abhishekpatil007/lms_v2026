@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     IconBrandZoom,
     IconCalendar,
@@ -13,7 +13,9 @@ import {
 import { cn } from '@/lib/utils';
 import { batchesApi } from '@/api/endpoints/batches';
 import { liveClassesApi } from '@/api/endpoints/liveClasses';
+import { useAuthStore } from '@/store/authStore';
 import { toast } from 'react-hot-toast';
+import ZoomMeeting from '@/components/Zoom/ZoomMeeting';
 
 // ---------------------------------------------------------------------------
 // Countdown Hook
@@ -65,6 +67,8 @@ export const StudentLiveClassesPage = () => {
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
+    const [activeZoomMeeting, setActiveZoomMeeting] = useState<any>(null);
+    const { user } = useAuthStore();
 
     useEffect(() => {
         fetchData();
@@ -138,6 +142,16 @@ export const StudentLiveClassesPage = () => {
         live: { label: 'LIVE NOW', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
         completed: { label: 'Completed', bg: 'bg-gray-100', text: 'text-gray-600' },
         cancelled: { label: 'Cancelled', bg: 'bg-red-50', text: 'text-red-600' },
+    };
+
+    const handleJoinClass = async (lcId: number) => {
+        try {
+            const signatureResponse = await liveClassesApi.getSignature(lcId, { role: 0 });
+            setActiveZoomMeeting(signatureResponse);
+        } catch (error: any) {
+            console.error('Error getting Zoom signature:', error);
+            toast.error(error.response?.data?.message || 'Failed to join meeting');
+        }
     };
 
     return (
@@ -303,10 +317,8 @@ export const StudentLiveClassesPage = () => {
 
                                     {/* Action Buttons */}
                                     {(lc.status === 'scheduled' || lc.status === 'live') && lc.zoom_join_url && (
-                                        <a
-                                            href={lc.zoom_join_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                        <button
+                                            onClick={() => handleJoinClass(lc.id)}
                                             className={cn(
                                                 'flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-bold transition-all',
                                                 lc.status === 'live'
@@ -316,8 +328,7 @@ export const StudentLiveClassesPage = () => {
                                         >
                                             <IconBrandZoom size={18} />
                                             Join Class
-                                            <IconExternalLink size={14} />
-                                        </a>
+                                        </button>
                                     )}
 
                                     {lc.status === 'completed' && lc.recording_url && (
@@ -351,6 +362,21 @@ export const StudentLiveClassesPage = () => {
                     })}
                 </div>
             )}
+
+            <AnimatePresence>
+                {activeZoomMeeting && user && (
+                    <ZoomMeeting
+                        status={true}
+                        meetingNumber={activeZoomMeeting.meetingNumber}
+                        userName={user.name}
+                        userEmail={user.email}
+                        signature={activeZoomMeeting.signature}
+                        sdkKey={activeZoomMeeting.sdkKey}
+                        passWord={activeZoomMeeting.passWord}
+                        onLeave={() => setActiveZoomMeeting(null)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

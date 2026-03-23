@@ -4,6 +4,7 @@ import axios from "axios";
 import db from "../models/index.js";
 import jwt from 'jsonwebtoken';
 import { getZoomAccessToken } from "../services/zoomAuth.service.js";
+import { isUserAuthorizedForBatch } from "../utils/batchHelper.js";
 import liveClassLogger from '../utils/logger/individualLogger/liveClassLogger.js';
 // import { notifyLiveClass } from "../services/liveClassEmail.service.js";
 
@@ -56,6 +57,7 @@ export const createLiveClass = async (req, res) => {
             start_time,
             duration,
             zoom_meeting_id: zoomMeeting.id,
+            zoom_meeting_password: zoomMeeting.password,
             zoom_join_url: zoomMeeting.join_url,
             zoom_start_url: zoomMeeting.start_url,
             status: "scheduled",
@@ -126,18 +128,50 @@ export const getLiveClassSignature = async (req, res) => {
         }
 
         const meetingNumber = classData.zoom_meeting_id;
-        const role = req.user.role === 'instructor' ? 1 : 0; // 1 = host, 0 = participant
+        let passWord = classData.zoom_meeting_password;
 
-        const iat = Math.round(new Date().getTime() / 1000);
+        // Fallback for existing meetings without stored passcode
+        if (!passWord) {
+            console.log(`[PASSCODE FALLBACK] No password in DB for meeting ${meetingNumber}. Fetching from Zoom...`);
+            try {
+                const token = await getZoomAccessToken();
+                const zoomResponse = await axios.get(
+                    `https://api.zoom.us/v2/meetings/${meetingNumber}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                passWord = zoomResponse.data.password;
+                console.log(`[PASSCODE FALLBACK] Successfully fetched passcode: ${passWord}`);
+                if (passWord) {
+                    await classData.update({ zoom_meeting_password: passWord });
+                }
+            } catch (zoomErr) {
+                console.error(`[PASSCODE FALLBACK] Failed to fetch from Zoom:`, zoomErr.response?.data || zoomErr.message);
+                liveClassLogger.error(`Failed to fetch fallback passcode for ${meetingNumber}: ${zoomErr.message}`);
+            }
+        }
+
+        const userRole = req.user.role || req.user.user.role;
+        const role = (userRole === 'instructor' || userRole === 'admin') ? 1 : 0; // 1 = host, 0 = participant
+
+        // Batch access check
+        const isAuthorized = await isUserAuthorizedForBatch(req.user.user.id, classData.batch_id, userRole);
+        if (!isAuthorized) {
+            liveClassLogger.warn(`Get Signature - Unauthorized access: User ${req.user.user.id}, Class ${id}`);
+            return res.status(403).json({ message: 'Unauthorized to join this class' });
+        }
+
+        const iat = Math.floor(Date.now() / 1000) - 30; // Subtract 30 seconds for clock drift
         const exp = iat + 60 * 60 * 2; // 2 hours
 
         const payload = {
             sdkKey: process.env.ZOOM_SDK_KEY,
+            appKey: process.env.ZOOM_SDK_KEY,
             mn: meetingNumber,
             role,
             iat,
             exp,
             tokenExp: exp,
+            video_webrtc_mode: 1
         };
 
         const token = jwt.sign(payload, process.env.ZOOM_SDK_SECRET, { algorithm: 'HS256' });
@@ -148,6 +182,7 @@ export const getLiveClassSignature = async (req, res) => {
             signature: token,
             sdkKey: process.env.ZOOM_SDK_KEY,
             meetingNumber,
+            passWord: passWord
         });
     } catch (err) {
         liveClassLogger.error(`Error in getLiveClassSignature: ${err.message}`);
@@ -297,6 +332,13 @@ export const joinLiveClass = async (req, res) => {
         if (!liveClass) {
             liveClassLogger.warn(`Join Live Class - Live class not found: ${id}`);
             return res.status(404).json({ message: "Live class not found" });
+        }
+
+        // Batch access check
+        const isAuthorized = await isUserAuthorizedForBatch(req.user.user.id, liveClass.batch_id, req.user.user.role);
+        if (!isAuthorized) {
+            liveClassLogger.warn(`Join Live Class - Unauthorized access: User ${req.user.user.id}, Class ${id}`);
+            return res.status(403).json({ message: "Unauthorized to join this class" });
         }
 
         // Simple role-based redirect logic

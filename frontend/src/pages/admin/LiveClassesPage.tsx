@@ -11,13 +11,17 @@ import {
   IconCheck,
   IconAlertCircle,
   IconCircleCheck,
-  IconSortAscending,
   IconFilter,
+  IconEdit,
+  IconCopy,
+  IconSortAscending,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
 import { batchesApi } from "@/api/endpoints/batches";
+import { useAuthStore } from "@/store/authStore";
+import ZoomMeeting from "@/components/Zoom/ZoomMeeting";
 import type { LiveClass, LiveClassStatus, Batch } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -130,6 +134,10 @@ export const LiveClassesPage = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingClass, setEditingClass] = useState<LiveClass | null>(null);
+  const [activeZoomMeeting, setActiveZoomMeeting] = useState<any>(null);
+  const { user } = useAuthStore();
 
   // Toast state
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -244,6 +252,17 @@ export const LiveClassesPage = () => {
     };
   };
 
+  const handleJoinClass = async (lcId: number) => {
+    try {
+      const role = user?.role === "admin" || user?.role === "instructor" ? 1 : 0;
+      const signatureResponse = await liveClassesApi.getSignature(lcId, { role });
+      setActiveZoomMeeting(signatureResponse);
+    } catch (error: any) {
+      console.error("Error getting Zoom signature:", error);
+      addToast("error", error.response?.data?.message || "Failed to join meeting");
+    }
+  };
+
   const handleDelete = async (cls: LiveClass) => {
     if (!confirm(`Delete "${cls.topic}"? This action cannot be undone.`)) return;
 
@@ -299,19 +318,19 @@ export const LiveClassesPage = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex flex-col sm:flex-row sm:items-end justify-between gap-3"
+            className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 rounded-[28px] bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] p-8 shadow-xl"
           >
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-2">
                 Live Classes
               </h1>
-              <p className="text-sm md:text-base text-gray-500">
+              <p className="text-sm md:text-base text-white/80">
                 Schedule and manage Zoom live classes for your batches.
               </p>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 w-full sm:w-auto shrink-0"
+              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#B4F481] to-[#9FE66F] px-5 py-2.5 text-sm font-bold text-[#2D2D2D] shadow-lg hover:shadow-xl transition-all hover:scale-105 w-full sm:w-auto shrink-0"
             >
               <IconPlus className="h-4 w-4" strokeWidth={2.5} />
               Schedule Class
@@ -325,42 +344,42 @@ export const LiveClassesPage = () => {
             transition={{ delay: 0.1 }}
             className="grid grid-cols-2 gap-2.5 sm:gap-3 md:gap-5 md:grid-cols-4"
           >
-            <div className="rounded-2xl bg-blue-50 p-3 sm:p-4 md:p-5 border border-blue-100">
+            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-200 flex items-center justify-center">
-                  <IconBrandZoom className="w-4 h-4 sm:w-5 sm:h-5 text-blue-700" strokeWidth={2} />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#C4B5FD]/20 flex items-center justify-center">
+                  <IconBrandZoom className="w-4 h-4 sm:w-5 sm:h-5 text-[#A78BFA]" strokeWidth={2} />
                 </div>
-                <p className="text-xs font-semibold text-gray-500">Total Classes</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total</p>
               </div>
               <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{allClasses.length}</p>
             </div>
 
-            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200">
+            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                  <IconCalendar className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" strokeWidth={2} />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                  <IconCalendar className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" strokeWidth={2} />
                 </div>
-                <p className="text-xs font-semibold text-gray-500">Scheduled</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Scheduled</p>
               </div>
               <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{scheduledCount}</p>
             </div>
 
-            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-200">
+            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <IconCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" strokeWidth={2} />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#B4F481]/20 flex items-center justify-center">
+                  <IconCheck className="w-4 h-4 sm:w-5 sm:h-5 text-[#9FE66F]" strokeWidth={2} />
                 </div>
-                <p className="text-xs font-semibold text-gray-500">Live Now</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Live Now</p>
               </div>
               <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{liveCount}</p>
             </div>
 
-            <div className="rounded-2xl bg-violet-50 p-3 sm:p-4 md:p-5 border border-violet-100">
+            <div className="rounded-2xl bg-white p-3 sm:p-4 md:p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-violet-200 flex items-center justify-center">
-                  <IconCheck className="w-4 h-4 sm:w-5 sm:h-5 text-violet-700" strokeWidth={2} />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-violet-50 flex items-center justify-center">
+                  <IconCircleCheck className="w-4 h-4 sm:w-5 sm:h-5 text-violet-500" strokeWidth={2} />
                 </div>
-                <p className="text-xs font-semibold text-gray-500">Completed</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Done</p>
               </div>
               <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{completedCount}</p>
             </div>
@@ -582,12 +601,10 @@ export const LiveClassesPage = () => {
                           <span className="hidden sm:inline">&#8226;</span>
                           <span className="flex items-center gap-1">
                             <IconClock className="w-3.5 h-3.5" strokeWidth={2} />
-                            {time}
+                            {cls.duration} minutes
                           </span>
-                          <span className="hidden sm:inline">&#8226;</span>
-                          <span>{cls.duration} min</span>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap mb-4">
                           <span
                             className={cn(
                               "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold shadow-sm",
@@ -608,19 +625,42 @@ export const LiveClassesPage = () => {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {cls.status === "scheduled" && (
-                          <button className="rounded-xl px-4 py-2.5 text-sm font-bold bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-lg transition-all flex items-center gap-2">
-                            <IconBrandZoom className="w-4 h-4" strokeWidth={2} />
-                            <span className="hidden sm:inline">Join Class</span>
+                      <div className="grid grid-cols-2 gap-2 shrink-0 w-full sm:w-auto">
+                        <button
+                          onClick={() => {
+                            setEditingClass(cls);
+                            setShowEditModal(true);
+                          }}
+                          className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-gray-50 text-gray-700 hover:bg-gray-100 transition-all border border-gray-100"
+                        >
+                          <IconEdit className="w-4 h-4" strokeWidth={2} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`https://zoom.us/j/${cls.zoom_meeting_id}`);
+                            addToast("success", "Zoom link copied!");
+                          }}
+                          className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-gray-50 text-gray-700 hover:bg-gray-100 transition-all border border-gray-100"
+                        >
+                          <IconCopy className="w-4 h-4" strokeWidth={2} />
+                          Copy Link
+                        </button>
+                        {(cls.status === "scheduled" || cls.status === "live") && (
+                          <button
+                            onClick={() => handleJoinClass(cls.id)}
+                            className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-gradient-to-br from-[#B4F481] to-[#9FE66F] text-[#2D2D2D] hover:shadow-lg transition-all"
+                          >
+                            <IconBrandZoom className="w-4 h-4" strokeWidth={2.5} />
+                            Start Class
                           </button>
                         )}
                         <button
                           onClick={() => handleDelete(cls)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-xl transition-all"
-                          title="Delete class"
+                          className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-all"
                         >
                           <IconTrash className="w-4 h-4" strokeWidth={2} />
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -638,6 +678,21 @@ export const LiveClassesPage = () => {
         </div>
       </div>
 
+      <AnimatePresence>
+        {activeZoomMeeting && user && (
+          <ZoomMeeting
+            status={true}
+            meetingNumber={activeZoomMeeting.meetingNumber}
+            userName={user.name}
+            userEmail={user.email}
+            signature={activeZoomMeeting.signature}
+            sdkKey={activeZoomMeeting.sdkKey}
+            passWord={activeZoomMeeting.passWord}
+            onLeave={() => setActiveZoomMeeting(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Create Modal */}
       <AnimatePresence>
         {showCreateModal && (
@@ -646,6 +701,19 @@ export const LiveClassesPage = () => {
             onSuccess={handleCreateSuccess}
             batchId={selectedBatch !== "all" ? selectedBatch : undefined}
             batches={batches}
+          />
+        )}
+      </AnimatePresence>
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && editingClass && (
+          <EditLiveClassModal
+            onClose={() => {
+              setShowEditModal(false);
+              setEditingClass(null);
+            }}
+            onSuccess={handleCreateSuccess}
+            liveClass={editingClass}
           />
         )}
       </AnimatePresence>
@@ -725,7 +793,7 @@ const CreateLiveClassModal = ({
       >
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] flex items-center justify-center shadow-lg">
               <IconBrandZoom className="w-7 h-7 text-white" strokeWidth={2} />
             </div>
             <div>
@@ -778,33 +846,33 @@ const CreateLiveClassModal = ({
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-bold text-gray-900 mb-2.5">
-              Class Title <span className="text-red-500">*</span>
+            <label className="block text-sm font-bold text-gray-900 mb-2.5 uppercase tracking-wider">
+              Meeting Topic <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.topic}
               onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="e.g., React Hooks Deep Dive"
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4B5FD] focus:border-transparent transition-all"
+              placeholder="e.g. Mathematics Advanced - Session 1"
             />
           </div>
 
           {/* Date & Duration */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2.5">
+              <label className="block text-sm font-bold text-gray-900 mb-2.5 uppercase tracking-wider text-xs">
                 Scheduled Date & Time <span className="text-red-500">*</span>
               </label>
               <input
                 type="datetime-local"
                 value={formData.start_time}
                 onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4B5FD] focus:border-transparent transition-all"
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-900 mb-2.5">
+              <label className="block text-sm font-bold text-gray-900 mb-2.5 uppercase tracking-wider text-xs">
                 Duration (minutes)
               </label>
               <input
@@ -813,22 +881,22 @@ const CreateLiveClassModal = ({
                 onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
                 min="15"
                 step="15"
-                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4B5FD] focus:border-transparent transition-all"
               />
             </div>
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-bold text-gray-900 mb-2.5">
+            <label className="block text-sm font-bold text-gray-900 mb-2.5 uppercase tracking-wider">
               Description <span className="text-gray-400 font-normal">(Optional)</span>
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
-              placeholder="Add class description..."
+              className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C4B5FD] focus:border-transparent resize-none transition-all"
+              placeholder="Add session details..."
             />
           </div>
 
@@ -837,18 +905,18 @@ const CreateLiveClassModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all"
+              className="rounded-xl px-6 py-3 text-sm font-bold text-gray-700 hover:bg-gray-100 transition-all uppercase tracking-widest"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="rounded-xl px-6 py-3 text-sm font-bold bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2"
+              className="rounded-xl px-6 py-3 text-sm font-bold bg-gradient-to-br from-[#B4F481] to-[#9FE66F] text-[#2D2D2D] hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 uppercase tracking-widest"
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 border-2 border-[#2D2D2D]/30 border-t-[#2D2D2D] rounded-full animate-spin"></div>
                   Scheduling...
                 </>
               ) : (
@@ -857,6 +925,168 @@ const CreateLiveClassModal = ({
                   Schedule Class
                 </>
               )}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Edit Live Class Modal Component
+// ---------------------------------------------------------------------------
+const EditLiveClassModal = ({
+  onClose,
+  onSuccess,
+  liveClass,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  liveClass: LiveClass;
+}) => {
+  const [formData, setFormData] = useState({
+    topic: liveClass.topic,
+    description: liveClass.description || "",
+    start_time: new Date(liveClass.start_time).toISOString().slice(0, 16),
+    duration: liveClass.duration,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      setLoading(true);
+      await liveClassesApi.update(liveClass.id, {
+        topic: formData.topic,
+        description: formData.description || undefined,
+        start_time: formData.start_time,
+        duration: formData.duration,
+      });
+      onSuccess();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to update live class");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        transition={{ type: "spring", duration: 0.5 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl rounded-[28px] bg-white p-4 sm:p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex items-start justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#C4B5FD] to-[#A78BFA] flex items-center justify-center shadow-lg">
+              <IconEdit className="w-7 h-7 text-white" strokeWidth={2} />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">Edit Live Class</h2>
+              <p className="text-sm text-gray-500 mt-1">Update Zoom meeting details</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 hover:bg-gray-100 transition-colors"
+          >
+            <IconX className="w-6 h-6 text-gray-500" strokeWidth={2} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl bg-red-50 border-2 border-red-200 p-4 text-sm text-red-700 font-medium">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                Meeting Topic
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.topic}
+                onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                className="w-full rounded-xl border-gray-200 bg-gray-50 p-3 focus:border-[#C4B5FD] focus:ring-[#C4B5FD] font-medium transition-all"
+                placeholder="e.g. Mathematics Advanced - Session 1"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                Description (Optional)
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full rounded-xl border-gray-200 bg-gray-50 p-3 focus:border-[#C4B5FD] focus:ring-[#C4B5FD] font-medium transition-all h-24 resize-none"
+                placeholder="Session details, agenda, etc."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                Start Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                required
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                className="w-full rounded-xl border-gray-200 bg-gray-50 p-3 focus:border-[#C4B5FD] focus:ring-[#C4B5FD] font-medium transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                Duration (minutes)
+              </label>
+              <select
+                value={formData.duration}
+                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                className="w-full rounded-xl border-gray-200 bg-gray-50 p-3 focus:border-[#C4B5FD] focus:ring-[#C4B5FD] font-medium transition-all cursor-pointer"
+              >
+                {[15, 30, 45, 60, 90, 120, 180].map((d) => (
+                  <option key={d} value={d}>
+                    {d} minutes
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border-2 border-gray-200 px-6 py-3.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all uppercase tracking-widest"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-xl bg-gradient-to-br from-[#B4F481] to-[#9FE66F] px-6 py-3.5 text-sm font-bold text-[#2D2D2D] shadow-lg hover:shadow-xl transition-all disabled:opacity-50 uppercase tracking-widest"
+            >
+              {loading ? "Updating..." : "Update Class"}
             </button>
           </div>
         </form>
