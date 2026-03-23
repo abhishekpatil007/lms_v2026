@@ -10,6 +10,7 @@ const LiveClass = sequelize.define('LiveClass', {
     start_time: { type: DataTypes.DATE, allowNull: false },
     duration: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 60 },
     zoom_meeting_id: { type: DataTypes.STRING, allowNull: true },
+    zoom_meeting_password: { type: DataTypes.STRING, allowNull: true },
     zoom_join_url: { type: DataTypes.TEXT, allowNull: true },
     zoom_start_url: { type: DataTypes.TEXT, allowNull: true },
     status: { 

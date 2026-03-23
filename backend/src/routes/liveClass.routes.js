@@ -21,7 +21,7 @@ router.post('/', verifyToken, requireRole(['instructor', 'admin']), createLiveCl
 router.get('/batch/:batch_id', verifyToken, requireRole(['instructor', 'student', 'admin']), getBatchLiveClasses);
 
 // Get signature for live class (to be used by frontend Zoom Web SDK)
-router.post('/:id/signature', verifyToken, requireRole(['instructor', 'student']), getLiveClassSignature);
+router.post('/:id/signature', verifyToken, requireRole(['instructor', 'student', 'admin']), getLiveClassSignature);
 
 router.put("/:id", verifyToken, requireRole(["instructor", "admin"]), updateLiveClass);
 router.delete("/:id", verifyToken, requireRole(["instructor", "admin"]), deleteLiveClass);
