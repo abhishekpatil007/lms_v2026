@@ -290,16 +290,19 @@ export const listVideos = async (req, res) => {
             const { page = 1, limit = 10 } = req.query;
             const offset = (page - 1) * limit;
 
-            // If batch_id filter is provided, find video IDs in that batch first
+            // If batch_id filter is provided, find video IDs in that batch first (with order_index)
             let batchVideoFilter = {};
-            if (req.query.batch_id) {
+            let adminOrderMap = {};
+            const filteringByBatch = !!req.query.batch_id;
+            if (filteringByBatch) {
                 const bvRows = await BatchVideo.findAll({
                     where: { batch_id: req.query.batch_id },
-                    attributes: ['video_id'],
+                    attributes: ['video_id', 'order_index'],
                     raw: true,
                 });
                 const videoIds = bvRows.map(r => r.video_id);
                 batchVideoFilter = { id: { [Op.in]: videoIds } };
+                bvRows.forEach(r => { adminOrderMap[r.video_id] = r.order_index || 0; });
             }
 
             const { count, rows } = await Video.findAndCountAll({
@@ -311,9 +314,20 @@ export const listVideos = async (req, res) => {
                 distinct: true,
             });
 
-            videoLogger.info(`Videos listed by admin - Count: ${rows.length}`);
+            // Attach order_index and sort by it when filtering by specific batch
+            let videos = rows;
+            if (filteringByBatch) {
+                videos = rows.map(v => {
+                    const plain = v.toJSON ? v.toJSON() : v;
+                    plain.order_index = adminOrderMap[plain.id] || 0;
+                    return plain;
+                });
+                videos.sort((a, b) => a.order_index - b.order_index);
+            }
+
+            videoLogger.info(`Videos listed by admin - Count: ${videos.length}`);
             return res.json({
-                videos: rows,
+                videos,
                 total: count,
                 totalPages: Math.ceil(count / limit),
                 currentPage: parseInt(page)
