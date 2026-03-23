@@ -10,8 +10,10 @@ import {
   IconChecklist,
   IconBrandZoom,
   IconBooks,
+  IconDots,
+  IconX,
 } from '@tabler/icons-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 
 export const StudentLayout = () => {
@@ -19,6 +21,7 @@ export const StudentLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -63,7 +66,11 @@ export const StudentLayout = () => {
     },
   ];
 
+  // Mobile nav: 4 primary items + overflow
+  const primaryNavItems = links.slice(0, 4);
+  const overflowNavItems = links.slice(4);
   const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
+  const isOverflowActive = overflowNavItems.some(item => isActive(item.href));
 
   return (
     <div className="flex w-full h-screen bg-[#F5F0EB]">
@@ -123,21 +130,79 @@ export const StudentLayout = () => {
 
       {/* Mobile Bottom Navigation */}
       <div className="fixed bottom-3 left-2 right-2 z-50 md:hidden">
+        {/* Overflow "More" menu */}
+        <AnimatePresence>
+          {moreOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/30 z-40"
+                onClick={() => setMoreOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="absolute bottom-full mb-3 left-0 right-0 bg-gray-900 rounded-[20px] p-3 z-50 shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-gray-800"
+              >
+                <div className="grid grid-cols-3 gap-1.5">
+                  {overflowNavItems.map((item, idx) => {
+                    const active = isActive(item.href);
+                    return (
+                      <Link
+                        key={idx}
+                        to={item.href}
+                        onClick={() => setMoreOpen(false)}
+                        className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl transition-all ${
+                          active ? 'bg-white shadow-md' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <span className={`[&>svg]:h-5 [&>svg]:w-5 ${active ? '[&>svg]:text-gray-900' : '[&>svg]:text-gray-500'}`}>
+                          {item.icon}
+                        </span>
+                        <span className={`text-[9px] font-bold text-center leading-tight ${
+                          active ? 'text-gray-900' : 'text-gray-500'
+                        }`}>
+                          {item.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+                {/* Logout in overflow */}
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <button
+                    onClick={() => { setMoreOpen(false); handleLogout(); }}
+                    className="flex items-center gap-2 w-full py-2 px-3 rounded-xl hover:bg-white/10 transition-colors"
+                  >
+                    <IconLogout className="h-5 w-5 text-red-400" strokeWidth={2} />
+                    <span className="text-xs text-red-400 font-medium">Logout</span>
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom bar */}
         <div className="bg-gray-900 rounded-[20px] px-1 py-1.5 flex items-center justify-around shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-gray-800">
-          {links.map((item, idx) => {
+          {primaryNavItems.map((item, idx) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={idx}
                 to={item.href}
-                className={`relative flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-0 rounded-xl transition-all duration-300 ${
+                className={`relative flex flex-col items-center gap-0.5 py-1.5 px-2.5 min-w-0 rounded-xl transition-all duration-300 ${
                   active ? 'bg-white shadow-lg scale-105' : 'hover:bg-white/5'
                 }`}
               >
                 <span className={`[&>svg]:h-5 [&>svg]:w-5 ${active ? '[&>svg]:text-gray-900' : '[&>svg]:text-gray-500'}`}>
                   {item.icon}
                 </span>
-                <span className={`text-[8px] font-bold truncate max-w-[48px] ${
+                <span className={`text-[9px] font-bold ${
                   active ? 'text-gray-900' : 'text-gray-500'
                 }`}>
                   {item.label}
@@ -145,13 +210,23 @@ export const StudentLayout = () => {
               </Link>
             );
           })}
-          {/* Logout */}
+          {/* More button */}
           <button
-            onClick={handleLogout}
-            className="flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-0 rounded-xl transition-all duration-300 hover:bg-white/5"
+            onClick={() => setMoreOpen(!moreOpen)}
+            className={`relative flex flex-col items-center gap-0.5 py-1.5 px-2.5 min-w-0 rounded-xl transition-all duration-300 ${
+              moreOpen || isOverflowActive ? 'bg-white shadow-lg scale-105' : 'hover:bg-white/5'
+            }`}
           >
-            <IconLogout className="h-5 w-5 text-gray-500" strokeWidth={2} />
-            <span className="text-[8px] font-bold text-gray-500">Exit</span>
+            {moreOpen ? (
+              <IconX className={`h-5 w-5 ${moreOpen ? 'text-gray-900' : 'text-gray-500'}`} strokeWidth={2} />
+            ) : (
+              <IconDots className={`h-5 w-5 ${isOverflowActive ? 'text-gray-900' : 'text-gray-500'}`} strokeWidth={2} />
+            )}
+            <span className={`text-[9px] font-bold ${
+              moreOpen || isOverflowActive ? 'text-gray-900' : 'text-gray-500'
+            }`}>
+              More
+            </span>
           </button>
         </div>
       </div>
