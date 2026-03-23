@@ -1050,7 +1050,7 @@ const VideosTab = ({ batchId }: { batchId: string }) => {
             key={video.id}
             layout={reorderMode}
             className={cn(
-              "flex items-center gap-3 rounded-xl border p-3 transition-all",
+              "flex items-center gap-2 sm:gap-3 rounded-xl border p-2 sm:p-3 transition-all",
               reorderMode ? "border-violet-200 bg-violet-50/30" : "border-gray-100 bg-white"
             )}
           >
@@ -1075,27 +1075,27 @@ const VideosTab = ({ batchId }: { batchId: string }) => {
             )}
 
             {/* Order number */}
-            <div className="shrink-0 w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
+            <div className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] sm:text-xs font-bold text-gray-500">
               {i + 1}
             </div>
 
-            {/* Thumbnail */}
-            {video.thumbnail_url ? (
-              <div className="shrink-0 w-20 aspect-video rounded-lg overflow-hidden bg-gray-900">
-                <img src={video.thumbnail_url} alt="" className="w-full h-full object-cover" />
-              </div>
-            ) : (
-              <div className="shrink-0 w-20 aspect-video rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
-                <IconVideo size={16} className="text-white" />
-              </div>
-            )}
+            {/* Thumbnail - hidden on small mobile in reorder mode */}
+            <div className={cn("shrink-0 w-16 sm:w-20 aspect-video rounded-lg overflow-hidden", reorderMode && "hidden sm:block")}>
+              {video.thumbnail_url ? (
+                <img src={video.thumbnail_url} alt="" className="w-full h-full object-cover bg-gray-900" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
+                  <IconVideo size={14} className="text-white" />
+                </div>
+              )}
+            </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900 truncate">{video.title}</h4>
-              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+              <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{video.title}</h4>
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 text-[9px] sm:text-[10px] text-gray-400">
                 {video.duration ? <span>{formatDuration(video.duration)}</span> : null}
-                <LanguageBadge language={video.language} />
+                <span className="hidden sm:inline"><LanguageBadge language={video.language} /></span>
                 <StatusBadge status={video.upload_status} />
               </div>
             </div>
