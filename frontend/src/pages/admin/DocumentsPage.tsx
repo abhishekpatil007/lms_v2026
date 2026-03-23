@@ -865,15 +865,15 @@ export const DocumentsPage = () => {
 
               {/* Pagination with page numbers */}
               {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2 mt-4 pb-4">
+                <div className="flex justify-center items-center gap-1.5 sm:gap-2 mt-4 pb-6 md:pb-4">
                   <button
                     onClick={() =>
                       setCurrentPage((prev) => Math.max(1, prev - 1))
                     }
                     disabled={currentPage === 1}
-                    className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    className="px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                   >
-                    Previous
+                    Prev
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
@@ -885,14 +885,14 @@ export const DocumentsPage = () => {
                     .map((page, idx, arr) => (
                       <React.Fragment key={page}>
                         {idx > 0 && arr[idx - 1] !== page - 1 && (
-                          <span className="text-gray-400 text-sm px-1">
+                          <span className="text-gray-400 text-xs sm:text-sm px-0.5 sm:px-1">
                             &hellip;
                           </span>
                         )}
                         <button
                           onClick={() => setCurrentPage(page)}
                           className={cn(
-                            "w-9 h-9 text-sm font-bold rounded-xl transition-all",
+                            "w-7 h-7 sm:w-9 sm:h-9 text-xs sm:text-sm font-bold rounded-xl transition-all",
                             currentPage === page
                               ? "bg-gray-900 text-white shadow-sm"
                               : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
@@ -907,7 +907,7 @@ export const DocumentsPage = () => {
                       setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    className="px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
                   >
                     Next
                   </button>
