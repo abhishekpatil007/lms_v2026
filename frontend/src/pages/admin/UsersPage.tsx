@@ -8,6 +8,8 @@ import {
   IconCopy,
   IconCheck,
   IconUpload,
+  IconEdit,
+  IconTrash,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,11 @@ export const UsersPage = () => {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
+
+  // Edit/Delete State
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editData, setEditData] = useState({ name: "", email: "", preferred_language: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   // Bulk Upload State
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
@@ -163,6 +170,41 @@ export const UsersPage = () => {
         alert(error.response?.data?.message || "Failed to process bulk upload");
     } finally {
         setBulkUploadLoading(false);
+    }
+  };
+
+  const openEditModal = (userData: User) => {
+    setEditData({
+      name: userData.name || "",
+      email: userData.email || "",
+      preferred_language: userData.preferred_language || "",
+    });
+    setEditUser(userData);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editUser) return;
+    try {
+      setEditSaving(true);
+      await usersApi.updateUser(editUser.id, editData);
+      setEditUser(null);
+      fetchUsers(1, true);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      alert("Failed to update user.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async (userData: User) => {
+    if (!confirm(`Delete "${userData.name}"? This will deactivate the account and remove batch enrollments.`)) return;
+    try {
+      await usersApi.deleteUser(userData.id);
+      fetchUsers(1, true);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      alert("Failed to delete user.");
     }
   };
 
@@ -411,11 +453,39 @@ export const UsersPage = () => {
                       </div>
                     )}
 
-                    <div className={cn(
-                      "text-xs",
-                      activeTab === "instructor" ? "text-white/60" : "text-gray-400"
-                    )}>
-                      Joined {new Date(userData.created_at || '').toLocaleDateString()}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className={cn(
+                        "text-xs",
+                        activeTab === "instructor" ? "text-white/60" : "text-gray-400"
+                      )}>
+                        Joined {new Date(userData.created_at || '').toLocaleDateString()}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditModal(userData); }}
+                          className={cn(
+                            "rounded-lg p-1.5 transition-all",
+                            activeTab === "instructor"
+                              ? "hover:bg-white/20 text-white/70 hover:text-white"
+                              : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                          )}
+                          title="Edit user"
+                        >
+                          <IconEdit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteUser(userData); }}
+                          className={cn(
+                            "rounded-lg p-1.5 transition-all",
+                            activeTab === "instructor"
+                              ? "hover:bg-red-400/30 text-white/70 hover:text-red-200"
+                              : "hover:bg-red-50 text-gray-400 hover:text-red-500"
+                          )}
+                          title="Delete user"
+                        >
+                          <IconTrash className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -591,6 +661,87 @@ export const UsersPage = () => {
               >
                 Done
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {editUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setEditUser(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                    <IconEdit className="w-5 h-5 text-violet-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Edit User</h3>
+                    <p className="text-xs text-gray-500">{editUser.email}</p>
+                  </div>
+                </div>
+                <button onClick={() => setEditUser(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
+                  <IconX className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Full Name</label>
+                  <input
+                    type="text"
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={editData.email}
+                    onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Preferred Language</label>
+                  <input
+                    type="text"
+                    value={editData.preferred_language}
+                    onChange={(e) => setEditData({ ...editData, preferred_language: e.target.value })}
+                    placeholder="e.g. English, Hindi"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                <button
+                  onClick={() => setEditUser(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={editSaving || !editData.name.trim() || !editData.email.trim()}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-all disabled:opacity-50"
+                >
+                  {editSaving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

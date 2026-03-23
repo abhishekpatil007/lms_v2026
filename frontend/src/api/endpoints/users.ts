@@ -45,4 +45,20 @@ export const usersApi = {
     });
     return response.data;
   },
+
+  // Update user details (admin only)
+  updateUser: async (userId: number, data: Partial<{
+    name: string;
+    email: string;
+    preferred_language: string;
+  }>): Promise<{ message: string; user: User }> => {
+    const response = await apiClient.put(`/api/users/${userId}`, data);
+    return response.data;
+  },
+
+  // Delete (deactivate) user (admin only)
+  deleteUser: async (userId: number): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/api/users/${userId}`);
+    return response.data;
+  },
 };
