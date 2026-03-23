@@ -139,9 +139,15 @@ export const listDocuments = async (req, res) => {
             return res.json({ documents: [], total: 0, totalPages: 0, currentPage: parseInt(req.query.page || 1) });
         }
 
+        // If batch_id filter provided, narrow to that specific batch (must be in accessible list)
+        let batchIdsToQuery = accessibleBatchIds;
+        if (req.query.batch_id && accessibleBatchIds.includes(req.query.batch_id)) {
+            batchIdsToQuery = [req.query.batch_id];
+        }
+
         // Find document ids linked to these batches
         const bdRows = await BatchDocument.findAll({
-            where: { batch_id: { [Op.in]: accessibleBatchIds } },
+            where: { batch_id: { [Op.in]: batchIdsToQuery } },
             attributes: ['document_id'],
             raw: true,
         });
