@@ -1,18 +1,18 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
     secure: false,
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
     }
 });
 
 async function sendPasswordResetEmail({ to, name, resetLink }) {
     const mailOptions = {
-        from: `"${process.env.EMAIL_FROM_NAME}" <${process.env.EMAIL_FROM_ADDRESS}>`,
+        from: `"Money Craft Trader" <${process.env.SMTP_USER}>`,
         to,
         subject: 'Password Reset Request',
         html: `
@@ -22,7 +22,7 @@ async function sendPasswordResetEmail({ to, name, resetLink }) {
             <p>This link will expire in 1 hour.</p>
             <p>If you did not request this, please ignore this email.</p>
             <br/>
-            <p>Thanks,<br/>${process.env.EMAIL_FROM_NAME}</p>
+            <p>Thanks,<br/>Money Craft Trader</p>
         `
     };
 
