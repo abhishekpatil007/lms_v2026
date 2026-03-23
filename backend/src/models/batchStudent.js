@@ -22,6 +22,13 @@ const BatchStudent = sequelize.define('BatchStudent', {
 }, {
     tableName: 'batch_students',
     timestamps: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['batch_id', 'student_id'],
+            name: 'unique_batch_student',
+        },
+    ],
 });
 
 BatchStudent.associate = (models) => {

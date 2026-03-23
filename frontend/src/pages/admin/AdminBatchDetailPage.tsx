@@ -648,6 +648,17 @@ const StudentsTab = ({ batchId }: { batchId: string }) => {
     return () => clearTimeout(delayDebounceFn);
   }, [batchId, currentPage, search]);
 
+  const handleUnenroll = async (studentId: number, studentName: string) => {
+    if (!confirm(`Remove "${studentName}" from this batch?`)) return;
+    try {
+      await batchesApi.unenrollStudent(batchId, studentId);
+      fetchStudents();
+    } catch (error) {
+      console.error("Error unenrolling student:", error);
+      alert("Failed to remove student.");
+    }
+  };
+
   const fetchStudents = async () => {
     try {
       setLoading(true);
@@ -726,7 +737,7 @@ const StudentsTab = ({ batchId }: { batchId: string }) => {
               <tr className="border-b border-gray-100 text-left">
                 <th className="px-6 py-3 font-semibold text-gray-500">Student</th>
                 <th className="px-6 py-3 font-semibold text-gray-500">Email</th>
-                {/* <th className="px-6 py-3 font-semibold text-gray-500">Status</th> */}
+                <th className="px-6 py-3 font-semibold text-gray-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -752,6 +763,15 @@ const StudentsTab = ({ batchId }: { batchId: string }) => {
                       <IconMail size={14} />
                       {student.email}
                     </span>
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    <button
+                      onClick={() => handleUnenroll(student.id, student.name)}
+                      className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-all"
+                      title="Remove from batch"
+                    >
+                      Remove
+                    </button>
                   </td>
                 </motion.tr>
               ))}
@@ -782,6 +802,12 @@ const StudentsTab = ({ batchId }: { batchId: string }) => {
                 <p className="truncate font-semibold text-gray-900">{student.name}</p>
                 <p className="truncate text-xs text-gray-500">{student.email}</p>
               </div>
+              <button
+                onClick={() => handleUnenroll(student.id, student.name)}
+                className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition-all"
+              >
+                Remove
+              </button>
             </div>
           </motion.div>
         ))}

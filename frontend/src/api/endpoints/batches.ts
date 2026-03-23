@@ -89,6 +89,14 @@ export const batchesApi = {
     return response.data;
   },
 
+  unenrollStudent: async (
+    batchId: string,
+    studentId: number
+  ): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/api/batches/${batchId}/students/${studentId}`);
+    return response.data;
+  },
+
   getInstructorBatches: async (): Promise<{ batches: Batch[] }> => {
     const response = await apiClient.get('/api/batches/instructor/my-batches');
     return response.data;

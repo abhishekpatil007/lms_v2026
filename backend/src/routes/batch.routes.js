@@ -8,6 +8,7 @@ import {
     deactivateBatch,
     assignInstructor,
     enrollStudents,
+    unenrollStudent,
     getInstructorBatches,
     getStudentBatches,
     getBatchStudents,
@@ -33,6 +34,7 @@ router.get('/:id/students', verifyToken, requireRole(['admin', 'instructor']), g
 router.patch('/:id/deactivate', verifyToken, requireRole(['admin']), deactivateBatch);
 router.patch('/:id/assign-instructor', verifyToken, requireRole(['admin']), assignInstructor);
 router.post('/:id/enroll', verifyToken, requireRole(['admin']), enrollStudents);
+router.delete('/:id/students/:studentId', verifyToken, requireRole(['admin']), unenrollStudent);
 router.get('/:id/students/export', verifyToken, requireRole(['admin', 'instructor']), exportStudentsToExcel);
 router.post('/:id/students/bulk-enroll', verifyToken, requireRole(['admin']), upload.single('file'), bulkEnrollStudentsFromExcel);
 

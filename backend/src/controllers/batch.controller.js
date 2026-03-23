@@ -324,21 +324,58 @@ export const assignInstructor = async (req, res) => {
 export const enrollStudents = async (req, res) => {
     try {
         const { studentIds } = req.body; // array of student IDs
+        const batchId = req.params.id;
         if (!studentIds || !studentIds.length) {
             batchLogger.warn('Enroll Students - No students provided');
             return res.status(400).json({ message: 'No students provided' });
         }
 
-        const enrollments = studentIds.map((id) => ({ batch_id: req.params.id, student_id: id }));
-        await BatchStudent.bulkCreate(enrollments, { ignoreDuplicates: true });
+        // Find already enrolled students to skip them
+        const existing = await BatchStudent.findAll({
+            where: { batch_id: batchId, student_id: { [Op.in]: studentIds } },
+            attributes: ['student_id'],
+            raw: true,
+        });
+        const existingIds = new Set(existing.map(e => e.student_id));
+        const newStudentIds = studentIds.filter(id => !existingIds.has(id));
 
-        // Trigger welcome emails in parallel
-        await Promise.all(studentIds.map(studentId => sendWelcomeEmail(studentId, req.params.id)));
+        if (newStudentIds.length > 0) {
+            const enrollments = newStudentIds.map((id) => ({ batch_id: batchId, student_id: id }));
+            await BatchStudent.bulkCreate(enrollments, { ignoreDuplicates: true });
 
-        batchLogger.info(`Students enrolled - Batch ID: ${req.params.id}, Count: ${studentIds.length}`);
-        res.json({ message: `${studentIds.length} students enrolled successfully` });
+            // Send welcome emails only to newly enrolled students (don't block response)
+            Promise.all(newStudentIds.map(studentId => sendWelcomeEmail(studentId, batchId).catch(err => {
+                batchLogger.error(`Welcome email failed for student ${studentId}: ${err.message}`);
+            })));
+        }
+
+        const skipped = studentIds.length - newStudentIds.length;
+        batchLogger.info(`Students enrolled - Batch ID: ${batchId}, New: ${newStudentIds.length}, Skipped: ${skipped}`);
+        res.json({ message: `${newStudentIds.length} students enrolled successfully${skipped > 0 ? `, ${skipped} already enrolled` : ''}` });
     } catch (err) {
         batchLogger.error(`Error in enrollStudents: ${err.message}`);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// --------------------------
+// Unenroll student from batch
+// --------------------------
+export const unenrollStudent = async (req, res) => {
+    try {
+        const { id: batchId, studentId } = req.params;
+        const deleted = await BatchStudent.destroy({
+            where: { batch_id: batchId, student_id: studentId },
+        });
+
+        if (!deleted) {
+            return res.status(404).json({ message: 'Enrollment not found' });
+        }
+
+        batchLogger.info(`Student unenrolled - Batch ID: ${batchId}, Student ID: ${studentId}`);
+        res.json({ message: 'Student removed from batch successfully' });
+    } catch (err) {
+        batchLogger.error(`Error in unenrollStudent: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 };
