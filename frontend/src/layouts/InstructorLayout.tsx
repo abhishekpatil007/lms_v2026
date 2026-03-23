@@ -42,11 +42,11 @@ export const InstructorLayout = () => {
       href: '/instructor/evaluations',
       icon: <IconEdit className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
     },
-    {
-      label: 'Webinars',
-      href: '/instructor/webinars',
-      icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
-    },
+    // {
+    //   label: 'Webinars',
+    //   href: '/instructor/webinars',
+    //   icon: <IconBrandZoom className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />,
+    // },
     {
       label: 'Settings',
       href: '/instructor/settings',
