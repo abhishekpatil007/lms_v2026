@@ -27,6 +27,7 @@ const createZoomMeeting = async (topic, startTime, duration) => {
                 join_before_host: false,
                 mute_upon_entry: true,
                 waiting_room: true,
+                auto_recording: 'cloud',
             },
         },
         {
