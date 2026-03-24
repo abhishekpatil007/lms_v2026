@@ -97,7 +97,7 @@ export const BatchesPage = () => {
     try {
       const [instructorsData, studentsData] = await Promise.all([
         usersApi.getInstructors(),
-        usersApi.getStudents(),
+        usersApi.getStudents(1, 1000),
       ]);
       setInstructors(instructorsData.instructors);
       setStudents(studentsData.students);
