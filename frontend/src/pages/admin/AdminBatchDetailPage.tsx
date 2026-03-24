@@ -638,7 +638,7 @@ const StudentsTab = ({ batchId }: { batchId: string }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
   const [activeCount, setActiveCount] = useState(0);
-  const itemsPerPage = 10;
+  const itemsPerPage = 25;
 
   useEffect(() => {
     setCurrentPage(1);
