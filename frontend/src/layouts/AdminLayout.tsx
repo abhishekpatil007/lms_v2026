@@ -114,7 +114,7 @@ export const AdminLayout = () => {
             <SidebarLink
               link={{
                 label: user?.name || "Admin",
-                href: "/admin/profile",
+                href: "", // Non-navigable
                 icon: (
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#3D3532] shadow-sm">
                     {user?.name?.charAt(0)?.toUpperCase() || 'A'}

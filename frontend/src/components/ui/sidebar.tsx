@@ -162,18 +162,24 @@ export const SidebarLink = ({
 }: {
   link: Links;
   className?: string;
-  props?: React.LinkHTMLAttributes<HTMLAnchorElement>;
-}) => {
+} & React.ComponentProps<typeof motion.div> & { to?: string }) => {
   const { open, animate } = useSidebar();
+  
+  // Use a div if href is empty/absent, otherwise use Link from react-router-dom
+  const isLink = link.href && link.href !== "#" && link.href !== "";
+  const Tag = isLink ? Link : motion.div;
+  const tagProps = isLink ? { to: link.href } : {};
+
   return (
-    <Link
-      to={link.href}
+    <Tag
+      {...(tagProps as any)}
       className={cn(
-        "group/sidebar flex items-center justify-start gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 relative",
+        "group/sidebar flex items-center justify-start gap-3 py-3 px-3 rounded-lg transition-all duration-200 hover:bg-white/10 relative cursor-default",
+        isLink && "cursor-pointer",
         className
       )}
       title={link.label}
-      {...props}
+      {...(props as any)}
     >
       {link.icon}
       <motion.span
@@ -185,6 +191,6 @@ export const SidebarLink = ({
       >
         {link.label}
       </motion.span>
-    </Link>
+    </Tag>
   );
 };
