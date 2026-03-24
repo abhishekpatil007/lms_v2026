@@ -167,7 +167,7 @@ export const UsersPage = () => {
         fetchUsers(1, true); // Refresh users list
     } catch (error: any) {
         console.error("Bulk upload error:", error);
-        alert(error.response?.data?.message || "Failed to process bulk upload");
+        // alert(error.response?.data?.message || "Failed to process bulk upload");
     } finally {
         setBulkUploadLoading(false);
     }
