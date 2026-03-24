@@ -560,8 +560,10 @@ export const bulkEnrollStudentsFromExcel = async (req, res) => {
 
         await BatchStudent.bulkCreate(enrollments, { ignoreDuplicates: true });
 
-        // Trigger welcome emails in parallel (using original service)
-        await Promise.all(studentIds.map(studentId => sendWelcomeEmail(studentId, batchId)));
+        // Trigger welcome emails in parallel (don't block enrollment on email failures)
+        Promise.all(studentIds.map(studentId => sendWelcomeEmail(studentId, batchId).catch(err => {
+            batchLogger.error(`Bulk enroll email failed for student ${studentId}: ${err.message}`);
+        })));
 
         // Cleanup uploaded file
         await fs.unlink(req.file.path);
