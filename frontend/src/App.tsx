@@ -41,6 +41,23 @@ import { StudentBatches } from './pages/student/StudentBatches';
 import { TestTakingPage } from './pages/student/TestTakingPage';
 import { TestResultPage } from './pages/student/TestResultPage';
 
+const HomeRedirect = () => {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  switch (user.role) {
+    case 'admin':
+      return <Navigate to="/admin/dashboard" replace />;
+    case 'instructor':
+      return <Navigate to="/instructor/batches" replace />;
+    default:
+      return <Navigate to="/student/dashboard" replace />;
+  }
+};
+
 function App() {
   const initialize = useAuthStore((state) => state.initialize);
 
@@ -52,6 +69,7 @@ function App() {
     <BrowserRouter>
       <Toaster position="top-right" />
       <Routes>
+        <Route path="/" element={<HomeRedirect />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
@@ -120,7 +138,6 @@ function App() {
           <Route path="settings" element={<StudentSettingsPage />} />
         </Route>
 
-        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/unauthorized" element={<div>Unauthorized Access</div>} />
         <Route path="*" element={<div>404 - Page Not Found</div>} />
       </Routes>
