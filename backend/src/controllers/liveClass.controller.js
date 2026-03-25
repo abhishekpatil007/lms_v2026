@@ -268,25 +268,38 @@ export const deleteLiveClass = async (req, res) => {
             return res.status(403).json({ message: "Unauthorized to delete this class" });
         }
 
-        // Cancel Zoom meeting
-        const token = await getZoomAccessToken();
-        await axios.delete(
-            `https://api.zoom.us/v2/meetings/${liveClass.zoom_meeting_id}`,
-            {
-                headers: { Authorization: `Bearer ${token}` },
+        // Cancel Zoom meeting (Robust handling)
+        if (liveClass.zoom_meeting_id) {
+            try {
+                const token = await getZoomAccessToken();
+                await axios.delete(
+                    `https://api.zoom.us/v2/meetings/${liveClass.zoom_meeting_id}`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }
+                );
+                liveClassLogger.info(`Zoom meeting deleted - Meeting ID: ${liveClass.zoom_meeting_id}`);
+            } catch (zoomError) {
+                // If meeting is already gone or link broken, we still want to delete locally
+                if (zoomError.response?.status === 404) {
+                    liveClassLogger.warn(`Zoom meeting already deleted on Zoom cloud - Meeting ID: ${liveClass.zoom_meeting_id}`);
+                } else {
+                    liveClassLogger.error(`Warning: Failed to delete Zoom meeting: ${zoomError.message}`);
+                    // We continue anyway to ensure local DB is cleared
+                }
             }
-        );
+        }
 
-        // Update local DB
-        await liveClass.update({ status: "cancelled" });
+        // Permanently delete from local DB
+        await liveClass.destroy();
 
-        liveClassLogger.info(`Live class deleted successfully - Live Class ID: ${id}`);
-        return res.json({ message: "Live class cancelled successfully." });
+        liveClassLogger.info(`Live class deleted successfully from DB - Live Class ID: ${id}`);
+        return res.json({ message: "Live class deleted successfully." });
     } catch (error) {
         liveClassLogger.error(`Error in deleteLiveClass: ${error.message}`);
         res
             .status(500)
-            .json({ message: "Failed to cancel live class", error: error.message });
+            .json({ message: "Failed to delete live class", error: error.message });
     }
 };
 
