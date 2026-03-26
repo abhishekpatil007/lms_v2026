@@ -6,6 +6,7 @@ import {
     listBatches,
     getBatchById,
     deactivateBatch,
+    deleteBatch,
     assignInstructor,
     enrollStudents,
     unenrollStudent,
@@ -33,6 +34,7 @@ router.get('/', verifyToken, requireRole(['admin', 'instructor']), listBatches);
 router.get('/:id', verifyToken, requireRole(['admin', 'instructor', 'student']), getBatchById);
 router.get('/:id/students', verifyToken, requireRole(['admin', 'instructor']), getBatchStudents);
 router.patch('/:id/deactivate', verifyToken, requireRole(['admin']), deactivateBatch);
+router.delete('/:id', verifyToken, requireRole(['admin']), deleteBatch);
 router.patch('/:id/assign-instructor', verifyToken, requireRole(['admin']), assignInstructor);
 router.post('/:id/enroll', verifyToken, requireRole(['admin']), enrollStudents);
 router.delete('/:id/students/:studentId', verifyToken, requireRole(['admin']), unenrollStudent);
