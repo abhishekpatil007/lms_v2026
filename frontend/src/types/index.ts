@@ -8,6 +8,7 @@ export interface User {
   preferred_language?: string;
   is_active: boolean;
   created_at?: string;
+  batches?: { id: string; batch_name: string }[];
 }
 
 export interface AuthTokens {

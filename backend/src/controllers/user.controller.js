@@ -1,7 +1,7 @@
 import db from '../models/index.js';
 import { createModuleLogger } from '../utils/logger/logger.js';
 
-const { User, BatchStudent } = db;
+const { User, Batch, BatchStudent } = db;
 const logger = createModuleLogger('userController');
 
 export const getAllInstructors = async (req, res) => {
@@ -53,10 +53,17 @@ export const getAllStudents = async (req, res) => {
 
         const { count, rows } = await User.findAndCountAll({
             where,
-            attributes: ['id', 'name', 'email', 'is_active', 'created_at'],
+            attributes: ['id', 'name', 'email', 'is_active', 'preferred_language', 'created_at'],
+            include: [{
+                model: Batch,
+                as: 'batches',
+                attributes: ['id', 'batch_name'],
+                through: { attributes: [] },
+            }],
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['name', 'ASC']],
+            distinct: true,
         });
 
         logger.info(`Students retrieved - Count: ${rows.length}`);
