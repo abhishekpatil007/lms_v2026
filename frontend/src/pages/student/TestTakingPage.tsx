@@ -548,11 +548,19 @@ export const TestTakingPage = () => {
                                 {currentQ.content}
                             </h3>
 
-                            {currentQ.reference_media_url && (
-                                <div className="mb-6 rounded-xl overflow-hidden border border-gray-100 bg-gray-50 p-2">
-                                    <img src={currentQ.reference_media_url} className="max-h-64 rounded-lg mx-auto" alt="Reference" />
-                                </div>
-                            )}
+                            {currentQ.reference_media_url && (() => {
+                                let urls: string[] = [];
+                                try { urls = JSON.parse(currentQ.reference_media_url); } catch { urls = [currentQ.reference_media_url]; }
+                                return urls.length > 0 ? (
+                                    <div className="mb-6 rounded-xl overflow-hidden border border-gray-100 bg-gray-50 p-3">
+                                        <div className={cn("flex gap-3", urls.length === 1 ? "justify-center" : "flex-wrap")}>
+                                            {urls.map((url: string, i: number) => (
+                                                <img key={i} src={url} className="max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity" alt={`Reference ${i + 1}`} onClick={() => window.open(url, '_blank')} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })()}
 
                             {/* Answer Area */}
                             <div className="space-y-3">
@@ -618,57 +626,45 @@ export const TestTakingPage = () => {
                                 )}
 
                                 {currentQ.type === 'FILE_UPLOAD' && (
-                                    <div className={cn(
-                                        "rounded-xl border-2 border-dashed p-8 text-center transition-all",
-                                        answers[currentQ.id] ? "border-emerald-300 bg-emerald-50/50" : "border-gray-200 bg-gray-50/50 hover:border-violet-300 hover:bg-violet-50/30"
-                                    )}>
-                                        {answers[currentQ.id] ? (
-                                            <div className="flex flex-col items-center gap-3">
-                                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                                                    <IconFileCheck size={28} />
-                                                </div>
-                                                <div>
-                                                    <p className="font-semibold text-emerald-700">File Uploaded</p>
-                                                    <p className="text-sm text-emerald-600">{answers[currentQ.id]?.value}</p>
-                                                </div>
-                                                <label className="cursor-pointer text-xs font-medium text-gray-500 hover:text-violet-600 transition-colors">
-                                                    Change file
-                                                    <input type="file" className="hidden" onChange={(e) => {
-                                                        if (e.target.files?.[0]) {
-                                                            const file = e.target.files[0];
-                                                            const formData = new FormData();
-                                                            formData.append('attempt_id', String(attempt.id));
-                                                            formData.append('question_id', String(currentQ.id));
-                                                            formData.append('answer_file', file);
-                                                            attemptsApi.uploadFile(formData).then(() => {
-                                                                setAnswers({ ...answers, [currentQ.id]: { value: file.name, type: 'FILE_UPLOAD' } });
-                                                            });
-                                                        }
-                                                    }} />
-                                                </label>
-                                            </div>
-                                        ) : (
+                                    <div className="space-y-3">
+                                        <div className={cn(
+                                            "rounded-xl border-2 border-dashed p-6 text-center transition-all",
+                                            "border-gray-200 bg-gray-50/50 hover:border-violet-300 hover:bg-violet-50/30"
+                                        )}>
                                             <label className="cursor-pointer flex flex-col items-center gap-3">
                                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
                                                     <IconCloudUpload size={28} />
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-gray-700">Upload your file</p>
-                                                    <p className="text-sm text-gray-400">Click to browse or drag and drop</p>
+                                                    <p className="font-semibold text-gray-700">Upload files</p>
+                                                    <p className="text-sm text-gray-400">Click to browse — multiple files supported</p>
                                                 </div>
-                                                <input type="file" className="hidden" onChange={(e) => {
-                                                    if (e.target.files?.[0]) {
-                                                        const file = e.target.files[0];
+                                                <input type="file" multiple className="hidden" onChange={(e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    if (files.length > 0) {
                                                         const formData = new FormData();
                                                         formData.append('attempt_id', String(attempt.id));
                                                         formData.append('question_id', String(currentQ.id));
-                                                        formData.append('answer_file', file);
+                                                        files.forEach(f => formData.append('answer_files', f));
                                                         attemptsApi.uploadFile(formData).then(() => {
-                                                            setAnswers({ ...answers, [currentQ.id]: { value: file.name, type: 'FILE_UPLOAD' } });
+                                                            const existing = answers[currentQ.id]?.value || '';
+                                                            const names = existing ? existing + ', ' + files.map(f => f.name).join(', ') : files.map(f => f.name).join(', ');
+                                                            setAnswers({ ...answers, [currentQ.id]: { value: names, type: 'FILE_UPLOAD' } });
                                                         });
+                                                        e.target.value = '';
                                                     }
                                                 }} />
                                             </label>
+                                        </div>
+                                        {answers[currentQ.id] && (
+                                            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <IconFileCheck size={18} className="text-emerald-600" />
+                                                    <p className="font-semibold text-sm text-emerald-700">Files Uploaded</p>
+                                                </div>
+                                                <p className="text-xs text-emerald-600">{answers[currentQ.id]?.value}</p>
+                                            </div>
+                                        )
                                         )}
                                     </div>
                                 )}

@@ -57,7 +57,7 @@ export const addQuestion = async (req, res) => {
         const { block_id } = req.params;
         const { content, type, marks, options, order_index, model_answer } = req.body;
         const files = req.files || {};
-        const referenceMedia = files['reference_media'] ? files['reference_media'][0] : null;
+        const referenceMediaFiles = files['reference_media'] || [];
         const optionMediaFiles = files['option_media'] || [];
 
         // Transaction for question + options
@@ -68,7 +68,7 @@ export const addQuestion = async (req, res) => {
                 type,
                 marks,
                 order_index,
-                reference_media_url: referenceMedia ? getFileUrl(referenceMedia) : null,
+                reference_media_url: referenceMediaFiles.length > 0 ? JSON.stringify(referenceMediaFiles.map(f => getFileUrl(f))) : null,
                 model_answer: type === 'SHORT_ANSWER' ? model_answer : null
             }, { transaction: t });
 
