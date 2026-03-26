@@ -361,7 +361,8 @@ export async function requestPasswordReset(req, res) {
 
 export async function resetPassword(req, res) {
     try {
-        const { email, token } = req.query;
+        const email = req.body.email || req.query.email;
+        const token = req.body.token || req.query.token;
         const { newPassword } = req.body;
         if (!email || !token || !newPassword) return res.status(400).json({ message: 'Email, token and newPassword required' });
 
