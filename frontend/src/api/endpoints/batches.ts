@@ -69,6 +69,11 @@ export const batchesApi = {
     return response.data;
   },
 
+  delete: async (id: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/api/batches/${id}`);
+    return response.data;
+  },
+
   assignInstructor: async (
     id: string,
     instructor_id: number

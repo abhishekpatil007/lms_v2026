@@ -10,7 +10,8 @@ import {
   IconBook,
   IconDownload,
   IconUpload,
-  IconFileSpreadsheet
+  IconFileSpreadsheet,
+  IconTrash
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -534,6 +535,31 @@ export const BatchesPage = () => {
                         )}
                       >
                         View Details
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const studentCount = batch.students?.length || 0;
+                          const msg = studentCount > 0
+                            ? `Delete "${batch.batch_name}"? This will unenroll ${studentCount} students.`
+                            : `Delete "${batch.batch_name}"? This cannot be undone.`;
+                          if (!confirm(msg)) return;
+                          try {
+                            await batchesApi.delete(batch.id);
+                            toast.success(`"${batch.batch_name}" deleted`);
+                            fetchBatches();
+                          } catch {
+                            toast.error("Failed to delete batch");
+                          }
+                        }}
+                        className={cn(
+                          "rounded-xl px-3 py-2.5 text-xs font-bold transition-all",
+                          isOngoing
+                            ? "bg-red-500/30 text-white hover:bg-red-500/50"
+                            : "bg-red-50 text-red-500 hover:bg-red-100"
+                        )}
+                        title="Delete batch"
+                      >
+                        <IconTrash className="w-3.5 h-3.5" />
                       </button>
                     </div>
 

@@ -296,6 +296,36 @@ export const deactivateBatch = async (req, res) => {
 };
 
 // --------------------------
+// Admin: Delete batch
+// --------------------------
+export const deleteBatch = async (req, res) => {
+    try {
+        const batch = await Batch.findByPk(req.params.id, {
+            include: [{ model: User, as: 'students', attributes: ['id'] }]
+        });
+        if (!batch) {
+            batchLogger.warn(`Delete Batch - Batch not found: ${req.params.id}`);
+            return res.status(404).json({ message: 'Batch not found' });
+        }
+
+        const studentCount = batch.students?.length || 0;
+
+        // Clean up junction tables
+        await db.sequelize.query('DELETE FROM batch_students WHERE batch_id = ?', { replacements: [batch.id] });
+        await db.sequelize.query('DELETE FROM batch_videos WHERE batch_id = ?', { replacements: [batch.id] });
+        await db.sequelize.query('DELETE FROM batch_documents WHERE batch_id = ?', { replacements: [batch.id] });
+
+        await batch.destroy();
+
+        batchLogger.info(`Batch deleted - Batch ID: ${batch.id}, Unenrolled students: ${studentCount}`);
+        res.json({ message: `Batch deleted successfully. ${studentCount} students unenrolled.` });
+    } catch (err) {
+        batchLogger.error(`Error in deleteBatch: ${err.message}`);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// --------------------------
 // Admin: Assign Instructor
 // --------------------------
 export const assignInstructor = async (req, res) => {
