@@ -41,12 +41,12 @@ app.use('/api/videos/webhooks/mux', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 const server = http.createServer(app);
-// const io = new IOServer(server, {
-//     cors: { origin: '*' } 
-// });
+const io = new IOServer(server, {
+    cors: { origin: '*' }
+});
 
 // set io on app so controllers can use it
-// app.set('io', io);
+app.set('io', io);
 
 // Redis connection for BullMQ
 // const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
@@ -91,63 +91,26 @@ app.use('/api/users', authLimiter, userRoutes);
 app.use('/api/topics', authLimiter, topicRoutes);
 // app.use('/api/attendance', attendanceRoutes);
 
-// Socket.IO connection: JWT-based auth and server-side batch validation
-// import { verifySocketToken } from './utils/socketAuth.js';
-// import { isUserInBatch } from './controllers/batch.controller.js';
+// Socket.IO connection: Simple initialization for now
+io.on('connection', (socket) => {
+    console.log('Socket connected', socket.id);
 
-// io.use(async (socket, next) => {
-//     try {
-//         const token = socket.handshake.auth?.token || (socket.handshake.headers?.authorization || '').replace('Bearer ', '');
-//         if (!token) return next(new Error('Authentication error'));
-//         const payload = verifySocketToken(token);
-//         socket.user = payload; // { userId, role, iat, exp }
-//         return next();
-//     } catch (err) {
-//         return next(new Error('Authentication error'));
-//     }
-// });
+    socket.on('join_admin_invoices', () => {
+        socket.join('admin_invoices');
+        console.log('Admin joined admin_invoices room');
+    });
 
-// io.on('connection', (socket) => {
-//     console.log('Socket connected', socket.id, 'user', socket.user?.userId);
-
-//     // join batch rooms — server-side validate membership
-//     socket.on('join_batches', async (payload) => {
-//         try {
-//             const { batchIds = [] } = payload;
-//             for (const bid of batchIds) {
-//                 const ok = await isUserInBatch(socket.user.userId, bid);
-//                 if (ok) {
-//                     socket.join(`batch_${bid}`);
-//                 }
-//             }
-//         } catch (e) {
-//             console.error('join_batches error', e);
-//         }
-//     });
-
-//     // Student respond via socket (fast path)
-//     socket.on('attendance:respond', async (payload) => {
-//         // payload: { pollId, response } response: 'present'|'absent'
-//         try {
-//             const attendanceController = await import('./controllers/attendance.controller.js');
-//             // call internal handler (it expects req-like object), but to reuse logic we'll call a helper:
-//             await attendanceController.recordPollResponseSocket(payload.pollId, socket.user.userId, payload.response, { io, sequelize });
-//         } catch (e) {
-//             console.error('attendance:respond error', e);
-//         }
-//     });
-
-//     socket.on('disconnect', () => {
-//         console.log('Socket disconnected', socket.id);
-//     });
-// });
+    socket.on('disconnect', () => {
+        console.log('Socket disconnected', socket.id);
+    });
+});
 
 // DB init & server start
 (async () => {
     try {
         await sequelize.authenticate();
         console.log('✅ MySQL connected');
-        await sequelize.sync({ alter: true });
+        await sequelize.sync({ force: false });
         //await sequelize.sync();
         console.log('✅ Sequelize models synced');
 

@@ -37,4 +37,32 @@ export const invoicesApi = {
         });
         return response.data;
     },
+
+    getEmailModuleTemplate: async (type: string): Promise<any> => {
+        const response = await apiClient.get(`/api/invoices/email-module/template`, {
+            params: { type },
+            responseType: 'blob',
+        });
+        return response.data;
+    },
+
+    sendInvoiceEmailBulk: async (type: string, file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+        const response = await apiClient.post('/api/invoices/email-module/send', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    getInvoicePreview: async (type: string): Promise<any> => {
+        const response = await apiClient.get(`/api/invoices/email-module/preview`, {
+            params: { type },
+            responseType: 'blob',
+        });
+        return response.data;
+    },
 };

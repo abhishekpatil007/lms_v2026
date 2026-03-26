@@ -6,6 +6,97 @@ import { generateInvoicePDF } from '../services/invoice.service.js';
 import sendWelcomeEmail from '../services/email.service.js';
 import { handleOfflineEnrollment, handleOnlinePaymentRequest } from '../services/enrollment.service.js';
 import { processInvoiceExcel, sendManualInvoice } from '../services/bulkInvoice.service.js';
+import * as invoiceEmailService from '../services/invoiceEmail.service.js';
+
+// -------------------------------
+// 0️⃣ Invoice Email Module (NEW)
+// -------------------------------
+export const getEmailModuleTemplate = async (req, res) => {
+    try {
+        const { type } = req.query;
+        if (!type) return res.status(400).json({ message: 'Type is required' });
+
+        const students = await User.findAll({
+            where: { role: 'student' },
+            attributes: ['id', 'name', 'email'],
+            order: [['name', 'ASC']]
+        });
+
+        const buffer = await invoiceEmailService.generateTemplate(type, students);
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=template_${type}.xlsx`);
+        return res.send(buffer);
+    } catch (err) {
+        console.error('getEmailModuleTemplate Error:', err);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const sendEmailModuleBulk = async (req, res) => {
+    try {
+        const { type } = req.body;
+        if (!req.file) return res.status(400).json({ message: 'Excel file is required' });
+        if (!type) return res.status(400).json({ message: 'Type is required' });
+
+        const io = req.app.get('io');
+        
+        const result = await invoiceEmailService.processBulkEmails(type, req.file.path, (progress) => {
+            if (io) {
+                io.to('admin_invoices').emit('invoice_progress', progress);
+            }
+        });
+        
+        return res.status(200).json({
+            message: 'Bulk emails processed',
+            summary: result
+        });
+    } catch (err) {
+        console.error('sendEmailModuleBulk Error:', err);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const getInvoicePreview = async (req, res) => {
+    try {
+        const { type } = req.query;
+        if (!type) return res.status(400).json({ message: 'Type is required' });
+
+        const sampleData = type === 'partially_paid' ? {
+            "Receipt No": "SAMPLE-001",
+            "Date": new Date().toLocaleDateString('en-GB'),
+            "Name": "Sample Student",
+            "Course Enrolled": "MCT Professional Course",
+            "Batch": "Sample Batch",
+            "Amount Paid": "10000",
+            "Payment Method": "UPI",
+            "Transaction ID": "TXNSAMPLE123"
+        } : {
+            "Invoice No": "INV-SAMPLE-001",
+            "Date": new Date().toLocaleDateString('en-GB'),
+            "Name": "Sample Student",
+            "Course Name": "MCT Professional Course",
+            "Amount": "8474.58",
+            "CGST_Rate": "9%",
+            "CGST_Amount": "762.71",
+            "SGST_Rate": "9%",
+            "SGST_Amount": "762.71",
+            "Total": "10000.00",
+            "Amount_In_Words": "Ten Thousand Rupees Only"
+        };
+
+        const buffer = type === 'partially_paid' ? 
+            await invoiceEmailService.generateReceiptPDF(sampleData) : 
+            await invoiceEmailService.generateTaxInvoicePDF(sampleData);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=preview_${type}.pdf`);
+        return res.send(buffer);
+    } catch (err) {
+        console.error('getInvoicePreview Error:', err);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
 
 // -------------------------------
 // 1️⃣ Admin → Offline Enrollment

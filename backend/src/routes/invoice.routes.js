@@ -2,7 +2,18 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
-import { offlineEnroll, requestPayment, handleWebhook, sendBulkInvoices, sendManualInvoiceAPI, listInvoices, getInvoiceDetails } from '../controllers/invoice.controller.js';
+import { 
+    offlineEnroll, 
+    requestPayment, 
+    handleWebhook, 
+    sendBulkInvoices, 
+    sendManualInvoiceAPI, 
+    listInvoices, 
+    getInvoiceDetails,
+    getEmailModuleTemplate,
+    sendEmailModuleBulk,
+    getInvoicePreview
+} from '../controllers/invoice.controller.js';
 import multer from 'multer';
 const router = express.Router();
 const upload = multer({ dest: 'uploads/excel/' });
@@ -34,6 +45,29 @@ router.post(
     verifyToken,
     requireRole(['admin']),
     sendManualInvoiceAPI
+);
+
+// --- Invoice Email Module ---
+router.get(
+    '/email-module/template',
+    verifyToken,
+    requireRole(['admin']),
+    getEmailModuleTemplate
+);
+
+router.post(
+    '/email-module/send',
+    verifyToken,
+    requireRole(['admin']),
+    upload.single('file'),
+    sendEmailModuleBulk
+);
+
+router.get(
+    '/email-module/preview',
+    verifyToken,
+    requireRole(['admin']),
+    getInvoicePreview
 );
 
 export default router;

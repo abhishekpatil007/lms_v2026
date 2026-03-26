@@ -40,6 +40,7 @@ import { StudentTestsPage } from './pages/student/StudentTestsPage';
 import { StudentBatches } from './pages/student/StudentBatches';
 import { TestTakingPage } from './pages/student/TestTakingPage';
 import { TestResultPage } from './pages/student/TestResultPage';
+import { AdminInvoiceEmailPage } from './pages/admin/AdminInvoiceEmailPage';
 
 const HomeRedirect = () => {
   const { isAuthenticated, user } = useAuthStore();
@@ -98,6 +99,7 @@ function App() {
           <Route path="tests" element={<TestsPage />} />
           <Route path="tests/:testId/builder" element={<TestBuilderPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
+          <Route path="invoices/send-email" element={<AdminInvoiceEmailPage />} />
           <Route path="settings" element={<AdminSettingsPage />} />
         </Route>
 
