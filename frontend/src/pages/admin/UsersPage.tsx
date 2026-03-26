@@ -445,7 +445,7 @@ export const UsersPage = () => {
                     </div>
 
                     {/* Batch tags */}
-                    {userData.batches && userData.batches.length > 0 && (
+                    {(userData.enrolledBatches || userData.batches) && (userData.enrolledBatches || userData.batches).length > 0 && (
                       <div className={cn(
                         "rounded-xl px-3 py-2.5 mb-3",
                         activeTab === "instructor"
@@ -459,7 +459,7 @@ export const UsersPage = () => {
                           Batches
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {userData.batches.map((b) => (
+                          {(userData.enrolledBatches || userData.batches).map((b) => (
                             <span
                               key={b.id}
                               className={cn(

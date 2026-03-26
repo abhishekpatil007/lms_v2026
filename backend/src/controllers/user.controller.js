@@ -56,7 +56,7 @@ export const getAllStudents = async (req, res) => {
             attributes: ['id', 'name', 'email', 'is_active', 'preferred_language', 'created_at'],
             include: [{
                 model: Batch,
-                as: 'batches',
+                as: 'enrolledBatches',
                 attributes: ['id', 'batch_name'],
                 through: { attributes: [] },
             }],

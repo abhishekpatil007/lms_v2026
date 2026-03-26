@@ -9,6 +9,7 @@ export interface User {
   is_active: boolean;
   created_at?: string;
   batches?: { id: string; batch_name: string }[];
+  enrolledBatches?: { id: string; batch_name: string }[];
 }
 
 export interface AuthTokens {
