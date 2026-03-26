@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     IconSearch,
     IconFileInvoice,
@@ -10,6 +11,7 @@ import {
     IconUpload,
     IconUserPlus,
     IconX,
+    IconMail,
 } from "@tabler/icons-react";
 import { invoicesApi } from "@/api/endpoints/invoices";
 import type { Invoice } from "@/types";
@@ -500,6 +502,7 @@ const BulkUploadModal = ({
 
 // --------------- Main InvoicesPage ---------------
 export const InvoicesPage = () => {
+    const navigate = useNavigate();
     const { user } = useAuthStore();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [activeModal, setActiveModal] = useState<
@@ -698,6 +701,13 @@ export const InvoicesPage = () => {
                                 {action.label}
                             </button>
                         ))}
+                        <button
+                            onClick={() => navigate("/admin/invoices/send-email")}
+                            className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-md hover:shadow-lg transition-all"
+                        >
+                            <IconMail className="w-5 h-5" strokeWidth={2.5} />
+                            Send Invoice Module
+                        </button>
                     </div>
 
                     {/* Filters */}
