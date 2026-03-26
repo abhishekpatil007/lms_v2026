@@ -41,7 +41,7 @@ export const TestBuilderPage = () => {
         content: "",
         type: "MCQ" as "MCQ" | "SHORT_ANSWER" | "FILE_UPLOAD",
         marks: 1,
-        reference_image: null as File | null,
+        reference_images: [] as File[],
         model_answer: "",
         options: [
             { content: "", is_correct: false, media: null as File | null },
@@ -104,9 +104,9 @@ export const TestBuilderPage = () => {
             formData.append('marks', String(questionData.marks));
             formData.append('order_index', '0');
 
-            if (questionData.reference_image) {
-                formData.append('reference_media', questionData.reference_image);
-            }
+            questionData.reference_images.forEach(file => {
+                formData.append('reference_media', file);
+            });
 
             if (questionData.type === 'MCQ') {
                 const optionsToSend = questionData.options.map(opt => ({
@@ -131,7 +131,7 @@ export const TestBuilderPage = () => {
                 content: "",
                 type: "MCQ",
                 marks: 1,
-                reference_image: null,
+                reference_images: [],
                 model_answer: "",
                 options: [
                     { content: "", is_correct: false, media: null },
@@ -338,11 +338,17 @@ export const TestBuilderPage = () => {
                                                         </div>
                                                     )}
 
-                                                    {question.reference_media_url && (
-                                                        <div className="mt-3">
-                                                            <img src={question.reference_media_url} alt="Reference" className="max-h-40 rounded-lg border border-gray-200" />
-                                                        </div>
-                                                    )}
+                                                    {question.reference_media_url && (() => {
+                                                        let urls: string[] = [];
+                                                        try { urls = JSON.parse(question.reference_media_url); } catch { urls = [question.reference_media_url]; }
+                                                        return urls.length > 0 ? (
+                                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                                {urls.map((url: string, i: number) => (
+                                                                    <img key={i} src={url} alt={`Reference ${i + 1}`} className="max-h-40 rounded-lg border border-gray-200" />
+                                                                ))}
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
 
                                                     {question.type === 'MCQ' && (
                                                         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -412,20 +418,29 @@ export const TestBuilderPage = () => {
                                             </div>
 
                                             <div>
-                                                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Reference Image</label>
-                                                <div className="flex items-center gap-3">
-                                                    <label className="cursor-pointer flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Reference Images</label>
+                                                <div className="space-y-2">
+                                                    <label className="cursor-pointer flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                                                         <IconPhoto size={16} className="text-gray-400" />
-                                                        {questionData.reference_image ? questionData.reference_image.name : "Upload Image"}
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file) setQuestionData({ ...questionData, reference_image: file });
+                                                        Add Images
+                                                        <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => {
+                                                            const files = Array.from(e.target.files || []);
+                                                            if (files.length > 0) setQuestionData({ ...questionData, reference_images: [...questionData.reference_images, ...files] });
+                                                            e.target.value = '';
                                                         }} />
                                                     </label>
-                                                    {questionData.reference_image && (
-                                                        <button onClick={() => setQuestionData({ ...questionData, reference_image: null })} className="text-red-400 hover:text-red-600">
-                                                            <IconX size={16} />
-                                                        </button>
+                                                    {questionData.reference_images.length > 0 && (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {questionData.reference_images.map((file, idx) => (
+                                                                <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs">
+                                                                    <img src={URL.createObjectURL(file)} alt="" className="w-8 h-8 rounded object-cover" />
+                                                                    <span className="max-w-[100px] truncate">{file.name}</span>
+                                                                    <button onClick={() => setQuestionData({ ...questionData, reference_images: questionData.reference_images.filter((_, i) => i !== idx) })} className="text-red-400 hover:text-red-600 ml-1">
+                                                                        <IconX size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

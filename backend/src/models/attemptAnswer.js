@@ -12,8 +12,8 @@ const AttemptAnswer = sequelize.define('AttemptAnswer', {
     // For Short Answer
     text_answer: { type: DataTypes.TEXT, allowNull: true },
 
-    // For File Upload
-    file_url: { type: DataTypes.STRING, allowNull: true },
+    // For File Upload (JSON array of URLs for multiple files)
+    file_url: { type: DataTypes.TEXT, allowNull: true },
 
     marks_awarded: { type: DataTypes.FLOAT, defaultValue: 0 },
     is_evaluated: { type: DataTypes.BOOLEAN, defaultValue: false },

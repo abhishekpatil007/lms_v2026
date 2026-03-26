@@ -216,24 +216,33 @@ export const submitBlock = async (req, res) => {
 export const uploadAnswerFile = async (req, res) => {
     try {
         const { attempt_id, question_id } = req.body;
-        const file = req.file;
+        const files = req.files || [];
 
-        if (!file) return res.status(400).json({ message: 'No file uploaded' });
+        if (files.length === 0) return res.status(400).json({ message: 'No files uploaded' });
 
-        // Verify attempt is active and block is active
-        // ... (omitted for brevity, but should be there)
+        const fileUrls = files.map(f => getFileUrl(f));
 
-        const fileUrl = getFileUrl(file);
+        // Check if there's an existing answer with files to append to
+        const existing = await AttemptAnswer.findOne({ where: { attempt_id, question_id } });
+        let allUrls = fileUrls;
+        if (existing && existing.file_url) {
+            try {
+                const prev = JSON.parse(existing.file_url);
+                allUrls = [...prev, ...fileUrls];
+            } catch {
+                allUrls = [existing.file_url, ...fileUrls];
+            }
+        }
 
         await AttemptAnswer.upsert({
             attempt_id,
             question_id,
-            file_url: fileUrl
+            file_url: JSON.stringify(allUrls)
         });
 
-        res.json({ message: 'File uploaded', fileUrl });
+        res.json({ message: 'Files uploaded', fileUrls: allUrls });
     } catch (error) {
-        res.status(500).json({ message: 'Error uploading file', error: error.message });
+        res.status(500).json({ message: 'Error uploading files', error: error.message });
     }
 };
 

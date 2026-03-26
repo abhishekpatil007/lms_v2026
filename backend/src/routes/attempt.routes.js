@@ -17,7 +17,7 @@ router.get('/:id/result', requireRole(['student']), getAttemptResult);
 router.post('/block/start', requireRole(['student']), startBlock);
 router.post('/block/submit', requireRole(['student']), submitBlock);
 
-router.post('/upload', requireRole(['student']), upload.single('answer_file'), uploadAnswerFile);
+router.post('/upload', requireRole(['student']), upload.array('answer_files', 10), uploadAnswerFile);
 
 router.post('/proctor/log', requireRole(['student']), logProctoringEvent);
 

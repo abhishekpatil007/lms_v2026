@@ -14,7 +14,7 @@ const Question = sequelize.define('Question', {
     marks: { type: DataTypes.INTEGER, defaultValue: 1 },
     negative_marks: { type: DataTypes.FLOAT, defaultValue: 0 },
 
-    reference_media_url: { type: DataTypes.STRING, allowNull: true }, // Optional image/pdf for the question
+    reference_media_url: { type: DataTypes.TEXT, allowNull: true }, // JSON array of image URLs or single URL for backward compat
 
     // For Short Answer / File Upload, we might store model answer or rubrics here if needed
     model_answer: { type: DataTypes.TEXT, allowNull: true },
