@@ -664,7 +664,6 @@ export const TestTakingPage = () => {
                                                 </div>
                                                 <p className="text-xs text-emerald-600">{answers[currentQ.id]?.value}</p>
                                             </div>
-                                        )
                                         )}
                                     </div>
                                 )}
