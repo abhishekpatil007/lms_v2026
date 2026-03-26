@@ -471,15 +471,18 @@ export const BatchesPage = () => {
                         )} />
                         {batch.status.charAt(0).toUpperCase() + batch.status.slice(1)}
                       </span>
-                      <span className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm",
-                        isOngoing
-                          ? "bg-white/30 text-gray-900"
-                          : "bg-gray-100 text-gray-700"
-                      )}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/admin/batches/${batch.id}`); }}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm cursor-pointer transition-all",
+                          isOngoing
+                            ? "bg-white/30 text-gray-900 hover:bg-white/50"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        )}
+                      >
                         <IconUsers className="w-3.5 h-3.5" strokeWidth={2} />
-                        {batch.students?.length || 0}
-                      </span>
+                        {batch.students?.length || 0} Students
+                      </button>
                     </div>
 
                     {/* Dates */}
