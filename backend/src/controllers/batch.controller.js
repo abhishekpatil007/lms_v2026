@@ -310,10 +310,13 @@ export const deleteBatch = async (req, res) => {
 
         const studentCount = batch.students?.length || 0;
 
-        // Clean up junction tables
+        // Clean up all related data
         await db.sequelize.query('DELETE FROM batch_students WHERE batch_id = ?', { replacements: [batch.id] });
         await db.sequelize.query('DELETE FROM batch_videos WHERE batch_id = ?', { replacements: [batch.id] });
         await db.sequelize.query('DELETE FROM batch_documents WHERE batch_id = ?', { replacements: [batch.id] });
+        await db.sequelize.query('DELETE FROM topics WHERE batch_id = ?', { replacements: [batch.id] });
+        await db.sequelize.query('DELETE FROM live_classes WHERE batch_id = ?', { replacements: [batch.id] });
+        await db.sequelize.query('DELETE FROM tests WHERE batch_id = ?', { replacements: [batch.id] });
 
         await batch.destroy();
 
