@@ -421,15 +421,7 @@ export const UsersPage = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 mb-2.5">
-                      <span className={cn(
-                        "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
-                        activeTab === "instructor"
-                          ? "bg-white/20 text-white"
-                          : "bg-gray-100 text-gray-700"
-                      )}>
-                        {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-3">
                       <span className={cn(
                         "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
                         userData.is_active
@@ -440,16 +432,47 @@ export const UsersPage = () => {
                       )}>
                         {userData.is_active ? "● Active" : "○ Inactive"}
                       </span>
+                      {userData.preferred_language && (
+                        <span className={cn(
+                          "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                          activeTab === "instructor"
+                            ? "bg-white/20 text-white"
+                            : "bg-gray-100 text-gray-600"
+                        )}>
+                          {userData.preferred_language}
+                        </span>
+                      )}
                     </div>
 
-                    {userData.preferred_language && (
+                    {/* Batch tags */}
+                    {userData.batches && userData.batches.length > 0 && (
                       <div className={cn(
-                        "rounded-xl px-3 py-2 text-xs mb-3",
+                        "rounded-xl px-3 py-2.5 mb-3",
                         activeTab === "instructor"
-                          ? "bg-white/10 text-white"
-                          : "bg-gray-50 text-gray-700"
+                          ? "bg-white/10"
+                          : "bg-gray-50"
                       )}>
-                        <span className="font-medium">Language: {userData.preferred_language}</span>
+                        <div className={cn(
+                          "text-[10px] font-semibold uppercase tracking-wider mb-1.5",
+                          activeTab === "instructor" ? "text-white/50" : "text-gray-400"
+                        )}>
+                          Batches
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {userData.batches.map((b) => (
+                            <span
+                              key={b.id}
+                              className={cn(
+                                "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+                                activeTab === "instructor"
+                                  ? "bg-white/20 text-white"
+                                  : "bg-white text-gray-700 border border-gray-200"
+                              )}
+                            >
+                              {b.batch_name}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
 
