@@ -17,7 +17,7 @@ import {
   IconSortAscending,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST, toISTDateTimeLocal, fromISTToUTC } from "@/lib/utils";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
 import { batchesApi } from "@/api/endpoints/batches";
 import { useAuthStore } from "@/store/authStore";
@@ -765,7 +765,7 @@ const CreateLiveClassModal = ({
         batch_id: formData.batch_id,
         topic: formData.topic,
         description: formData.description || undefined,
-        start_time: formData.start_time,
+        start_time: fromISTToUTC(formData.start_time) || "",
         duration: formData.duration,
       });
       onSuccess();
@@ -949,7 +949,7 @@ const EditLiveClassModal = ({
   const [formData, setFormData] = useState({
     topic: liveClass.topic,
     description: liveClass.description || "",
-    start_time: new Date(liveClass.start_time).toISOString().slice(0, 16),
+    start_time: toISTDateTimeLocal(liveClass.start_time),
     duration: liveClass.duration,
   });
   const [loading, setLoading] = useState(false);
@@ -964,7 +964,7 @@ const EditLiveClassModal = ({
       await liveClassesApi.update(liveClass.id, {
         topic: formData.topic,
         description: formData.description || undefined,
-        start_time: formData.start_time,
+        start_time: fromISTToUTC(formData.start_time) || "",
         duration: formData.duration,
       });
       onSuccess();

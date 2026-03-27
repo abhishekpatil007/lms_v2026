@@ -21,7 +21,7 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
-import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST, toISTDateTimeLocal, fromISTToUTC } from "@/lib/utils";
 import { batchesApi } from "@/api/endpoints/batches";
 import { videosApi } from "@/api/endpoints/videos";
 import { documentsApi } from "@/api/endpoints/documents";
@@ -1405,7 +1405,7 @@ const ScheduleClassModal: React.FC<ScheduleClassModalProps> = ({ isOpen, onClose
         batch_id: batchId,
         topic: title.trim(),
         description: description.trim() || undefined,
-        start_time: new Date(scheduledAt).toISOString(),
+        start_time: fromISTToUTC(scheduledAt) || "",
         duration: duration,
       });
 
@@ -1582,12 +1582,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose, liveCl
     if (liveClass) {
       setTitle(liveClass.topic);
       setDescription(liveClass.description || "");
-      // Convert ISO string to datetime-local format
-      const date = new Date(liveClass.start_time);
-      const localDateTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16);
-      setScheduledAt(localDateTime);
+      setScheduledAt(toISTDateTimeLocal(liveClass.start_time));
       setDuration(liveClass.duration);
     }
   }, [liveClass]);
@@ -1604,7 +1599,7 @@ const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose, liveCl
       await liveClassesApi.update(liveClass.id, {
         topic: title.trim(),
         description: description.trim() || undefined,
-        start_time: new Date(scheduledAt).toISOString(),
+        start_time: fromISTToUTC(scheduledAt) || "",
         duration: duration,
       });
 
