@@ -16,7 +16,7 @@ import {
   IconPresentation,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn, formatDateIST, formatTimeIST, formatDateTimeIST } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST, formatDateTimeIST, toISTDateTimeLocal, fromISTToUTC } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { webinarsApi } from "@/api/endpoints/webinars";
 import type { Webinar, WebinarStatus, WebinarRegistration } from "@/types";
@@ -80,7 +80,7 @@ export const WebinarsPage = () => {
     setFormData({
       topic: webinar.topic,
       description: webinar.description || "",
-      start_time: webinar.start_time.slice(0, 16), // Format for datetime-local
+      start_time: toISTDateTimeLocal(webinar.start_time),
       duration: webinar.duration,
       max_attendees: webinar.max_attendees,
       is_public: webinar.is_public,
@@ -95,7 +95,7 @@ export const WebinarsPage = () => {
       await webinarsApi.create({
         topic: formData.topic,
         description: formData.description || undefined,
-        start_time: formData.start_time,
+        start_time: fromISTToUTC(formData.start_time) || "",
         duration: formData.duration,
         max_attendees: formData.max_attendees,
         is_public: formData.is_public,
@@ -117,7 +117,7 @@ export const WebinarsPage = () => {
       await webinarsApi.update(selectedWebinar.id, {
         topic: formData.topic,
         description: formData.description || undefined,
-        start_time: formData.start_time,
+        start_time: fromISTToUTC(formData.start_time) || "",
         duration: formData.duration,
         max_attendees: formData.max_attendees,
         is_public: formData.is_public,
