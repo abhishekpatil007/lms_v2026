@@ -15,7 +15,7 @@ import {
   IconFileTypeDoc,
   IconPlayerPlay,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST, formatDateTimeIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate } from "react-router-dom";
 import { batchesApi } from "@/api/endpoints/batches";
@@ -125,10 +125,7 @@ const ScheduleRow: React.FC<{ item: ScheduleItem; idx: number }> = ({ item, idx 
     <div className="flex-1 min-w-0">
       <p className="text-sm font-semibold text-gray-900 truncate">{item.title}</p>
       <p className="text-[11px] text-gray-500 truncate">
-        {new Date(item.startTime).toLocaleString(undefined, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })}{" "}
+        {formatDateTimeIST(item.startTime)}{" "}
         &middot; {item.batchName}
       </p>
     </div>
@@ -615,8 +612,8 @@ export const StudentDashboard = () => {
                   )}
                   <div className="flex items-center gap-2 text-[10px] text-white/60">
                     <IconClock className="w-3.5 h-3.5" />
-                    {new Date(batch.start_date).toLocaleDateString()} -{" "}
-                    {new Date(batch.end_date).toLocaleDateString()}
+                    {formatDateIST(batch.start_date)} -{" "}
+                    {formatDateIST(batch.end_date)}
                   </div>
                 </motion.div>
               );

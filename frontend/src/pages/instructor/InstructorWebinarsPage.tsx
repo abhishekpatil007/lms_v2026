@@ -16,7 +16,7 @@ import {
   IconPresentation,
   IconUsers,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST, formatDateTimeIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { webinarsApi } from "@/api/endpoints/webinars";
 import type { Webinar, WebinarStatus, WebinarRegistration } from "@/types";
@@ -186,7 +186,7 @@ export const InstructorWebinarsPage = () => {
       reg.email,
       reg.phone || "",
       reg.organization || "",
-      new Date(reg.registered_at).toLocaleString(),
+      formatDateTimeIST(reg.registered_at),
     ]);
 
     const csvContent = [
@@ -245,14 +245,7 @@ export const InstructorWebinarsPage = () => {
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    return formatDateTimeIST(dateString);
   };
 
   const myWebinars = webinars.length;

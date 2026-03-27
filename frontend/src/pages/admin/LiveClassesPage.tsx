@@ -17,7 +17,7 @@ import {
   IconSortAscending,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
 import { liveClassesApi } from "@/api/endpoints/liveClasses";
 import { batchesApi } from "@/api/endpoints/batches";
 import { useAuthStore } from "@/store/authStore";
@@ -245,10 +245,9 @@ export const LiveClassesPage = () => {
   };
 
   const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      time: date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      date: formatDateIST(dateString),
+      time: formatTimeIST(dateString),
     };
   };
 

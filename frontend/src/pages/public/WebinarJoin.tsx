@@ -15,6 +15,7 @@ import {
 import { webinarsApi } from '@/api/endpoints/webinars';
 import type { Webinar } from '@/types';
 import axios from 'axios';
+import { formatDateIST, formatTimeIST } from '@/lib/utils';
 
 type JoinState = 'loading' | 'success' | 'error' | 'not_started' | 'ended';
 
@@ -147,23 +148,12 @@ export const WebinarJoin = () => {
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return formatDateIST(dateString);
   };
 
   const formatTime = (dateString?: string) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return formatTimeIST(dateString);
   };
 
   const getWebinarStatus = (webinar?: Webinar) => {

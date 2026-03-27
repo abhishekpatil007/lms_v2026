@@ -16,7 +16,7 @@ import {
     IconCalendar,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTimeIST } from "@/lib/utils";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { Test, Batch } from "@/types";
@@ -89,15 +89,7 @@ const applySortTests = (tests: Test[], sort: SortOption): Test[] => {
 // Date formatting helper
 // ---------------------------------------------------------------------------
 const formatDateTime = (dateStr: string | undefined | null): string => {
-    if (!dateStr) return "N/A";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
+    return formatDateTimeIST(dateStr || "");
 };
 
 export const TestsPage = () => {

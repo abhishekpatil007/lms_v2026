@@ -22,7 +22,7 @@ import {
     IconCircleDashed,
 } from '@tabler/icons-react';
 import { attemptsApi } from '@/api/endpoints/attempts';
-import { cn } from '@/lib/utils';
+import { cn, formatDateIST, formatTimeIST } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BlockListSelector } from '@/components/student/BlockListSelector';
 
@@ -300,7 +300,7 @@ export const TestTakingPage = () => {
                                                     </span>
                                                 </div>
                                                 <span className="text-xs text-gray-400">
-                                                    {new Date(att.created_at || att.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    {formatDateIST(att.created_at || att.createdAt)} at {formatTimeIST(att.created_at || att.createdAt)}
                                                 </span>
                                             </div>
                                         </div>

@@ -11,7 +11,7 @@ import {
   IconFile,
   IconArrowRight,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { Batch } from "@/types";
@@ -228,7 +228,7 @@ export const InstructorDashboard = () => {
                   isOngoing ? "text-gray-500" : "text-gray-400"
                 )}>
                   <IconCalendar className="w-4 h-4" strokeWidth={2} />
-                  {new Date(batch.start_date).toLocaleDateString()} - {new Date(batch.end_date).toLocaleDateString()}
+                  {formatDateIST(batch.start_date)} - {formatDateIST(batch.end_date)}
                 </div>
 
                 {/* Quick Actions */}
