@@ -317,7 +317,7 @@ export const BatchDetailPage = () => {
                 <div>
                   <div className="text-xs text-white/70 font-medium">Duration</div>
                   <div className="text-sm font-semibold text-white">
-                    {new Date(batch.start_date).toLocaleDateString()} - {new Date(batch.end_date).toLocaleDateString()}
+                    {formatDateIST(batch.start_date)} - {formatDateIST(batch.end_date)}
                   </div>
                 </div>
               </div>
@@ -589,7 +589,7 @@ export const BatchDetailPage = () => {
                     )}
 
                     <div className="text-xs text-gray-400 mb-4">
-                      Uploaded {new Date(doc.createdAt).toLocaleDateString()}
+                      Uploaded {formatDateIST(doc.createdAt)}
                     </div>
 
                     {/* Action Buttons */}

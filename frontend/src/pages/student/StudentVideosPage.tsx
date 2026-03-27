@@ -23,7 +23,7 @@ import { topicsApi } from '@/api/endpoints/topics';
 import { batchesApi } from '@/api/endpoints/batches';
 import type { Video, Topic, Batch } from '@/types';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn, formatDateIST } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
 // Watch Progress helpers (localStorage)
@@ -248,7 +248,7 @@ const VideoPlayerModal: React.FC<{
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                             {video.duration != null && <span className="flex items-center gap-1"><IconClock size={13} />{formatDuration(video.duration)}</span>}
                             {video.language && <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 uppercase font-bold text-[10px]">{video.language}</span>}
-                            <span className="flex items-center gap-1"><IconCalendar size={13} />{new Date(video.createdAt).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-1"><IconCalendar size={13} />{formatDateIST(video.createdAt)}</span>
                         </div>
                         {nextVideo && (
                             <button onClick={() => onNavigate(nextVideo)}
@@ -497,7 +497,7 @@ const VideoCard: React.FC<{
                 )}
                 <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400">
                     {video.language && <span className="uppercase font-bold">{video.language}</span>}
-                    <span>{new Date(video.createdAt).toLocaleDateString()}</span>
+                    <span>{formatDateIST(video.createdAt)}</span>
                     {hasProgress && !isCompleted && <span className="text-violet-500 font-semibold ml-auto">{progress.percent}%</span>}
                 </div>
             </div>

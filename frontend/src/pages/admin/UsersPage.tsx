@@ -12,7 +12,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { usersApi } from "@/api/endpoints/users";
 import type { User } from "@/types";
@@ -484,7 +484,7 @@ export const UsersPage = () => {
                         "text-xs",
                         activeTab === "instructor" ? "text-white/60" : "text-gray-400"
                       )}>
-                        Joined {new Date(userData.created_at || '').toLocaleDateString()}
+                        Joined {formatDateIST(userData.created_at || "")}
                       </div>
                       <div className="flex gap-1.5">
                         <button

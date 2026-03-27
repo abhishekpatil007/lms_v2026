@@ -26,7 +26,7 @@ import { documentsApi } from '@/api/endpoints/documents';
 import { topicsApi } from '@/api/endpoints/topics';
 import type { Document, Topic } from '@/types';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn, formatDateIST } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------
 // File type config
@@ -341,7 +341,7 @@ const DocTopicAccordion: React.FC<{
                                                             <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400 font-medium">
                                                                 <span className={cn("font-bold uppercase", cfg.color)}>{doc.file_type}</span>
                                                                 <span>&middot;</span>
-                                                                <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+                                                                <span>{formatDateIST(doc.createdAt)}</span>
                                                                 {doc.language && (
                                                                     <>
                                                                         <span className="hidden sm:inline">&middot;</span>
@@ -697,7 +697,7 @@ export const StudentDocumentsPage = () => {
                                     <div className="flex items-center gap-3 text-[11px] text-gray-400 mb-4">
                                         <span className="flex items-center gap-1">
                                             <IconCalendar size={12} />
-                                            {new Date(doc.createdAt).toLocaleDateString()}
+                                            {formatDateIST(doc.createdAt)}
                                         </span>
                                         {doc.language && (
                                             <span className="flex items-center gap-1">
