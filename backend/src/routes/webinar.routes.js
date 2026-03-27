@@ -7,7 +7,8 @@ import {
     deleteWebinar,
     registerForWebinar,
     getWebinarRegistrations,
-    joinWebinar
+    joinWebinar,
+    getWebinarSignature
 } from '../controllers/webinar.controller.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -88,6 +89,17 @@ router.get(
     verifyToken,
     requireRole(['student', 'instructor', 'admin']),
     joinWebinar
+);
+
+/**
+ * 🔏 Get signature for webinar (to be used by frontend Zoom Web SDK)
+ * POST /api/webinars/:id/signature
+ */
+router.post(
+    '/:id/signature',
+    verifyToken,
+    requireRole(['student', 'instructor', 'admin']),
+    getWebinarSignature
 );
 
 export default router;

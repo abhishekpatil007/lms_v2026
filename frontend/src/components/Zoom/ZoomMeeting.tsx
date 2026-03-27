@@ -9,6 +9,8 @@ interface ZoomMeetingProps {
     passWord?: string;
     signature: string;
     sdkKey: string;
+    tk?: string;
+    zak?: string;
     onLeave?: () => void;
 }
 
@@ -19,6 +21,8 @@ const ZoomMeeting: React.FC<ZoomMeetingProps> = ({
     passWord,
     signature,
     sdkKey,
+    tk,
+    zak,
     onLeave
 }) => {
     const hasCalledInit = useRef(false);
@@ -67,6 +71,8 @@ const ZoomMeeting: React.FC<ZoomMeetingProps> = ({
                         userName,
                         userEmail,
                         passWord: passWord || '',
+                        tk: tk || '',
+                        zak: zak || '',
                         success: (res: any) => console.log('Zoom Join Success:', res),
                         error: (err: any) => console.error('Zoom Join Error:', err)
                     });

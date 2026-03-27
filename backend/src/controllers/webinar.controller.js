@@ -16,8 +16,7 @@ const createZoomWebinar = async (topic, startTime, duration, description) => {
     const token = await getZoomAccessToken();
 
     const response = await axios.post(
-        // 'https://api.zoom.us/v2/users/me/webinars',
-        'https://api.zoom.us/v2/users/me/meetings',
+        'https://api.zoom.us/v2/users/me/webinars',
         {
             topic,
             type: 5, // Scheduled webinar
@@ -25,8 +24,8 @@ const createZoomWebinar = async (topic, startTime, duration, description) => {
             duration,
             agenda: description,
             settings: {
-                approval_type: 0, // Automatically approve
-                registration_type: 1,
+                approval_type: 2, // NO REGISTRATION REQUIRED
+                registration_type: 0,
                 host_video: true,
                 panelists_video: true,
                 practice_session: true,
@@ -268,7 +267,7 @@ export const getWebinarRegistrations = async (req, res) => {
 };
 
 /**
- * 🔗 8. Join Webinar (Registered User Only)
+ * 🔗 8. Join Webinar (Direct Link)
  */
 export const joinWebinar = async (req, res) => {
     try {
@@ -281,21 +280,93 @@ export const joinWebinar = async (req, res) => {
         }
 
         const userEmail = req.user?.user?.email;
-        const isRegistered = await WebinarRegistration.findOne({
-            where: { webinar_id: id, email: userEmail }
-        });
-
-        if (!isRegistered) {
-            webinarLogger.warn(`Join Webinar - User not registered: ${userEmail}, Webinar: ${id}`);
-            return res.status(403).json({ message: 'You are not registered for this webinar.' });
-        }
-
         const joinUrl = webinar.zoom_join_url;
         webinarLogger.info(`User joined webinar - Webinar ID: ${id}, Email: ${userEmail}`);
         return res.json({ message: 'Join link generated successfully.', join_url: joinUrl });
     } catch (error) {
         webinarLogger.error(`Error in joinWebinar: ${error.message}`);
         return res.status(500).json({ message: 'Failed to join webinar', error: error.message });
+    }
+};
+
+/**
+ * 🔏 10. Generate Zoom SDK Signature (for joining via Web SDK)
+ */
+export const getWebinarSignature = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const webinar = await Webinar.findByPk(id);
+        if (!webinar) {
+            webinarLogger.warn(`Get Signature - Webinar not found: ${id}`);
+            return res.status(404).json({ message: 'Webinar not found' });
+        }
+
+        const meetingNumber = webinar.zoom_webinar_id;
+        const passWord = webinar.zoom_join_url.includes('pwd=') ? webinar.zoom_join_url.split('pwd=')[1].split('&')[0] : '';
+
+        const userRole = req.user.role || req.user.user.role;
+        const userId = req.user.user.id;
+        
+        // Host role logic (Admin or assigned Instructor)
+        let role = (userId === webinar.instructor_id || userRole === 'admin') ? 1 : 0;
+
+        // 🚀 HOST CONSTRAINT: Always use the hardcoded host email for ZAK/Host signature
+        const hostEmail = "moneycrafttrader@gmail.com";
+        let zakToken = null;
+
+        if (role === 1) {
+            try {
+                const token = await getZoomAccessToken();
+                // Fetch ZAK token for the hardcoded host account
+                const zakRes = await axios.get(`https://api.zoom.us/v2/users/${hostEmail}/zak`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                zakToken = zakRes.data.token;
+            } catch (err) {
+                webinarLogger.error(`Failed to fetch ZAK for ${hostEmail}: ${err.message}`);
+                // Fallback to 'me' if direct email fetch fails
+                try {
+                    const token = await getZoomAccessToken();
+                    const zakRes = await axios.get("https://api.zoom.us/v2/users/me/zak", {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    zakToken = zakRes.data.token;
+                } catch (retryErr) {
+                    webinarLogger.error(`ZAK Fallback failed: ${retryErr.message}`);
+                }
+            }
+        }
+
+        const iat = Math.floor(Date.now() / 1000) - 30;
+        const exp = iat + 60 * 60 * 2;
+
+        const payload = {
+            sdkKey: process.env.ZOOM_SDK_KEY,
+            appKey: process.env.ZOOM_SDK_KEY,
+            mn: meetingNumber,
+            role,
+            iat,
+            exp,
+            tokenExp: exp,
+            video_webrtc_mode: 1
+        };
+
+        const token = jwt.sign(payload, process.env.ZOOM_SDK_SECRET, { algorithm: 'HS256' });
+
+        webinarLogger.info(`Zoom signature generated - Webinar ID: ${id}, Role: ${role}`);
+        
+        return res.json({
+            success: true,
+            signature: token,
+            sdkKey: process.env.ZOOM_SDK_KEY,
+            meetingNumber,
+            passWord,
+            zak: zakToken,
+            userEmail: hostEmail
+        });
+    } catch (err) {
+        webinarLogger.error(`Error in getWebinarSignature: ${err.message}`);
+        res.status(500).json({ message: 'Failed to generate Zoom signature' });
     }
 };
 
