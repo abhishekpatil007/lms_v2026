@@ -13,7 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { statsApi } from "@/api/endpoints/stats";
 import { batchesApi } from "@/api/endpoints/batches";
@@ -84,8 +84,7 @@ const Dashboard = ({ user }: { user: any }) => {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatDateIST(dateString);
   };
 
   const getTimeAgo = (dateString: string) => {

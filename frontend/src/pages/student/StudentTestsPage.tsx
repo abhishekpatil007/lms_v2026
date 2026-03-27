@@ -15,7 +15,7 @@ import {
     IconHistory,
     IconX,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
 import { attemptsApi } from "@/api/endpoints/attempts";
@@ -65,8 +65,7 @@ export const StudentTestsPage = () => {
     };
 
     const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return formatDateIST(dateStr);
     };
 
     const getRelativeTime = (dateStr: string) => {
@@ -421,7 +420,7 @@ export const StudentTestsPage = () => {
                                                         <div className="text-xs text-gray-500 space-y-0.5">
                                                             <p className="flex items-center gap-1">
                                                                 <IconCalendar size={12} />
-                                                                {attemptDate.toLocaleDateString()} at {attemptDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                                {formatDateIST(att.createdAt || att.started_at)} at {formatTimeIST(att.createdAt || att.started_at)}
                                                             </p>
                                                         </div>
                                                         <div className="text-right">

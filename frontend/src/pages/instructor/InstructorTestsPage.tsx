@@ -11,7 +11,7 @@ import {
     IconHash,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { Test, Batch } from "@/types";
@@ -240,7 +240,7 @@ export const InstructorTestsPage = () => {
                                     <div className="flex items-center justify-between">
                                         <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
                                             <IconCalendar size={11} />
-                                            {new Date(test.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            {formatDateIST(test.start_time)}
                                         </span>
                                         <IconChevronRight size={16} className="text-gray-300 group-hover:text-violet-500 transition-colors" />
                                     </div>

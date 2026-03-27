@@ -21,7 +21,7 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST } from "@/lib/utils";
 import { batchesApi } from "@/api/endpoints/batches";
 import { videosApi } from "@/api/endpoints/videos";
 import { documentsApi } from "@/api/endpoints/documents";
@@ -711,7 +711,7 @@ export const BatchDetailPage = () => {
                             "text-sm font-semibold",
                             isUpcoming ? "text-[#2D2D2D]" : "text-gray-900"
                           )}>
-                            {scheduledDate.toLocaleDateString()} at {scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatDateIST(liveClass.start_time)} at {formatTimeIST(liveClass.start_time)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">

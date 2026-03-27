@@ -10,7 +10,7 @@ import {
     IconSearch,
     IconFilter,
 } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDateIST, formatTimeIST } from '@/lib/utils';
 import { batchesApi } from '@/api/endpoints/batches';
 import { liveClassesApi } from '@/api/endpoints/liveClasses';
 import { useAuthStore } from '@/store/authStore';
@@ -114,18 +114,9 @@ export const StudentLiveClassesPage = () => {
     const displayedClasses = activeTab === 'upcoming' ? upcomingClasses : pastClasses;
 
     const formatDateTime = (dateStr: string) => {
-        const date = new Date(dateStr);
         return {
-            date: date.toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-            }),
-            time: date.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-            }),
+            date: formatDateIST(dateStr),
+            time: formatTimeIST(dateStr),
         };
     };
 

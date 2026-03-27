@@ -16,6 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { webinarsApi } from '@/api/endpoints/webinars';
 import type { Webinar } from '@/types';
+import { formatDateIST, formatTimeIST } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
 interface FormData {
@@ -136,22 +137,11 @@ export const WebinarLanding = () => {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return formatDateIST(dateString);
   };
 
   const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return formatTimeIST(dateString);
   };
 
   const getWebinarStatus = () => {
