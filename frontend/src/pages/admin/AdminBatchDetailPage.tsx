@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST, formatTimeIST, formatDateTimeIST } from "@/lib/utils";
 import {
   IconArrowLeft,
   IconUsers,
@@ -79,25 +79,8 @@ const StatusBadge = ({ status }: { status: string }) => (
   </span>
 );
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-const formatDateTime = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
+const formatDate = (dateString: string) => formatDateIST(dateString);
+const formatDateTime = (dateString: string) => formatDateTimeIST(dateString);
 
 const formatFileSize = (bytes?: number) => {
   if (!bytes) return "N/A";

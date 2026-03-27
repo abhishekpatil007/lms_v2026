@@ -11,7 +11,7 @@ import {
     IconChevronRight,
     IconChecklist,
 } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+import { cn, formatDateIST } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { batchesApi } from '@/api/endpoints/batches';
 import { videosApi } from '@/api/endpoints/videos';
@@ -159,7 +159,7 @@ export const StudentBatches = () => {
                                         )}
                                         <span className="flex items-center gap-1.5">
                                             <IconCalendar size={14} />
-                                            {new Date(batch.start_date).toLocaleDateString()} - {new Date(batch.end_date).toLocaleDateString()}
+                                            {formatDateIST(batch.start_date)} - {formatDateIST(batch.end_date)}
                                         </span>
                                     </div>
                                 </div>

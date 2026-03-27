@@ -914,13 +914,7 @@ export const WebinarsPage = () => {
                           <td className="py-3 px-4 text-sm text-gray-600">{reg.phone || "-"}</td>
                           <td className="py-3 px-4 text-sm text-gray-600">{reg.organization || "-"}</td>
                           <td className="py-3 px-4 text-sm text-gray-600">
-                            {new Date(reg.registered_at).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
+                            {formatDateTimeIST(reg.registered_at)}
                           </td>
                         </tr>
                       ))}

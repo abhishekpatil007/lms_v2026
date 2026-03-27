@@ -9,7 +9,7 @@ import {
   IconClock,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { coursesApi } from "@/api/endpoints/courses";
 import type { Course } from "@/types";
@@ -362,7 +362,7 @@ export const CoursesPage = () => {
                     </div>
 
                     <div className="text-xs text-gray-400">
-                      Created {new Date(course.createdAt || '').toLocaleDateString()}
+                      Created {formatDateIST(course.createdAt || "")}
                     </div>
                   </motion.div>
                 );

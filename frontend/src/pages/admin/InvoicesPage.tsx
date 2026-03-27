@@ -16,7 +16,7 @@ import {
 import { invoicesApi } from "@/api/endpoints/invoices";
 import type { Invoice } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateIST } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import toast from "react-hot-toast";
@@ -805,7 +805,7 @@ export const InvoicesPage = () => {
                                                     {formatCurrency(Number(invoice.total))}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600">
-                                                    {new Date(invoice.issued_at).toLocaleDateString()}
+                                                    {formatDateIST(invoice.issued_at)}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span className={cn(
