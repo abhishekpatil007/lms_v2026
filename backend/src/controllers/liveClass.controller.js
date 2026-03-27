@@ -10,32 +10,93 @@ import liveClassLogger from '../utils/logger/individualLogger/liveClassLogger.js
 
 const { LiveClass } = db;
 
-// 🧩 Helper: Create Zoom Meeting
-const createZoomMeeting = async (topic, startTime, duration) => {
+// 🧩 Helper: Create Zoom Webinar
+const createZoomWebinar = async (topic, startTime, duration, instructorEmail = null) => {
     const token = await getZoomAccessToken();
 
-    const response = await axios.post(
-        "https://api.zoom.us/v2/users/me/meetings",
-        {
-            topic,
-            type: 2, // Scheduled meeting
-            start_time: startTime, // ISO8601
-            duration,
-            settings: {
-                host_video: true,
-                participant_video: true,
-                join_before_host: false,
-                mute_upon_entry: true,
-                waiting_room: true,
-                auto_recording: 'cloud',
-            },
+    const body = {
+        topic,
+        type: 5, // Webinar
+        start_time: startTime, // ISO8601
+        duration,
+        settings: {
+            approval_type: 2,   // NO REGISTRATION REQUIRED
+            registration_type: 0,
+            host_video: true,
+            panelists_video: true,
+            auto_recording: "cloud"
         },
-        {
-            headers: { Authorization: `Bearer ${token}` },
-        }
-    );
+    };
 
-    return response.data;
+    if (instructorEmail) {
+        body.settings.alternative_hosts = instructorEmail;
+    }
+
+    try {
+        const response = await axios.post(
+            "https://api.zoom.us/v2/users/me/webinars",
+            body,
+            {
+                headers: { Authorization: `Bearer ${token}` },
+            }
+        );
+        return response.data;
+    } catch (error) {
+        // If alternative_hosts fails (not a licensed user), retry without it
+        if (instructorEmail && error.response && error.response.status === 400) {
+            delete body.settings.alternative_hosts;
+            const retryResponse = await axios.post(
+                "https://api.zoom.us/v2/users/me/webinars",
+                body,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+            return retryResponse.data;
+        }
+        throw error;
+    }
+};
+
+// 🧩 Helper: Create Webinar Registrant
+const createWebinarRegistrant = async (webinarId, email, firstName) => {
+    try {
+        const token = await getZoomAccessToken();
+        const response = await axios.post(
+            `https://api.zoom.us/v2/webinars/${webinarId}/registrants`,
+            {
+                email,
+                first_name: firstName,
+            },
+            {
+                headers: { Authorization: `Bearer ${token}` },
+            }
+        );
+        return response.data;
+    } catch (error) {
+        // Handle duplicate registrant gracefully
+        if (error.response && error.response.status === 400 && error.response.data.code === 3001) {
+            liveClassLogger.info(`User ${email} already registered for webinar ${webinarId}`);
+            // Zoom might return the join_url in some cases, or we might need to fetch it.
+            // For now, let's assume we can retry or it's handled.
+            // Or better, if we have the registrant info, we can get it.
+            // Actually, if they are registered, we can try to GET the list or just return the error handled if the client can handle it.
+            // But the requirement says: "Return existing join_url if possible"
+            // To get the join_url for an existing registrant, we might need to list them.
+            // However, Zoom often returns the registrant info even on conflict if we use a different approach, 
+            // but standard behavior is error. Let's try to fetch if it fails.
+            const token = await getZoomAccessToken();
+            const listResponse = await axios.get(
+                `https://api.zoom.us/v2/webinars/${webinarId}/registrants`,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+            const existing = listResponse.data.registrants?.find(r => r.email === email);
+            if (existing) return existing;
+        }
+        throw error;
+    }
 };
 
 //
@@ -44,10 +105,33 @@ const createZoomMeeting = async (topic, startTime, duration) => {
 export const createLiveClass = async (req, res) => {
     try {
         const { batch_id, topic, start_time, duration, description = "NA" } = req.body;
-        const instructor_id = req.user.user.id; // comes from verifyToken middleware
+        const user = req.user.user;
 
-        // Step 1: Create Zoom meeting
-        const zoomMeeting = await createZoomMeeting(topic, start_time, duration);
+        // Step 0: Identify the correct instructor for this class
+        let instructor_id = user.id;
+        const batchData = await db.Batch.findByPk(batch_id);
+        
+        // If Admin creates class, use the Batch's assigned instructor
+        if (user.role === 'admin' && batchData && batchData.instructor_id) {
+            instructor_id = batchData.instructor_id;
+        }
+
+        // Step 1: Create Zoom webinar
+        const instructorUser = await db.User.findByPk(instructor_id);
+        const instructorEmail = instructorUser ? instructorUser.email : user.email;
+        const zoomWebinar = await createZoomWebinar(topic, start_time, duration, instructorEmail);
+
+        // Step 1.1: Add instructor as panelist (Optional but safe)
+        try {
+            const token = await getZoomAccessToken();
+            await axios.post(
+                `https://api.zoom.us/v2/webinars/${zoomWebinar.id}/panelists`,
+                { panelists: [{ email: instructorEmail, name: req.user.user.name || "Instructor" }] },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+        } catch (panelError) {
+            liveClassLogger.error(`Failed to add instructor as panelist: ${panelError.message}`);
+        }
 
         // Step 2: Save to DB
         const liveClass = await LiveClass.create({
@@ -57,10 +141,10 @@ export const createLiveClass = async (req, res) => {
             description,
             start_time,
             duration,
-            zoom_meeting_id: zoomMeeting.id,
-            zoom_meeting_password: zoomMeeting.password,
-            zoom_join_url: zoomMeeting.join_url,
-            zoom_start_url: zoomMeeting.start_url,
+            zoom_meeting_id: zoomWebinar.id,
+            zoom_meeting_password: zoomWebinar.password,
+            zoom_join_url: zoomWebinar.join_url,
+            zoom_start_url: zoomWebinar.start_url,
             status: "scheduled",
         });
 
@@ -137,7 +221,7 @@ export const getLiveClassSignature = async (req, res) => {
             try {
                 const token = await getZoomAccessToken();
                 const zoomResponse = await axios.get(
-                    `https://api.zoom.us/v2/meetings/${meetingNumber}`,
+                    `https://api.zoom.us/v2/webinars/${meetingNumber}`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 passWord = zoomResponse.data.password;
@@ -152,7 +236,49 @@ export const getLiveClassSignature = async (req, res) => {
         }
 
         const userRole = req.user.role || req.user.user.role;
-        const role = (userRole === 'instructor' || userRole === 'admin') ? 1 : 0; // 1 = host, 0 = participant
+        const userId = req.user.user.id;
+        
+        // Fetch the batch to check assigned instructor
+        const batch = await db.Batch.findByPk(classData.batch_id);
+        const batchInstructorId = batch ? batch.instructor_id : null;
+
+        // 🚀 REFINED FIX: Check body, query, or fallback to DB logic
+        let role = parseInt(req.body.role ?? req.query.role);
+        if (isNaN(role)) {
+            // Host if user is the assigned instructor of the class OR the batch
+            // Using loose equality (==) for BIGINT IDs which might be strings or numbers
+            role = (userId == classData.instructor_id || userId == batchInstructorId || userRole === 'admin') ? 1 : 0;
+        }
+
+        // Security check: Only instructors or admins can be role 1
+        if (role === 1 && userRole !== 'instructor' && userRole !== 'admin') {
+            role = 0;
+        }
+
+        let hostEmail = "moneycrafttrader@gmail.com";
+        let zakToken = null;
+        if (role === 1) {
+            try {
+                const token = await getZoomAccessToken();
+                // Fetch ZAK token for the hardcoded host account
+                const zakRes = await axios.get(`https://api.zoom.us/v2/users/${hostEmail}/zak`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                zakToken = zakRes.data.token;
+            } catch (err) {
+                liveClassLogger.error(`Failed to fetch ZAK for ${hostEmail}: ${err.message}`);
+                // Fallback to 'me' if specific email fetch fails
+                try {
+                    const token = await getZoomAccessToken();
+                    const zakRes = await axios.get("https://api.zoom.us/v2/users/me/zak", {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    zakToken = zakRes.data.token;
+                } catch (retryErr) {
+                    liveClassLogger.error(`ZAK Fallback failed: ${retryErr.message}`);
+                }
+            }
+        }
 
         // Batch access check
         const isAuthorized = await isUserAuthorizedForBatch(req.user.user.id, classData.batch_id, userRole);
@@ -178,12 +304,19 @@ export const getLiveClassSignature = async (req, res) => {
         const token = jwt.sign(payload, process.env.ZOOM_SDK_SECRET, { algorithm: 'HS256' });
 
         liveClassLogger.info(`Zoom signature generated - Live Class ID: ${id}, Role: ${role}`);
+        
+        // Registration is no longer required for joining webinars
+        const registrantToken = null;
+
         return res.json({
             success: true,
             signature: token,
             sdkKey: process.env.ZOOM_SDK_KEY,
             meetingNumber,
-            passWord: passWord
+            passWord: passWord,
+            tk: registrantToken,
+            zak: zakToken, // Essential for host join
+            userEmail: hostEmail // Provide host email if role is 1 to help Web SDK join correctly
         });
     } catch (err) {
         liveClassLogger.error(`Error in getLiveClassSignature: ${err.message}`);
@@ -217,18 +350,44 @@ export const updateLiveClass = async (req, res) => {
 
         // Update on Zoom first
         const token = await getZoomAccessToken();
+        const instructorEmail = req.user.user.email;
         await axios.patch(
-            `https://api.zoom.us/v2/meetings/${liveClass.zoom_meeting_id}`,
+            `https://api.zoom.us/v2/webinars/${liveClass.zoom_meeting_id}`,
             {
                 topic,
                 start_time,
                 duration,
                 agenda: description,
+                settings: {
+                    approval_type: 2, // Ensure registration remains off
+                    alternative_hosts: instructorEmail
+                }
             },
             {
                 headers: { Authorization: `Bearer ${token}` },
             }
-        );
+        ).catch(async (err) => {
+            // Retry without alternative_hosts if it fails
+            if (err.response && err.response.status === 400) {
+                await axios.patch(
+                    `https://api.zoom.us/v2/webinars/${liveClass.zoom_meeting_id}`,
+                    { topic, start_time, duration, agenda: description },
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+            } else throw err;
+        });
+
+        // Add/Update instructor as panelist
+        try {
+            const webinarId = liveClass.zoom_meeting_id;
+            await axios.post(
+                `https://api.zoom.us/v2/webinars/${webinarId}/panelists`,
+                { panelists: [{ email: instructorEmail, name: req.user.user.name || "Instructor" }] },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+        } catch (panelError) {
+            liveClassLogger.error(`Failed to add/update panelist: ${panelError.message}`);
+        }
 
         // Update local DB
         await liveClass.update({ topic, start_time, duration, description });
@@ -273,7 +432,7 @@ export const deleteLiveClass = async (req, res) => {
             try {
                 const token = await getZoomAccessToken();
                 await axios.delete(
-                    `https://api.zoom.us/v2/meetings/${liveClass.zoom_meeting_id}`,
+                    `https://api.zoom.us/v2/webinars/${liveClass.zoom_meeting_id}`,
                     {
                         headers: { Authorization: `Bearer ${token}` },
                     }
@@ -356,12 +515,17 @@ export const joinLiveClass = async (req, res) => {
         }
 
         // Simple role-based redirect logic
-        const joinUrl =
-            req.user.user.role === "instructor"
-                ? liveClass.zoom_start_url
-                : liveClass.zoom_join_url;
+        let joinUrl = liveClass.zoom_join_url;
+        const user = req.user.user;
+ 
+        if (user.role === "instructor" || user.role === "admin") {
+            joinUrl = liveClass.zoom_start_url;
+        } else {
+            // Registration not required, students join via the generic join URL 
+            joinUrl = liveClass.zoom_join_url;
+        }
 
-        liveClassLogger.info(`Join link generated - Live Class ID: ${id}, User Role: ${req.user.user.role}`);
+        liveClassLogger.info(`Join link generated - Live Class ID: ${id}, User Role: ${user.role}`);
         return res.json({
             message: "Join link generated successfully.",
             join_url: joinUrl,

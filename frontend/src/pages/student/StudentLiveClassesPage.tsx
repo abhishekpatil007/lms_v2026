@@ -373,6 +373,8 @@ export const StudentLiveClassesPage = () => {
                         signature={activeZoomMeeting.signature}
                         sdkKey={activeZoomMeeting.sdkKey}
                         passWord={activeZoomMeeting.passWord}
+                        tk={activeZoomMeeting.tk}
+                        zak={activeZoomMeeting.zak}
                         onLeave={() => setActiveZoomMeeting(null)}
                     />
                 )}

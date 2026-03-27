@@ -855,10 +855,12 @@ export const BatchDetailPage = () => {
             status={true}
             meetingNumber={activeZoomMeeting.meetingNumber}
             userName={user.name}
-            userEmail={user.email}
+            userEmail={"moneycrafttrader@gmail.com"}
             signature={activeZoomMeeting.signature}
             sdkKey={activeZoomMeeting.sdkKey}
             passWord={activeZoomMeeting.passWord}
+            tk={activeZoomMeeting.tk}
+            zak={activeZoomMeeting.zak}
             onLeave={() => setActiveZoomMeeting(null)}
           />
         )}
