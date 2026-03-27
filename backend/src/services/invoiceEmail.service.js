@@ -153,7 +153,7 @@ export async function generateTaxInvoicePDF(data) {
         doc.fontSize(10);
         doc.text("1.", getX(100), getY(450));
         doc.text(data["Course Name"] || 'Course Enrollment', getX(250), getY(450));
-        doc.text("-", getX(850), getY(450));
+        doc.text("9992", getX(850), getY(450));
         doc.text(taxableValue.toFixed(2), getX(860), getY(450), { width: 80, align: 'right' });
 
         // GST Section (Middle-Bottom)  
@@ -172,7 +172,7 @@ export async function generateTaxInvoicePDF(data) {
 
         // GST Table Total Line
         doc.font('Helvetica-Bold');
-        doc.text("-", getX(100), getY(1300));
+        doc.text("9992", getX(100), getY(1300));
         doc.text(taxableValue.toFixed(2), getX(410), getY(1300), { width: 80, align: 'right' });
         doc.text(cgstRate, getX(620), getY(1300));
         doc.text(cgstAmount.toFixed(2), getX(650), getY(1300), { width: 60, align: 'right' });
