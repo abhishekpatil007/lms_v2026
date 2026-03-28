@@ -27,7 +27,7 @@ fs.ensureDirSync(TEMP_DIR);
  */
 export async function generateTemplate(type, students) {
     const columns = [
-        "User ID", "Name", "Email", 
+        "Name", "Email", 
         ...(type === 'partially_paid' ? 
             ["Receipt No", "Date", "Course Enrolled", "Batch", "Amount Paid", "Payment Method", "Transaction ID"] : 
             ["Invoice No", "Date", "Course Name", "Total", "Rate"]
@@ -36,11 +36,10 @@ export async function generateTemplate(type, students) {
 
     const data = students.map(s => {
         const row = {
-            "User ID": s.id,
             "Name": s.name,
             "Email": s.email,
         };
-        columns.slice(3).forEach(col => row[col] = "");
+        columns.slice(2).forEach(col => row[col] = "");
         return row;
     });
 
