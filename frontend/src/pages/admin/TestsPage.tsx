@@ -197,7 +197,12 @@ export const TestsPage = () => {
         e.preventDefault();
         try {
             setCreatingTest(true);
-            const newTest = await testsApi.create(formData);
+            const payload = {
+                ...formData,
+                start_time: formData.start_time ? formData.start_time + ':00+05:30' : '',
+                end_time: formData.end_time ? formData.end_time + ':00+05:30' : '',
+            };
+            const newTest = await testsApi.create(payload);
             setShowCreateModal(false);
             addToast("success", `Test "${formData.title}" created successfully!`);
             // Navigate to builder to add questions
