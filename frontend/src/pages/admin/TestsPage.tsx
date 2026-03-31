@@ -14,6 +14,7 @@ import {
     IconSend,
     IconRepeat,
     IconCalendar,
+    IconTrash,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatDateTimeIST } from "@/lib/utils";
@@ -223,6 +224,18 @@ export const TestsPage = () => {
             addToast("error", message);
         } finally {
             setPublishingId(null);
+        }
+    };
+
+    const handleDeleteTest = async (test: Test) => {
+        if (!confirm(`Delete "${test.title}"? This will delete all blocks, questions, and attempts. This cannot be undone.`)) return;
+        try {
+            await testsApi.delete(test.id);
+            addToast("success", `"${test.title}" deleted successfully`);
+            await fetchTests();
+        } catch (error) {
+            console.error("Error deleting test:", error);
+            addToast("error", "Failed to delete test. Please try again.");
         }
     };
 
@@ -539,6 +552,13 @@ export const TestsPage = () => {
                                                     Publish
                                                 </button>
                                             )}
+                                            <button
+                                                onClick={() => handleDeleteTest(test)}
+                                                className="rounded-xl px-3 py-2 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-all"
+                                                title="Delete test"
+                                            >
+                                                <IconTrash className="w-3.5 h-3.5" />
+                                            </button>
                                         </div>
                                     </motion.div>
                                 ))}

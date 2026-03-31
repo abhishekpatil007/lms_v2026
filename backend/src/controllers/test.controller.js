@@ -195,6 +195,107 @@ export const publishTest = async (req, res) => {
     }
 };
 
+export const updateTest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const test = await Test.findByPk(id);
+        if (!test) return res.status(404).json({ message: 'Test not found' });
+
+        const allowedFields = ['title', 'description', 'start_time', 'end_time', 'duration_minutes', 'max_attempts', 'shuffle_questions'];
+        const updateData = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) updateData[field] = req.body[field];
+        }
+
+        await test.update(updateData);
+        logger.info(`Test updated - ID: ${id}`);
+        res.json({ message: 'Test updated', test });
+    } catch (error) {
+        logger.error(`Error updating test: ${error.message}`);
+        res.status(500).json({ message: 'Error updating test', error: error.message });
+    }
+};
+
+export const deleteTest = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const test = await Test.findByPk(id, {
+            include: [{ model: Block, as: 'blocks' }]
+        });
+        if (!test) return res.status(404).json({ message: 'Test not found' });
+
+        await db.sequelize.transaction(async (t) => {
+            for (const block of test.blocks || []) {
+                await Option.destroy({ where: { question_id: await Question.findAll({ where: { block_id: block.id }, attributes: ['id'] }).then(qs => qs.map(q => q.id)) }, transaction: t });
+                await Question.destroy({ where: { block_id: block.id }, transaction: t });
+            }
+            await Block.destroy({ where: { test_id: id }, transaction: t });
+            await db.AttemptAnswer.destroy({ where: { attempt_id: await db.AttemptBlock.findAll({ where: { block_id: (test.blocks || []).map(b => b.id) }, attributes: ['attempt_id'] }).then(abs => abs.map(ab => ab.attempt_id)) }, transaction: t }).catch(() => {});
+            await db.AttemptBlock.destroy({ where: { block_id: (test.blocks || []).map(b => b.id) }, transaction: t }).catch(() => {});
+            await db.Attempt.destroy({ where: { test_id: id }, transaction: t }).catch(() => {});
+            await test.destroy({ transaction: t });
+        });
+
+        logger.info(`Test deleted - ID: ${id}`);
+        res.json({ message: 'Test deleted' });
+    } catch (error) {
+        logger.error(`Error deleting test: ${error.message}`);
+        res.status(500).json({ message: 'Error deleting test', error: error.message });
+    }
+};
+
+export const deleteBlock = async (req, res) => {
+    try {
+        const { block_id } = req.params;
+        const block = await Block.findByPk(block_id);
+        if (!block) return res.status(404).json({ message: 'Block not found' });
+
+        await db.sequelize.transaction(async (t) => {
+            const questionIds = await Question.findAll({ where: { block_id }, attributes: ['id'], transaction: t }).then(qs => qs.map(q => q.id));
+            if (questionIds.length > 0) {
+                await Option.destroy({ where: { question_id: questionIds }, transaction: t });
+            }
+            await Question.destroy({ where: { block_id }, transaction: t });
+            await db.AttemptBlock.destroy({ where: { block_id }, transaction: t }).catch(() => {});
+            await block.destroy({ transaction: t });
+        });
+
+        logger.info(`Block deleted - ID: ${block_id}`);
+        res.json({ message: 'Block deleted' });
+    } catch (error) {
+        logger.error(`Error deleting block: ${error.message}`);
+        res.status(500).json({ message: 'Error deleting block', error: error.message });
+    }
+};
+
+export const deleteQuestion = async (req, res) => {
+    try {
+        const { question_id } = req.params;
+        const question = await Question.findByPk(question_id);
+        if (!question) return res.status(404).json({ message: 'Question not found' });
+
+        await db.sequelize.transaction(async (t) => {
+            await Option.destroy({ where: { question_id }, transaction: t });
+            await db.AttemptAnswer.destroy({ where: { question_id }, transaction: t }).catch(() => {});
+
+            const block = await Block.findByPk(question.block_id, { transaction: t });
+            if (block) {
+                block.total_questions = Math.max(0, block.total_questions - 1);
+                block.total_marks = Math.max(0, block.total_marks - (parseInt(question.marks) || 0));
+                await block.save({ transaction: t });
+            }
+
+            await question.destroy({ transaction: t });
+        });
+
+        logger.info(`Question deleted - ID: ${question_id}`);
+        res.json({ message: 'Question deleted' });
+    } catch (error) {
+        logger.error(`Error deleting question: ${error.message}`);
+        res.status(500).json({ message: 'Error deleting question', error: error.message });
+    }
+};
+
 export const listTests = async (req, res) => {
     try {
         let { batch_id, status, search, page = 1, limit = 10 } = req.query;
