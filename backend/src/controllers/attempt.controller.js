@@ -94,7 +94,7 @@ export const startBlock = async (req, res) => {
 
         if (attemptBlock) {
             if (attemptBlock.status === 'completed') {
-                return res.json({ message: 'Block already completed', attemptBlock });
+                return res.status(400).json({ message: 'Block already completed', attemptBlock });
             }
             // If ongoing, simply proceed to fetch questions so user can resume
         } else {
@@ -121,11 +121,13 @@ export const startBlock = async (req, res) => {
         const questions = await Question.findAll({
             where: { block_id },
             attributes: ['id', 'content', 'type', 'marks', 'reference_media_url', 'order_index'],
-            include: [{ model: db.Option, as: 'options', attributes: ['id', 'content', 'order_index'] }],
+            include: [{ model: db.Option, as: 'options', attributes: ['id', 'content', 'order_index', 'media_url'] }],
             order: [['order_index', 'ASC']]
         });
 
-        res.json({ attemptBlock, questions });
+        // Include block metadata for frontend timer/display
+        const blockData = await Block.findByPk(block_id, { attributes: ['id', 'title', 'duration_minutes', 'order_index', 'total_marks'] });
+        res.json({ attemptBlock, questions, block: blockData });
     } catch (error) {
         res.status(500).json({ message: 'Error starting block', error: error.message });
     }
