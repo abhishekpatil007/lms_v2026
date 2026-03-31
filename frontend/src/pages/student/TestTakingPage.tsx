@@ -144,7 +144,7 @@ export const TestTakingPage = () => {
             setFlaggedQuestions(new Set());
             setShowReviewSummary(false);
             setTimerWarning('none');
-            setTimeLeft(60 * 60);
+            setTimeLeft((data.block?.duration_minutes || 60) * 60);
             setView('TAKING_BLOCK');
         } catch (error) {
             console.error('Error starting block:', error);
