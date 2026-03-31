@@ -39,4 +39,24 @@ export const testsApi = {
         });
         return response.data;
     },
+
+    update: async (id: number, data: Partial<Test>): Promise<{ message: string; test: Test }> => {
+        const response = await apiClient.put(`/api/tests/${id}`, data);
+        return response.data;
+    },
+
+    delete: async (id: number): Promise<{ message: string }> => {
+        const response = await apiClient.delete(`/api/tests/${id}`);
+        return response.data;
+    },
+
+    deleteBlock: async (blockId: number): Promise<{ message: string }> => {
+        const response = await apiClient.delete(`/api/tests/blocks/${blockId}`);
+        return response.data;
+    },
+
+    deleteQuestion: async (questionId: number): Promise<{ message: string }> => {
+        const response = await apiClient.delete(`/api/tests/questions/${questionId}`);
+        return response.data;
+    },
 };

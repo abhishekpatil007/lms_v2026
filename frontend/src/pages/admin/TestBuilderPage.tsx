@@ -151,6 +151,7 @@ export const TestBuilderPage = () => {
     const handleDeleteQuestion = async (questionId: number) => {
         if (!window.confirm('Delete this question? This cannot be undone.')) return;
         try {
+            await testsApi.deleteQuestion(questionId);
             toast.success('Question deleted');
             fetchTestDetails();
         } catch (error) {
@@ -305,6 +306,20 @@ export const TestBuilderPage = () => {
                                             )}
                                         </div>
                                     </div>
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm(`Delete section "${block.title}"? All questions in it will be deleted.`)) return;
+                                            try {
+                                                await testsApi.deleteBlock(block.id);
+                                                toast.success('Section deleted');
+                                                fetchTestDetails();
+                                            } catch (e) { toast.error('Failed to delete section'); }
+                                        }}
+                                        className="ml-auto shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                                        title="Delete section"
+                                    >
+                                        <IconTrash size={16} />
+                                    </button>
                                 </div>
                             </div>
 
