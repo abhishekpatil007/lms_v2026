@@ -224,15 +224,34 @@ export const deleteTest = async (req, res) => {
         });
         if (!test) return res.status(404).json({ message: 'Test not found' });
 
+        const blockIds = (test.blocks || []).map(b => b.id);
+
         await db.sequelize.transaction(async (t) => {
-            for (const block of test.blocks || []) {
-                await Option.destroy({ where: { question_id: await Question.findAll({ where: { block_id: block.id }, attributes: ['id'] }).then(qs => qs.map(q => q.id)) }, transaction: t });
-                await Question.destroy({ where: { block_id: block.id }, transaction: t });
+            // Get all question IDs for these blocks
+            const questions = await Question.findAll({ where: { block_id: blockIds }, attributes: ['id'], transaction: t });
+            const questionIds = questions.map(q => q.id);
+
+            // Delete options for all questions
+            if (questionIds.length > 0) {
+                await Option.destroy({ where: { question_id: questionIds }, transaction: t });
             }
+
+            // Delete questions
+            await Question.destroy({ where: { block_id: blockIds }, transaction: t });
+
+            // Delete attempt data
+            const attempts = await db.Attempt.findAll({ where: { test_id: id }, attributes: ['id'], transaction: t });
+            const attemptIds = attempts.map(a => a.id);
+            if (attemptIds.length > 0) {
+                await db.AttemptAnswer.destroy({ where: { attempt_id: attemptIds }, transaction: t });
+            }
+            if (blockIds.length > 0) {
+                await db.AttemptBlock.destroy({ where: { block_id: blockIds }, transaction: t });
+            }
+            await db.Attempt.destroy({ where: { test_id: id }, transaction: t });
+
+            // Delete blocks and test
             await Block.destroy({ where: { test_id: id }, transaction: t });
-            await db.AttemptAnswer.destroy({ where: { attempt_id: await db.AttemptBlock.findAll({ where: { block_id: (test.blocks || []).map(b => b.id) }, attributes: ['attempt_id'] }).then(abs => abs.map(ab => ab.attempt_id)) }, transaction: t }).catch(() => {});
-            await db.AttemptBlock.destroy({ where: { block_id: (test.blocks || []).map(b => b.id) }, transaction: t }).catch(() => {});
-            await db.Attempt.destroy({ where: { test_id: id }, transaction: t }).catch(() => {});
             await test.destroy({ transaction: t });
         });
 
