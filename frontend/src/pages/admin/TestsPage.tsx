@@ -116,6 +116,10 @@ export const TestsPage = () => {
         shuffle_questions: false,
     });
 
+    const [editTest, setEditTest] = useState<Test | null>(null);
+    const [editData, setEditData] = useState({ title: "", description: "", start_time: "", end_time: "", duration_minutes: 60, max_attempts: 1, shuffle_questions: false });
+    const [editSaving, setEditSaving] = useState(false);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
@@ -229,6 +233,50 @@ export const TestsPage = () => {
             addToast("error", message);
         } finally {
             setPublishingId(null);
+        }
+    };
+
+    const openEditModal = (test: Test) => {
+        const toLocal = (d?: string) => {
+            if (!d) return "";
+            const date = new Date(d);
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        };
+        setEditData({
+            title: test.title,
+            description: test.description || "",
+            start_time: toLocal(test.start_time),
+            end_time: toLocal(test.end_time),
+            duration_minutes: test.duration_minutes || 60,
+            max_attempts: test.max_attempts || 1,
+            shuffle_questions: test.shuffle_questions || false,
+        });
+        setEditTest(test);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editTest) return;
+        try {
+            setEditSaving(true);
+            const payload: any = {
+                title: editData.title,
+                description: editData.description,
+                duration_minutes: editData.duration_minutes,
+                max_attempts: editData.max_attempts,
+                shuffle_questions: editData.shuffle_questions,
+            };
+            if (editData.start_time) payload.start_time = editData.start_time + ':00+05:30';
+            if (editData.end_time) payload.end_time = editData.end_time + ':00+05:30';
+            await testsApi.update(editTest.id, payload);
+            addToast("success", "Test updated");
+            setEditTest(null);
+            await fetchTests();
+        } catch (error) {
+            console.error("Error updating test:", error);
+            addToast("error", "Failed to update test");
+        } finally {
+            setEditSaving(false);
         }
     };
 
@@ -558,6 +606,13 @@ export const TestsPage = () => {
                                                 </button>
                                             )}
                                             <button
+                                                onClick={() => openEditModal(test)}
+                                                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 transition-all"
+                                                title="Edit test details"
+                                            >
+                                                <IconEdit className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
                                                 onClick={() => handleDeleteTest(test)}
                                                 className="rounded-xl px-3 py-2 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 transition-all"
                                                 title="Delete test"
@@ -762,6 +817,97 @@ export const TestsPage = () => {
                     )
                 }
             </AnimatePresence >
+
+            {/* Edit Test Modal */}
+            {editTest && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setEditTest(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Edit Test</h3>
+                                <p className="text-xs text-gray-500 truncate max-w-[240px]">{editTest.title}</p>
+                            </div>
+                            <button onClick={() => setEditTest(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"><IconX size={18} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Title</label>
+                                <input
+                                    type="text"
+                                    value={editData.title}
+                                    onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Description</label>
+                                <textarea
+                                    value={editData.description}
+                                    onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                                    rows={2}
+                                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20 resize-none"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Start Time (IST)</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={editData.start_time}
+                                        onChange={(e) => setEditData({ ...editData, start_time: e.target.value })}
+                                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">End Time (IST)</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={editData.end_time}
+                                        onChange={(e) => setEditData({ ...editData, end_time: e.target.value })}
+                                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Duration (min)</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={editData.duration_minutes}
+                                        onChange={(e) => setEditData({ ...editData, duration_minutes: parseInt(e.target.value) || 0 })}
+                                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Max Attempts</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={editData.max_attempts}
+                                        onChange={(e) => setEditData({ ...editData, max_attempts: parseInt(e.target.value) || 1 })}
+                                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                    />
+                                </div>
+                            </div>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={editData.shuffle_questions}
+                                    onChange={(e) => setEditData({ ...editData, shuffle_questions: e.target.checked })}
+                                />
+                                <span className="text-sm text-gray-600">Shuffle Questions</span>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50 sticky bottom-0">
+                            <button onClick={() => setEditTest(null)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
+                            <button onClick={handleSaveEdit} disabled={editSaving || !editData.title.trim()} className="px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50">
+                                {editSaving ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };
