@@ -7,6 +7,7 @@ import {
     IconTrash,
     IconX,
     IconPlus,
+    IconEdit,
     IconPhoto,
     IconClipboardList,
     IconClock,
@@ -37,6 +38,8 @@ export const TestBuilderPage = () => {
     const [newBlockTitle, setNewBlockTitle] = useState("");
     const [newBlockDuration, setNewBlockDuration] = useState(60);
     const [showAddQuestion, setShowAddQuestion] = useState<string | null>(null);
+    const [editingBlock, setEditingBlock] = useState<{ id: number; title: string; duration_minutes: number } | null>(null);
+    const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
     const [questionData, setQuestionData] = useState({
         content: "",
         type: "MCQ" as "MCQ" | "SHORT_ANSWER" | "FILE_UPLOAD",
@@ -157,6 +160,46 @@ export const TestBuilderPage = () => {
         } catch (error) {
             console.error("Error deleting question:", error);
             toast.error('Failed to delete question');
+        }
+    };
+
+    const handleSaveBlock = async () => {
+        if (!editingBlock) return;
+        try {
+            await testsApi.updateBlock(editingBlock.id, {
+                title: editingBlock.title,
+                duration_minutes: editingBlock.duration_minutes,
+            });
+            setEditingBlock(null);
+            toast.success('Section updated');
+            fetchTestDetails();
+        } catch (e) {
+            toast.error('Failed to update section');
+        }
+    };
+
+    const handleSaveQuestion = async () => {
+        if (!editingQuestion) return;
+        try {
+            const payload: any = {
+                content: editingQuestion.content,
+                marks: editingQuestion.marks,
+                model_answer: editingQuestion.model_answer,
+            };
+            if (editingQuestion.type === 'MCQ' && editingQuestion.options) {
+                payload.options = editingQuestion.options.map((o: any, i: number) => ({
+                    content: o.content,
+                    is_correct: o.is_correct,
+                    order_index: i,
+                    media_url: o.media_url || null,
+                }));
+            }
+            await testsApi.updateQuestion(editingQuestion.id, payload);
+            setEditingQuestion(null);
+            toast.success('Question updated');
+            fetchTestDetails();
+        } catch (e) {
+            toast.error('Failed to update question');
         }
     };
 
@@ -306,20 +349,29 @@ export const TestBuilderPage = () => {
                                             )}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={async () => {
-                                            if (!window.confirm(`Delete section "${block.title}"? All questions in it will be deleted.`)) return;
-                                            try {
-                                                await testsApi.deleteBlock(block.id);
-                                                toast.success('Section deleted');
-                                                fetchTestDetails();
-                                            } catch (e) { toast.error('Failed to delete section'); }
-                                        }}
-                                        className="ml-auto shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                                        title="Delete section"
-                                    >
-                                        <IconTrash size={16} />
-                                    </button>
+                                    <div className="ml-auto flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => setEditingBlock({ id: block.id, title: block.title, duration_minutes: block.duration_minutes || 60 })}
+                                            className="p-1.5 rounded-lg text-gray-400 hover:text-violet-500 hover:bg-violet-50 transition-all"
+                                            title="Edit section"
+                                        >
+                                            <IconEdit size={16} />
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (!window.confirm(`Delete section "${block.title}"? All questions in it will be deleted.`)) return;
+                                                try {
+                                                    await testsApi.deleteBlock(block.id);
+                                                    toast.success('Section deleted');
+                                                    fetchTestDetails();
+                                                } catch (e) { toast.error('Failed to delete section'); }
+                                            }}
+                                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                                            title="Delete section"
+                                        >
+                                            <IconTrash size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -391,6 +443,16 @@ export const TestBuilderPage = () => {
                                                         </div>
                                                     )}
                                                 </div>
+                                                <button
+                                                    onClick={() => setEditingQuestion({
+                                                        ...question,
+                                                        options: (question.options || []).map(o => ({ ...o }))
+                                                    })}
+                                                    className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-violet-50 hover:text-violet-500 transition-all"
+                                                    title="Edit question"
+                                                >
+                                                    <IconEdit size={14} />
+                                                </button>
                                                 <button
                                                     onClick={() => handleDeleteQuestion(question.id)}
                                                     className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 transition-all"
@@ -651,6 +713,126 @@ export const TestBuilderPage = () => {
                     </button>
                 )}
             </div>
+
+            {/* Edit Block Modal */}
+            {editingBlock && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setEditingBlock(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-900">Edit Section</h3>
+                            <button onClick={() => setEditingBlock(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"><IconX size={18} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Section Title</label>
+                                <input
+                                    type="text"
+                                    value={editingBlock.title}
+                                    onChange={(e) => setEditingBlock({ ...editingBlock, title: e.target.value })}
+                                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Duration (minutes)</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={editingBlock.duration_minutes}
+                                    onChange={(e) => setEditingBlock({ ...editingBlock, duration_minutes: parseInt(e.target.value) || 0 })}
+                                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                            <button onClick={() => setEditingBlock(null)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
+                            <button onClick={handleSaveBlock} disabled={!editingBlock.title.trim()} className="px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Question Modal */}
+            {editingQuestion && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setEditingQuestion(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+                            <h3 className="text-lg font-bold text-gray-900">Edit Question</h3>
+                            <button onClick={() => setEditingQuestion(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"><IconX size={18} /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Question Content</label>
+                                <textarea
+                                    value={editingQuestion.content}
+                                    onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
+                                    rows={3}
+                                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20 resize-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Marks</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={editingQuestion.marks}
+                                    onChange={(e) => setEditingQuestion({ ...editingQuestion, marks: parseInt(e.target.value) || 0 })}
+                                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                />
+                            </div>
+
+                            {editingQuestion.type === 'SHORT_ANSWER' && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Model Answer</label>
+                                    <textarea
+                                        value={editingQuestion.model_answer || ''}
+                                        onChange={(e) => setEditingQuestion({ ...editingQuestion, model_answer: e.target.value })}
+                                        rows={3}
+                                        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20 resize-none"
+                                    />
+                                </div>
+                            )}
+
+                            {editingQuestion.type === 'MCQ' && editingQuestion.options && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Options</label>
+                                    <div className="space-y-2">
+                                        {editingQuestion.options.map((opt: any, idx: number) => (
+                                            <div key={idx} className="flex items-center gap-2">
+                                                <input
+                                                    type="radio"
+                                                    name="edit-correct"
+                                                    checked={opt.is_correct}
+                                                    onChange={() => {
+                                                        const newOpts = editingQuestion.options.map((o: any, i: number) => ({ ...o, is_correct: i === idx }));
+                                                        setEditingQuestion({ ...editingQuestion, options: newOpts });
+                                                    }}
+                                                    className="shrink-0"
+                                                />
+                                                <span className="text-xs font-bold text-gray-500 w-5">{String.fromCharCode(65 + idx)}</span>
+                                                <input
+                                                    type="text"
+                                                    value={opt.content}
+                                                    onChange={(e) => {
+                                                        const newOpts = [...editingQuestion.options];
+                                                        newOpts[idx] = { ...newOpts[idx], content: e.target.value };
+                                                        setEditingQuestion({ ...editingQuestion, options: newOpts });
+                                                    }}
+                                                    className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-2">Select the radio button for the correct answer</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50 sticky bottom-0 bg-white">
+                            <button onClick={() => setEditingQuestion(null)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
+                            <button onClick={handleSaveQuestion} disabled={!editingQuestion.content.trim()} className="px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

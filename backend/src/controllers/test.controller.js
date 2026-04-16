@@ -263,6 +263,83 @@ export const deleteTest = async (req, res) => {
     }
 };
 
+export const updateBlock = async (req, res) => {
+    try {
+        const { block_id } = req.params;
+        const { title, duration_minutes, order_index } = req.body;
+
+        const block = await Block.findByPk(block_id);
+        if (!block) return res.status(404).json({ message: 'Block not found' });
+
+        const updateData = {};
+        if (title !== undefined) updateData.title = title;
+        if (duration_minutes !== undefined) updateData.duration_minutes = duration_minutes;
+        if (order_index !== undefined) updateData.order_index = order_index;
+
+        await block.update(updateData);
+
+        logger.info(`Block updated - ID: ${block_id}`);
+        res.json({ message: 'Block updated', block });
+    } catch (error) {
+        logger.error(`Error updating block: ${error.message}`);
+        res.status(500).json({ message: 'Error updating block', error: error.message });
+    }
+};
+
+export const updateQuestion = async (req, res) => {
+    try {
+        const { question_id } = req.params;
+        const { content, marks, order_index, model_answer, options } = req.body;
+
+        const question = await Question.findByPk(question_id);
+        if (!question) return res.status(404).json({ message: 'Question not found' });
+
+        const oldMarks = parseInt(question.marks) || 0;
+
+        await db.sequelize.transaction(async (t) => {
+            const updateData = {};
+            if (content !== undefined) updateData.content = content;
+            if (marks !== undefined) updateData.marks = marks;
+            if (order_index !== undefined) updateData.order_index = order_index;
+            if (model_answer !== undefined) updateData.model_answer = model_answer;
+
+            await question.update(updateData, { transaction: t });
+
+            // If options provided and this is an MCQ, replace all options
+            if (question.type === 'MCQ' && options) {
+                let parsedOptions = typeof options === 'string' ? JSON.parse(options) : options;
+                if (Array.isArray(parsedOptions) && parsedOptions.length > 0) {
+                    await Option.destroy({ where: { question_id }, transaction: t });
+                    const optionData = parsedOptions.map((opt, i) => ({
+                        question_id,
+                        content: opt.content,
+                        is_correct: opt.is_correct,
+                        order_index: opt.order_index !== undefined ? opt.order_index : i,
+                        media_url: opt.media_url || null
+                    }));
+                    await Option.bulkCreate(optionData, { transaction: t });
+                }
+            }
+
+            // Update block's total_marks if marks changed
+            if (marks !== undefined && parseInt(marks) !== oldMarks) {
+                const block = await Block.findByPk(question.block_id, { transaction: t });
+                if (block) {
+                    block.total_marks = Math.max(0, block.total_marks - oldMarks + parseInt(marks));
+                    await block.save({ transaction: t });
+                }
+            }
+        });
+
+        logger.info(`Question updated - ID: ${question_id}`);
+        const updated = await Question.findByPk(question_id, { include: [{ model: Option, as: 'options' }] });
+        res.json({ message: 'Question updated', question: updated });
+    } catch (error) {
+        logger.error(`Error updating question: ${error.message}`);
+        res.status(500).json({ message: 'Error updating question', error: error.message });
+    }
+};
+
 export const deleteBlock = async (req, res) => {
     try {
         const { block_id } = req.params;
