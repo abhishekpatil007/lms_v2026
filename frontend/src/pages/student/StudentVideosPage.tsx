@@ -18,6 +18,7 @@ import {
     IconSortAscending,
     IconCheck,
 } from '@tabler/icons-react';
+import MuxPlayer from '@mux/mux-player-react';
 import { videosApi } from '@/api/endpoints/videos';
 import { topicsApi } from '@/api/endpoints/topics';
 import { batchesApi } from '@/api/endpoints/batches';
@@ -97,6 +98,8 @@ const formatDurationHuman = (seconds: number) => {
 // ---------------------------------------------------------------------------
 // Enhanced Video Player Modal
 // ---------------------------------------------------------------------------
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 const VideoPlayerModal: React.FC<{
     video: Video | null;
     onClose: () => void;
@@ -108,7 +111,10 @@ const VideoPlayerModal: React.FC<{
     const [loadingPlayback, setLoadingPlayback] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showShortcuts, setShowShortcuts] = useState(false);
-    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const [currentSpeed, setCurrentSpeed] = useState(1);
+    const playerRef = useRef<any>(null);
+    const nativeVideoRef = useRef<HTMLVideoElement>(null);
+    const lastSaveRef = useRef(0);
 
     const currentIndex = allVideos.findIndex(v => v.id === video?.id);
     const prevVideo = currentIndex > 0 ? allVideos[currentIndex - 1] : null;
@@ -120,6 +126,7 @@ const VideoPlayerModal: React.FC<{
         setError(null);
         setPlaybackUrl(null);
         setMuxPlaybackId(null);
+        setCurrentSpeed(1);
         videosApi.getPlaybackUrl(video.id)
             .then((res: any) => {
                 setPlaybackUrl(res.playback_url || res.playbackUrl);
@@ -143,17 +150,50 @@ const VideoPlayerModal: React.FC<{
     useEffect(() => {
         if (!video) return;
         saveRecentVideo(video);
-        const interval = setInterval(() => {
-            if (video.duration) {
-                const existing = getProgress(video.id);
-                if (!existing) saveProgress(video.id, 0, video.duration);
+        // Save progress on unmount (modal close / video switch)
+        return () => {
+            const el = playerRef.current || nativeVideoRef.current;
+            if (el && video) {
+                const ct = el.currentTime;
+                const dur = el.duration;
+                if (dur > 0 && ct > 0) saveProgress(video.id, ct, dur);
             }
-        }, 5000);
-        return () => clearInterval(interval);
+        };
     }, [video]);
+
+    const handleTimeUpdate = useCallback(() => {
+        if (!video) return;
+        const el = playerRef.current || nativeVideoRef.current;
+        if (!el) return;
+        const now = Date.now();
+        if (now - lastSaveRef.current < 4000) return;
+        lastSaveRef.current = now;
+        const ct = el.currentTime;
+        const dur = el.duration;
+        if (dur > 0 && ct > 0) saveProgress(video.id, ct, dur);
+    }, [video]);
+
+    const skip = useCallback((secs: number) => {
+        const el = playerRef.current || nativeVideoRef.current;
+        if (!el) return;
+        el.currentTime = Math.max(0, (el.currentTime || 0) + secs);
+    }, []);
+
+    const changeSpeed = useCallback((rate: number) => {
+        setCurrentSpeed(rate);
+        const el = playerRef.current || nativeVideoRef.current;
+        if (el) el.playbackRate = rate;
+    }, []);
+
+    const handleLoadedMetadata = useCallback(() => {
+        const el = playerRef.current || nativeVideoRef.current;
+        if (el) el.playbackRate = currentSpeed;
+    }, [currentSpeed]);
 
     if (!video) return null;
     const progress = getProgress(video.id);
+    const resumeTime = progress && progress.currentTime > 10 ? Math.floor(progress.currentTime) : 0;
+    const hasMuxPlayer = Boolean(muxPlaybackId);
 
     return (
         <AnimatePresence>
@@ -226,11 +266,32 @@ const VideoPlayerModal: React.FC<{
                                 <p className="text-gray-400 font-medium">{error}</p>
                             </div>
                         ) : muxPlaybackId ? (
-                            <iframe ref={iframeRef}
-                                src={`https://player.mux.com/${muxPlaybackId}?autoplay=1${progress && progress.currentTime > 10 ? `&start_time=${Math.floor(progress.currentTime)}` : ''}`}
-                                className="w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen title={video.title} />
+                            <MuxPlayer
+                                key={muxPlaybackId}
+                                ref={playerRef}
+                                playbackId={muxPlaybackId}
+                                startTime={resumeTime}
+                                onTimeUpdate={handleTimeUpdate}
+                                onLoadedMetadata={handleLoadedMetadata}
+                                style={{ width: '100%', height: '100%', display: 'block' }}
+                                autoPlay
+                            />
                         ) : playbackUrl ? (
-                            <video src={playbackUrl} controls autoPlay className="w-full h-full" />
+                            <video
+                                key={playbackUrl}
+                                ref={nativeVideoRef}
+                                src={playbackUrl}
+                                controls
+                                autoPlay
+                                onTimeUpdate={handleTimeUpdate}
+                                onLoadedMetadata={() => {
+                                    if (nativeVideoRef.current) {
+                                        if (resumeTime > 0) nativeVideoRef.current.currentTime = resumeTime;
+                                        nativeVideoRef.current.playbackRate = currentSpeed;
+                                    }
+                                }}
+                                className="w-full h-full"
+                            />
                         ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                 <IconVideo className="w-16 h-16 text-gray-600 mb-4" />
@@ -238,6 +299,46 @@ const VideoPlayerModal: React.FC<{
                             </div>
                         )}
                     </div>
+
+                    {/* Playback Controls (skip + speed) */}
+                    {(hasMuxPlayer || playbackUrl) && !loadingPlayback && !error && (
+                        <div className="flex items-center justify-between px-3 sm:px-5 py-2 bg-gray-800/60 border-t border-gray-700/40">
+                            {/* Left: resume indicator */}
+                            <div className="text-[10px] text-gray-500">
+                                {resumeTime > 0 && (
+                                    <span className="text-violet-400">Resumed from {formatTimeShort(resumeTime)}</span>
+                                )}
+                            </div>
+
+                            {/* Center: skip + speed */}
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <button onClick={() => skip(-10)}
+                                    className="px-2 py-1 rounded-lg bg-gray-700/60 hover:bg-gray-700 text-gray-300 hover:text-white text-[11px] font-semibold transition-all">
+                                    −10s
+                                </button>
+                                <div className="flex items-center gap-0.5">
+                                    {SPEED_OPTIONS.map(rate => (
+                                        <button key={rate} onClick={() => changeSpeed(rate)}
+                                            className={cn(
+                                                'px-1.5 py-0.5 rounded text-[10px] font-bold transition-all',
+                                                currentSpeed === rate
+                                                    ? 'bg-violet-500 text-white'
+                                                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                            )}>
+                                            {rate}x
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => skip(10)}
+                                    className="px-2 py-1 rounded-lg bg-gray-700/60 hover:bg-gray-700 text-gray-300 hover:text-white text-[11px] font-semibold transition-all">
+                                    +10s
+                                </button>
+                            </div>
+
+                            {/* Right: spacer for alignment */}
+                            <div className="w-16" />
+                        </div>
+                    )}
 
                     {/* Footer */}
                     <div className="px-3 sm:px-5 py-2.5 bg-gray-800/30">
