@@ -7,6 +7,11 @@ import sendWelcomeEmail from '../services/email.service.js';
 import { handleOfflineEnrollment, handleOnlinePaymentRequest } from '../services/enrollment.service.js';
 import { processInvoiceExcel, sendManualInvoice } from '../services/bulkInvoice.service.js';
 import * as invoiceEmailService from '../services/invoiceEmail.service.js';
+import fs from 'fs-extra';
+import path from 'path';
+
+const INVOICE_PDF_DIR = path.resolve('uploads/invoices');
+fs.ensureDirSync(INVOICE_PDF_DIR);
 
 // -------------------------------
 // 0️⃣ Invoice Email Module (NEW)
@@ -251,26 +256,36 @@ export const downloadInvoice = async (req, res) => {
 
         if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
 
+        const isPaid = invoice.status === 'paid';
+        const filename = isPaid
+            ? `Invoice_${invoice.invoice_number}.pdf`
+            : `Receipt_${invoice.invoice_number}.pdf`;
+        const filePath = path.join(INVOICE_PDF_DIR, filename);
+
+        // Serve cached file if it already exists
+        if (await fs.pathExists(filePath)) {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            return res.sendFile(filePath, { root: '.' });
+        }
+
+        // Generate PDF and save to disk
         const student = invoice.student;
         const batch = invoice.batch;
         const issueDate = new Date(invoice.issued_at || invoice.createdAt).toLocaleDateString('en-GB');
 
         let pdfBuffer;
-        let filename;
-
-        if (invoice.status === 'paid') {
-            const data = {
+        if (isPaid) {
+            pdfBuffer = await invoiceEmailService.generateTaxInvoicePDF({
                 "Invoice No": invoice.invoice_number,
                 "Date": issueDate,
                 "Name": student?.name || '-',
                 "Course Name": batch?.batch_name || 'Course Enrollment',
                 "Total": String(parseFloat(invoice.total) || 0),
                 "Rate": String(parseFloat(invoice.gst_rate) || 18),
-            };
-            pdfBuffer = await invoiceEmailService.generateTaxInvoicePDF(data);
-            filename = `Invoice_${invoice.invoice_number}.pdf`;
+            });
         } else {
-            const data = {
+            pdfBuffer = await invoiceEmailService.generateReceiptPDF({
                 "Receipt No": invoice.invoice_number,
                 "Date": issueDate,
                 "Name": student?.name || '-',
@@ -279,10 +294,10 @@ export const downloadInvoice = async (req, res) => {
                 "Amount Paid": String(parseFloat(invoice.amount) || 0),
                 "Payment Method": invoice.payment_method || '-',
                 "Transaction ID": invoice.payment_id || '-',
-            };
-            pdfBuffer = await invoiceEmailService.generateReceiptPDF(data);
-            filename = `Receipt_${invoice.invoice_number}.pdf`;
+            });
         }
+
+        await fs.writeFile(filePath, pdfBuffer);
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
