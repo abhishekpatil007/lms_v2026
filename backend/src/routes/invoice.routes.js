@@ -2,14 +2,15 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
-import { 
-    offlineEnroll, 
-    requestPayment, 
-    handleWebhook, 
-    sendBulkInvoices, 
-    sendManualInvoiceAPI, 
-    listInvoices, 
+import {
+    offlineEnroll,
+    requestPayment,
+    handleWebhook,
+    sendBulkInvoices,
+    sendManualInvoiceAPI,
+    listInvoices,
     getInvoiceDetails,
+    downloadInvoice,
     getEmailModuleTemplate,
     sendEmailModuleBulk,
     getInvoicePreview
@@ -24,6 +25,9 @@ router.post('/request-payment', verifyToken, requireRole(['admin']), requestPaym
 
 // List Invoices
 router.get('/', verifyToken, requireRole(['admin']), listInvoices);
+
+// Download Invoice PDF
+router.get('/:id/download', verifyToken, requireRole(['admin']), downloadInvoice);
 
 // Get Invoice Details
 router.get('/:id', verifyToken, requireRole(['admin']), getInvoiceDetails);

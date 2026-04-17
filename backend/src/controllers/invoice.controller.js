@@ -237,7 +237,64 @@ export const listInvoices = async (req, res) => {
 };
 
 // -----------------------------
-// 7️⃣ Admin: Get Invoice Details
+// 7️⃣ Admin: Download Invoice PDF
+// -----------------------------
+export const downloadInvoice = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const invoice = await Invoice.findByPk(id, {
+            include: [
+                { model: User, as: 'student', attributes: ['id', 'name', 'email'] },
+                { model: Batch, as: 'batch', attributes: ['id', 'batch_name'] }
+            ]
+        });
+
+        if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+
+        const student = invoice.student;
+        const batch = invoice.batch;
+        const issueDate = new Date(invoice.issued_at || invoice.createdAt).toLocaleDateString('en-GB');
+
+        let pdfBuffer;
+        let filename;
+
+        if (invoice.status === 'paid') {
+            const data = {
+                "Invoice No": invoice.invoice_number,
+                "Date": issueDate,
+                "Name": student?.name || '-',
+                "Course Name": batch?.batch_name || 'Course Enrollment',
+                "Total": String(parseFloat(invoice.total) || 0),
+                "Rate": String(parseFloat(invoice.gst_rate) || 18),
+            };
+            pdfBuffer = await invoiceEmailService.generateTaxInvoicePDF(data);
+            filename = `Invoice_${invoice.invoice_number}.pdf`;
+        } else {
+            const data = {
+                "Receipt No": invoice.invoice_number,
+                "Date": issueDate,
+                "Name": student?.name || '-',
+                "Course Enrolled": batch?.batch_name || 'Course Enrollment',
+                "Batch": batch?.batch_name || '-',
+                "Amount Paid": String(parseFloat(invoice.amount) || 0),
+                "Payment Method": invoice.payment_method || '-',
+                "Transaction ID": invoice.payment_id || '-',
+            };
+            pdfBuffer = await invoiceEmailService.generateReceiptPDF(data);
+            filename = `Receipt_${invoice.invoice_number}.pdf`;
+        }
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(pdfBuffer);
+    } catch (error) {
+        console.error('downloadInvoice Error:', error);
+        res.status(500).json({ message: 'Error generating invoice PDF', error: error.message });
+    }
+};
+
+// -----------------------------
+// 8️⃣ Admin: Get Invoice Details
 // -----------------------------
 export const getInvoiceDetails = async (req, res) => {
     try {

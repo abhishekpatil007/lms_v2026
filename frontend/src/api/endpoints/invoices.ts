@@ -65,4 +65,18 @@ export const invoicesApi = {
         });
         return response.data;
     },
+
+    download: async (id: number, invoiceNumber: string): Promise<void> => {
+        const response = await apiClient.get(`/api/invoices/${id}/download`, {
+            responseType: 'blob',
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Invoice_${invoiceNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    },
 };

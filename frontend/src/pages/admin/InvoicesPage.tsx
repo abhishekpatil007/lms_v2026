@@ -515,6 +515,20 @@ export const InvoicesPage = () => {
     const [statusFilter, setStatusFilter] = useState<string>("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+    const handleDownload = async (invoice: Invoice) => {
+        if (downloadingId) return;
+        setDownloadingId(invoice.id);
+        try {
+            await invoicesApi.download(invoice.id, invoice.invoice_number);
+            toast.success('Invoice downloaded');
+        } catch {
+            toast.error('Failed to download invoice');
+        } finally {
+            setDownloadingId(null);
+        }
+    };
 
     useEffect(() => {
         fetchInvoices();
@@ -820,8 +834,17 @@ export const InvoicesPage = () => {
                                                         <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                             <IconEye className="w-5 h-5" />
                                                         </button>
-                                                        <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                                                            <IconDownload className="w-5 h-5" />
+                                                        <button
+                                                            onClick={() => handleDownload(invoice)}
+                                                            disabled={downloadingId === invoice.id}
+                                                            className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            title="Download PDF"
+                                                        >
+                                                            {downloadingId === invoice.id ? (
+                                                                <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                                                            ) : (
+                                                                <IconDownload className="w-5 h-5" />
+                                                            )}
                                                         </button>
                                                     </div>
                                                 </td>
