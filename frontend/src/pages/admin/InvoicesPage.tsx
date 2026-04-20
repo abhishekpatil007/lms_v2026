@@ -516,6 +516,13 @@ export const InvoicesPage = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [downloadingId, setDownloadingId] = useState<number | null>(null);
+    const [activeTab, setActiveTab] = useState<'invoices' | 'sent'>('invoices');
+    const [sentLogs, setSentLogs] = useState<any[]>([]);
+    const [sentLogsTotal, setSentLogsTotal] = useState(0);
+    const [sentLogsPage, setSentLogsPage] = useState(1);
+    const [sentLogsTotalPages, setSentLogsTotalPages] = useState(1);
+    const [sentLogsSearch, setSentLogsSearch] = useState('');
+    const [sentLogsLoading, setSentLogsLoading] = useState(false);
 
     const handleDownload = async (invoice: Invoice) => {
         if (downloadingId) return;
@@ -564,6 +571,24 @@ export const InvoicesPage = () => {
             console.error("Error fetching invoices for stats:", error);
         }
     };
+
+    const fetchSentLogs = async () => {
+        try {
+            setSentLogsLoading(true);
+            const data = await invoicesApi.listSentLogs({ page: sentLogsPage, limit: 10, search: sentLogsSearch || undefined });
+            setSentLogs(data.logs);
+            setSentLogsTotal(data.total);
+            setSentLogsTotalPages(data.totalPages);
+        } catch (error) {
+            console.error("Error fetching sent invoice logs:", error);
+        } finally {
+            setSentLogsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'sent') fetchSentLogs();
+    }, [activeTab, sentLogsPage, sentLogsSearch]);
 
     const stats = useMemo(() => {
         const totalRevenue = allInvoices
@@ -724,8 +749,33 @@ export const InvoicesPage = () => {
                         </button>
                     </div>
 
+                    {/* Tabs */}
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setActiveTab('invoices')}
+                            className={cn(
+                                "px-5 py-2 rounded-xl text-sm font-semibold transition-all",
+                                activeTab === 'invoices' ? "bg-gray-900 text-white shadow-sm" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+                            )}
+                        >
+                            Invoices
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('sent')}
+                            className={cn(
+                                "px-5 py-2 rounded-xl text-sm font-semibold transition-all",
+                                activeTab === 'sent' ? "bg-gray-900 text-white shadow-sm" : "bg-white text-gray-500 border border-gray-200 hover:bg-gray-50"
+                            )}
+                        >
+                            Sent via Email Module
+                            {sentLogsTotal > 0 && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs">{sentLogsTotal}</span>
+                            )}
+                        </button>
+                    </div>
+
                     {/* Filters */}
-                    <div className="rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200">
+                    <div className={cn("rounded-2xl bg-white p-4 sm:p-5 md:p-6 border border-gray-200", activeTab !== 'invoices' && "hidden")}>
                         <div className="relative">
                             <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                             <input
@@ -763,7 +813,7 @@ export const InvoicesPage = () => {
                     </div>
 
                     {/* Invoices List */}
-                    <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
+                    <div className={cn("rounded-2xl bg-white border border-gray-200 overflow-hidden", activeTab !== 'invoices' && "hidden")}>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -876,6 +926,71 @@ export const InvoicesPage = () => {
                             </button>
                         </div>
                     </div>
+                    {/* Sent via Email Module Table */}
+                    {activeTab === 'sent' && (
+                        <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
+                            {/* Search */}
+                            <div className="p-4 border-b border-gray-100">
+                                <div className="relative">
+                                    <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search by name, email or invoice number..."
+                                        value={sentLogsSearch}
+                                        onChange={(e) => { setSentLogsSearch(e.target.value); setSentLogsPage(1); }}
+                                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    />
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50 border-b border-gray-100">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Invoice / Receipt #</th>
+                                            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Name</th>
+                                            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Email</th>
+                                            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Type</th>
+                                            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Amount</th>
+                                            <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Sent At</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {sentLogsLoading ? (
+                                            <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
+                                        ) : sentLogs.length === 0 ? (
+                                            <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No sent invoices found</td></tr>
+                                        ) : sentLogs.map((log) => (
+                                            <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4 font-medium text-gray-900">{log.invoice_number || '-'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-800">{log.name}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{log.email}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={cn(
+                                                        "px-3 py-1 rounded-full text-xs font-semibold",
+                                                        log.type === 'fully_paid' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                                                    )}>
+                                                        {log.type === 'fully_paid' ? 'Tax Invoice' : 'Receipt'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                                    {log.amount ? `₹${Number(log.amount).toLocaleString('en-IN')}` : '-'}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-600">{formatDateIST(log.sent_at)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination */}
+                            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                                <button onClick={() => setSentLogsPage(p => Math.max(1, p - 1))} disabled={sentLogsPage === 1}
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50">Previous</button>
+                                <span className="text-sm text-gray-600">Page {sentLogsPage} of {sentLogsTotalPages || 1}</span>
+                                <button onClick={() => setSentLogsPage(p => Math.min(sentLogsTotalPages, p + 1))} disabled={sentLogsPage === sentLogsTotalPages}
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50">Next</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

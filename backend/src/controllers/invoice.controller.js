@@ -309,7 +309,35 @@ export const downloadInvoice = async (req, res) => {
 };
 
 // -----------------------------
-// 8️⃣ Admin: Get Invoice Details
+// 8️⃣ Admin: List Sent Invoice Logs
+// -----------------------------
+export const listSentInvoiceLogs = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const where = {};
+        if (search) {
+            where[db.Sequelize.Op.or] = [
+                { name: { [db.Sequelize.Op.like]: `%${search}%` } },
+                { email: { [db.Sequelize.Op.like]: `%${search}%` } },
+                { invoice_number: { [db.Sequelize.Op.like]: `%${search}%` } },
+            ];
+        }
+        const { count, rows } = await db.SentInvoiceLog.findAndCountAll({
+            where,
+            order: [['sent_at', 'DESC']],
+            limit: parseInt(limit),
+            offset,
+        });
+        res.json({ logs: rows, total: count, totalPages: Math.ceil(count / parseInt(limit)) });
+    } catch (error) {
+        console.error('listSentInvoiceLogs Error:', error);
+        res.status(500).json({ message: 'Error fetching sent invoice logs', error: error.message });
+    }
+};
+
+// -----------------------------
+// 9️⃣ Admin: Get Invoice Details
 // -----------------------------
 export const getInvoiceDetails = async (req, res) => {
     try {

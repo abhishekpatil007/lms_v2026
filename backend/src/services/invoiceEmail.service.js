@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import nodemailer from 'nodemailer';
 import { fileURLToPath } from 'url';
+import db from '../models/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -249,6 +250,18 @@ export async function processBulkEmails(type, filePath, onProgress) {
                 await generateTaxInvoicePDF(row);
             
             await sendSingleInvoiceEmail(row.Email, row.Name, pdfBuffer, type);
+
+            const idField = type === 'partially_paid' ? 'Receipt No' : 'Invoice No';
+            const amountField = type === 'partially_paid' ? 'Amount Paid' : 'Total';
+            await db.SentInvoiceLog.create({
+                name: row.Name || '',
+                email: row.Email || '',
+                invoice_number: row[idField] || '',
+                type,
+                amount: parseFloat(row[amountField]) || null,
+                sent_at: new Date(),
+            }).catch(() => {}); // don't fail email send if log fails
+
             success++;
             if (onProgress) {
                 onProgress({ 

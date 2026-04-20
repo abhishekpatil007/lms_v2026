@@ -66,6 +66,11 @@ export const invoicesApi = {
         return response.data;
     },
 
+    listSentLogs: async (params?: { page?: number; limit?: number; search?: string }): Promise<{ logs: any[]; total: number; totalPages: number }> => {
+        const response = await apiClient.get('/api/invoices/sent-logs', { params });
+        return response.data;
+    },
+
     download: async (id: number, invoiceNumber: string): Promise<void> => {
         const response = await apiClient.get(`/api/invoices/${id}/download`, {
             responseType: 'blob',

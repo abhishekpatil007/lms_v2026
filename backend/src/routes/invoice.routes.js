@@ -11,6 +11,7 @@ import {
     listInvoices,
     getInvoiceDetails,
     downloadInvoice,
+    listSentInvoiceLogs,
     getEmailModuleTemplate,
     sendEmailModuleBulk,
     getInvoicePreview
@@ -25,6 +26,9 @@ router.post('/request-payment', verifyToken, requireRole(['admin']), requestPaym
 
 // List Invoices
 router.get('/', verifyToken, requireRole(['admin']), listInvoices);
+
+// Sent Invoice Logs (Email Module)
+router.get('/sent-logs', verifyToken, requireRole(['admin']), listSentInvoiceLogs);
 
 // Download Invoice PDF
 router.get('/:id/download', verifyToken, requireRole(['admin']), downloadInvoice);
