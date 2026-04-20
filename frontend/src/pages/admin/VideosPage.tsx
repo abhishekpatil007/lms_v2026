@@ -215,8 +215,18 @@ export const VideosPage = () => {
   const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [previewVideo, setPreviewVideo] = useState<Video | null>(null);
   const [editVideo, setEditVideo] = useState<Video | null>(null);
-  const [editData, setEditData] = useState({ title: "", description: "", language: "" });
+  const [editData, setEditData] = useState({ title: "", description: "", language: "", topic_id: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [editVideoTopics, setEditVideoTopics] = useState<Topic[]>([]);
+
+  // Topics management
+  const [topicsForBatch, setTopicsForBatch] = useState<Topic[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [editTopicTitle, setEditTopicTitle] = useState("");
+  const [topicSaving, setTopicSaving] = useState(false);
+  const [showAddTopic, setShowAddTopic] = useState(false);
+  const [newTopicTitle, setNewTopicTitle] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -248,6 +258,16 @@ export const VideosPage = () => {
   useEffect(() => {
     fetchBatches();
   }, []);
+
+  useEffect(() => {
+    if (filterBatch !== "all") {
+      fetchTopicsForSelectedBatch(filterBatch);
+    } else {
+      setTopicsForBatch([]);
+      setShowAddTopic(false);
+      setEditingTopic(null);
+    }
+  }, [filterBatch]);
 
   const fetchVideos = async () => {
     try {
@@ -318,13 +338,69 @@ export const VideosPage = () => {
     return `${mins}m`;
   };
 
-  const openEditModal = (video: Video) => {
+  const fetchTopicsForSelectedBatch = async (batchId: string) => {
+    setTopicsLoading(true);
+    try {
+      const { topics } = await topicsApi.listByBatch(batchId);
+      setTopicsForBatch(topics);
+    } catch {}
+    finally { setTopicsLoading(false); }
+  };
+
+  const openEditModal = async (video: Video) => {
     setEditData({
       title: video.title,
       description: video.description || "",
       language: video.language || "",
+      topic_id: video.topic_id || "",
     });
     setEditVideo(video);
+    // Load topics from all batches this video belongs to
+    const batchIds = (video.batches || []).map((b) => b.id);
+    if (batchIds.length > 0) {
+      try {
+        const results = await Promise.all(batchIds.map((id) => topicsApi.listByBatch(id)));
+        const allTopics = results.flatMap((r) => r.topics);
+        const seen = new Set<number>();
+        setEditVideoTopics(allTopics.filter((t) => { if (seen.has(t.id)) return false; seen.add(t.id); return true; }));
+      } catch { setEditVideoTopics([]); }
+    } else {
+      setEditVideoTopics([]);
+    }
+  };
+
+  const handleSaveTopic = async () => {
+    if (!editingTopic || !editTopicTitle.trim()) return;
+    setTopicSaving(true);
+    try {
+      await topicsApi.update(editingTopic.id, { title: editTopicTitle.trim() });
+      addToast("success", "Topic updated");
+      setEditingTopic(null);
+      if (filterBatch !== "all") fetchTopicsForSelectedBatch(filterBatch);
+    } catch { addToast("error", "Failed to update topic"); }
+    finally { setTopicSaving(false); }
+  };
+
+  const handleDeleteTopic = async (topic: Topic) => {
+    if (!confirm(`Delete topic "${topic.title}"? Videos in this topic will be unassigned.`)) return;
+    try {
+      await topicsApi.delete(topic.id);
+      addToast("success", "Topic deleted");
+      if (filterBatch !== "all") fetchTopicsForSelectedBatch(filterBatch);
+    } catch (err: any) {
+      addToast("error", err?.response?.data?.message || "Failed to delete topic");
+    }
+  };
+
+  const handleAddTopic = async () => {
+    if (!newTopicTitle.trim() || filterBatch === "all") return;
+    try {
+      await topicsApi.create({ batch_id: filterBatch, title: newTopicTitle.trim() });
+      addToast("success", "Topic created");
+      setShowAddTopic(false);
+      setNewTopicTitle("");
+      fetchTopicsForSelectedBatch(filterBatch);
+    } catch { addToast("error", "Failed to create topic"); }
   };
 
   const handleSaveEdit = async () => {
@@ -588,6 +664,98 @@ export const VideosPage = () => {
               </div>
             )}
           </motion.div>
+
+          {/* Topics Panel — visible when a batch is selected */}
+          {filterBatch !== "all" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl bg-white border border-gray-200 p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Topics — {batches.find((b) => b.id === filterBatch)?.batch_name}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Manage topics for this batch</p>
+                </div>
+                {!showAddTopic && (
+                  <button onClick={() => setShowAddTopic(true)}
+                    className="flex items-center gap-1.5 rounded-xl bg-gray-900 text-white text-xs font-semibold px-3 py-1.5 hover:bg-gray-700 transition-all">
+                    <IconPlus className="w-3.5 h-3.5" />
+                    Add Topic
+                  </button>
+                )}
+              </div>
+
+              {/* Add topic inline */}
+              {showAddTopic && (
+                <div className="flex gap-2 mb-3">
+                  <input
+                    value={newTopicTitle}
+                    onChange={(e) => setNewTopicTitle(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddTopic(); if (e.key === "Escape") { setShowAddTopic(false); setNewTopicTitle(""); } }}
+                    placeholder="Topic name..."
+                    autoFocus
+                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                  />
+                  <button onClick={handleAddTopic} disabled={!newTopicTitle.trim()}
+                    className="rounded-xl bg-violet-600 text-white text-xs font-semibold px-3 py-2 hover:bg-violet-700 disabled:opacity-50 transition-all">
+                    Add
+                  </button>
+                  <button onClick={() => { setShowAddTopic(false); setNewTopicTitle(""); }}
+                    className="rounded-xl bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-2 hover:bg-gray-200 transition-all">
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {topicsLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : topicsForBatch.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No topics yet. Add one above.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {topicsForBatch.map((topic) => (
+                    <div key={topic.id} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                      {editingTopic?.id === topic.id ? (
+                        <div className="flex gap-2 flex-1">
+                          <input
+                            value={editTopicTitle}
+                            onChange={(e) => setEditTopicTitle(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleSaveTopic(); if (e.key === "Escape") setEditingTopic(null); }}
+                            autoFocus
+                            className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
+                          />
+                          <button onClick={handleSaveTopic} disabled={topicSaving || !editTopicTitle.trim()}
+                            className="rounded-lg bg-violet-600 text-white text-xs font-semibold px-3 py-1.5 hover:bg-violet-700 disabled:opacity-50 transition-all">
+                            {topicSaving ? "Saving..." : "Save"}
+                          </button>
+                          <button onClick={() => setEditingTopic(null)}
+                            className="rounded-lg bg-gray-200 text-gray-600 text-xs font-semibold px-3 py-1.5 hover:bg-gray-300 transition-all">
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-sm font-medium text-gray-800">{topic.title}</span>
+                          <div className="flex gap-1">
+                            <button onClick={() => { setEditingTopic(topic); setEditTopicTitle(topic.title); }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-all" title="Edit topic">
+                              <IconEdit className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteTopic(topic)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all" title="Delete topic">
+                              <IconTrash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
 
           {/* Videos Grid */}
           {loading ? (
@@ -885,6 +1053,25 @@ export const VideosPage = () => {
                     placeholder="e.g. en, hi, mr"
                     className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Topic (Optional)</label>
+                  {editVideoTopics.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2">
+                      {(editVideo?.batches || []).length === 0 ? "Assign this video to a batch first to pick a topic." : "No topics in this batch yet."}
+                    </p>
+                  ) : (
+                    <select
+                      value={editData.topic_id}
+                      onChange={(e) => setEditData({ ...editData, topic_id: e.target.value })}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-400/20 bg-white"
+                    >
+                      <option value="">No Topic</option>
+                      {editVideoTopics.map((t) => (
+                        <option key={t.id} value={String(t.id)}>{t.title}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
