@@ -523,6 +523,34 @@ export const InvoicesPage = () => {
     const [sentLogsTotalPages, setSentLogsTotalPages] = useState(1);
     const [sentLogsSearch, setSentLogsSearch] = useState('');
     const [sentLogsLoading, setSentLogsLoading] = useState(false);
+    const [downloadingSentId, setDownloadingSentId] = useState<number | null>(null);
+    const [bulkDownloading, setBulkDownloading] = useState(false);
+
+    const handleDownloadSentLog = async (log: any) => {
+        if (downloadingSentId) return;
+        setDownloadingSentId(log.id);
+        try {
+            await invoicesApi.downloadSentLog(log.id, log.invoice_number, log.type);
+            toast.success('Downloaded');
+        } catch {
+            toast.error('Failed to download');
+        } finally {
+            setDownloadingSentId(null);
+        }
+    };
+
+    const handleBulkDownload = async () => {
+        if (bulkDownloading) return;
+        setBulkDownloading(true);
+        try {
+            await invoicesApi.bulkDownloadSentLogs(sentLogsSearch || undefined);
+            toast.success('ZIP downloaded');
+        } catch {
+            toast.error('Failed to bulk download');
+        } finally {
+            setBulkDownloading(false);
+        }
+    };
 
     const handleDownload = async (invoice: Invoice) => {
         if (downloadingId) return;
@@ -929,9 +957,9 @@ export const InvoicesPage = () => {
                     {/* Sent via Email Module Table */}
                     {activeTab === 'sent' && (
                         <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
-                            {/* Search */}
-                            <div className="p-4 border-b border-gray-100">
-                                <div className="relative">
+                            {/* Search + Bulk Download */}
+                            <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+                                <div className="relative flex-1">
                                     <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                                     <input
                                         type="text"
@@ -941,6 +969,18 @@ export const InvoicesPage = () => {
                                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                     />
                                 </div>
+                                <button
+                                    onClick={handleBulkDownload}
+                                    disabled={bulkDownloading || sentLogsTotal === 0}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                >
+                                    {bulkDownloading ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        <IconDownload className="w-4 h-4" />
+                                    )}
+                                    {bulkDownloading ? 'Zipping...' : 'Download All'}
+                                </button>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
@@ -952,6 +992,7 @@ export const InvoicesPage = () => {
                                             <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Type</th>
                                             <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Amount</th>
                                             <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Sent At</th>
+                                            <th className="px-6 py-4 text-right text-sm font-semibold text-gray-600">Download</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -976,6 +1017,20 @@ export const InvoicesPage = () => {
                                                     {log.amount ? `₹${Number(log.amount).toLocaleString('en-IN')}` : '-'}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-600">{formatDateIST(log.sent_at)}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <button
+                                                        onClick={() => handleDownloadSentLog(log)}
+                                                        disabled={downloadingSentId === log.id}
+                                                        className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-50"
+                                                        title="Download PDF"
+                                                    >
+                                                        {downloadingSentId === log.id ? (
+                                                            <div className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                                                        ) : (
+                                                            <IconDownload className="w-5 h-5" />
+                                                        )}
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

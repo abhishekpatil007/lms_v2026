@@ -71,6 +71,33 @@ export const invoicesApi = {
         return response.data;
     },
 
+    downloadSentLog: async (id: number, invoiceNumber: string, type: string): Promise<void> => {
+        const response = await apiClient.get(`/api/invoices/sent-logs/${id}/download`, { responseType: 'blob' });
+        const prefix = type === 'fully_paid' ? 'Invoice' : 'Receipt';
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${prefix}_${invoiceNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    },
+
+    bulkDownloadSentLogs: async (search?: string): Promise<void> => {
+        const params: any = {};
+        if (search) params.search = search;
+        const response = await apiClient.get('/api/invoices/sent-logs/bulk-download', { params, responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoices_${new Date().toISOString().slice(0,10)}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    },
+
     download: async (id: number, invoiceNumber: string): Promise<void> => {
         const response = await apiClient.get(`/api/invoices/${id}/download`, {
             responseType: 'blob',

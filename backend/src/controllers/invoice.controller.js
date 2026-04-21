@@ -9,9 +9,37 @@ import { processInvoiceExcel, sendManualInvoice } from '../services/bulkInvoice.
 import * as invoiceEmailService from '../services/invoiceEmail.service.js';
 import fs from 'fs-extra';
 import path from 'path';
+import archiver from 'archiver';
 
 const INVOICE_PDF_DIR = path.resolve('uploads/invoices');
+const SENT_LOG_PDF_DIR = path.resolve('uploads/invoices/sent');
 fs.ensureDirSync(INVOICE_PDF_DIR);
+fs.ensureDirSync(SENT_LOG_PDF_DIR);
+
+// Shared helper: generate PDF buffer from a sent log row
+async function generateSentLogPDF(log) {
+    const issueDate = new Date(log.sent_at).toLocaleDateString('en-GB');
+    if (log.type === 'fully_paid') {
+        return invoiceEmailService.generateTaxInvoicePDF({
+            "Invoice No": log.invoice_number,
+            "Date": issueDate,
+            "Name": log.name || '-',
+            "Course Name": "Course Enrollment",
+            "Total": String(parseFloat(log.amount) || 0),
+            "Rate": "18",
+        });
+    }
+    return invoiceEmailService.generateReceiptPDF({
+        "Receipt No": log.invoice_number,
+        "Date": issueDate,
+        "Name": log.name || '-',
+        "Course Enrolled": "Course Enrollment",
+        "Batch": "-",
+        "Amount Paid": String(parseFloat(log.amount) || 0),
+        "Payment Method": "-",
+        "Transaction ID": "-",
+    });
+}
 
 // -------------------------------
 // 0️⃣ Invoice Email Module (NEW)
@@ -333,6 +361,89 @@ export const listSentInvoiceLogs = async (req, res) => {
     } catch (error) {
         console.error('listSentInvoiceLogs Error:', error);
         res.status(500).json({ message: 'Error fetching sent invoice logs', error: error.message });
+    }
+};
+
+// -----------------------------
+// Admin: Download Single Sent Log PDF
+// -----------------------------
+export const downloadSentLog = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const log = await db.SentInvoiceLog.findByPk(id);
+        if (!log) return res.status(404).json({ message: 'Log not found' });
+
+        const isPaid = log.type === 'fully_paid';
+        const filename = isPaid
+            ? `Invoice_${log.invoice_number}.pdf`
+            : `Receipt_${log.invoice_number}.pdf`;
+        const filePath = path.join(SENT_LOG_PDF_DIR, filename);
+
+        if (await fs.pathExists(filePath)) {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            return res.sendFile(filePath, { root: '.' });
+        }
+
+        const pdfBuffer = await generateSentLogPDF(log);
+        await fs.writeFile(filePath, pdfBuffer);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(pdfBuffer);
+    } catch (error) {
+        console.error('downloadSentLog Error:', error);
+        res.status(500).json({ message: 'Error generating PDF', error: error.message });
+    }
+};
+
+// -----------------------------
+// Admin: Bulk Download Sent Logs as ZIP
+// -----------------------------
+export const bulkDownloadSentLogs = async (req, res) => {
+    try {
+        const { search } = req.query;
+        const where = {};
+        if (search) {
+            where[db.Sequelize.Op.or] = [
+                { name: { [db.Sequelize.Op.like]: `%${search}%` } },
+                { email: { [db.Sequelize.Op.like]: `%${search}%` } },
+                { invoice_number: { [db.Sequelize.Op.like]: `%${search}%` } },
+            ];
+        }
+
+        const logs = await db.SentInvoiceLog.findAll({ where, order: [['sent_at', 'DESC']] });
+        if (logs.length === 0) return res.status(404).json({ message: 'No invoices found' });
+
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="invoices_${Date.now()}.zip"`);
+
+        const archive = archiver('zip', { zlib: { level: 6 } });
+        archive.pipe(res);
+
+        for (const log of logs) {
+            const isPaid = log.type === 'fully_paid';
+            const filename = isPaid
+                ? `Invoice_${log.invoice_number}.pdf`
+                : `Receipt_${log.invoice_number}.pdf`;
+            const filePath = path.join(SENT_LOG_PDF_DIR, filename);
+
+            let pdfBuffer;
+            if (await fs.pathExists(filePath)) {
+                pdfBuffer = await fs.readFile(filePath);
+            } else {
+                pdfBuffer = await generateSentLogPDF(log);
+                await fs.writeFile(filePath, pdfBuffer).catch(() => {});
+            }
+            archive.append(pdfBuffer, { name: filename });
+        }
+
+        await archive.finalize();
+    } catch (error) {
+        console.error('bulkDownloadSentLogs Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Error generating ZIP', error: error.message });
+        }
     }
 };
 
