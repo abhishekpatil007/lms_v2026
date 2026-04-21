@@ -18,6 +18,7 @@ const createZoomWebinar = async (topic, startTime, duration, instructorEmail = n
         topic,
         type: 5, // Webinar
         start_time: startTime, // ISO8601
+        timezone: 'Asia/Kolkata',
         duration,
         settings: {
             approval_type: 2,   // NO REGISTRATION REQUIRED
@@ -356,6 +357,7 @@ export const updateLiveClass = async (req, res) => {
             {
                 topic,
                 start_time,
+                timezone: 'Asia/Kolkata',
                 duration,
                 agenda: description,
                 settings: {
@@ -371,7 +373,7 @@ export const updateLiveClass = async (req, res) => {
             if (err.response && err.response.status === 400) {
                 await axios.patch(
                     `https://api.zoom.us/v2/webinars/${liveClass.zoom_meeting_id}`,
-                    { topic, start_time, duration, agenda: description },
+                    { topic, start_time, timezone: 'Asia/Kolkata', duration, agenda: description },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
             } else throw err;
