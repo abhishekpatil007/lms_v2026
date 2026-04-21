@@ -181,6 +181,14 @@ export const getBatchLiveClasses = async (req, res) => {
             offset: parseInt(offset),
         });
 
+        // Auto-complete classes whose end time has passed
+        const now = new Date();
+        await Promise.all(
+            rows
+                .filter(lc => (lc.status === 'scheduled' || lc.status === 'live') && new Date(lc.start_time).getTime() + lc.duration * 60 * 1000 < now.getTime())
+                .map(lc => lc.update({ status: 'completed' }))
+        );
+
         liveClassLogger.info(`Batch live classes retrieved - Batch ID: ${batch_id}, Count: ${rows.length}`);
         
         // Return standard data format, but we keep data: ... for backward compatibility if needed, though best to format consistently
