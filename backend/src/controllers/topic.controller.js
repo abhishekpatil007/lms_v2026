@@ -78,7 +78,7 @@ export const listTopicsByBatch = async (req, res) => {
         const offset = (page - 1) * limit;
 
         const userId = req.user?.user?.id || req.user?.id;
-        const role = req.user?.role;
+        const role = req.user?.user?.role || req.user?.role;
 
         let whereClause = { is_active: true };
 

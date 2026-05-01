@@ -696,7 +696,7 @@ export const StudentVideosPage = () => {
         try {
             setLoading(true);
             const [topicRes, batchRes] = await Promise.all([
-                topicsApi.listByBatch('enrolled').catch(() => ({ topics: [] as Topic[] })),
+                topicsApi.listByBatch('enrolled', { limit: 500 }).catch(() => ({ topics: [] as Topic[] })),
                 batchesApi.getStudentBatches().catch(() => ({ batches: [] as Batch[] })),
             ]);
             setTopics(topicRes.topics || []);
