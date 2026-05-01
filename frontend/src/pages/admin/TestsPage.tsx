@@ -17,7 +17,7 @@ import {
     IconTrash,
 } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn, formatDateTimeIST } from "@/lib/utils";
+import { cn, formatDateTimeIST, toISTDateTimeLocal } from "@/lib/utils";
 import { testsApi } from "@/api/endpoints/tests";
 import { batchesApi } from "@/api/endpoints/batches";
 import type { Test, Batch } from "@/types";
@@ -237,17 +237,11 @@ export const TestsPage = () => {
     };
 
     const openEditModal = (test: Test) => {
-        const toLocal = (d?: string) => {
-            if (!d) return "";
-            const date = new Date(d);
-            const pad = (n: number) => n.toString().padStart(2, '0');
-            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-        };
         setEditData({
             title: test.title,
             description: test.description || "",
-            start_time: toLocal(test.start_time),
-            end_time: toLocal(test.end_time),
+            start_time: toISTDateTimeLocal(test.start_time || ""),
+            end_time: toISTDateTimeLocal(test.end_time || ""),
             duration_minutes: test.duration_minutes || 60,
             max_attempts: test.max_attempts || 1,
             shuffle_questions: test.shuffle_questions || false,

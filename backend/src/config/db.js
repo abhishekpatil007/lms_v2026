@@ -11,6 +11,7 @@ export const sequelize = new Sequelize(
         port: process.env.DB_PORT || 3306,
         dialect: process.env.DB_DIALECT || 'mysql',
         logging: false,
+        timezone: '+00:00',
         pool: { max: 10, min: 0, acquire: 30000, idle: 10000 },
         dialectOptions: { charset: 'utf8mb4' }
     }
