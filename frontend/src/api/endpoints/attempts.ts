@@ -2,16 +2,7 @@ import apiClient from '../client';
 
 export const attemptsApi = {
     start: async (testId: number) => {
-        let deviceId = localStorage.getItem('device_fingerprint');
-        if (!deviceId) {
-            deviceId = crypto.randomUUID();
-            localStorage.setItem('device_fingerprint', deviceId);
-        }
-
-        const response = await apiClient.post('/api/attempts/start',
-            { test_id: testId },
-            { headers: { 'x-device-fingerprint': deviceId } }
-        );
+        const response = await apiClient.post('/api/attempts/start', { test_id: testId });
         return response.data;
     },
 

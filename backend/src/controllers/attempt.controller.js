@@ -3,52 +3,15 @@ import { getFileUrl } from '../services/storage.service.js';
 import { Op } from 'sequelize';
 import { createModuleLogger } from '../utils/logger/logger.js';
 
-const { Test, Block, Question, Attempt, AttemptBlock, AttemptAnswer, DeviceBinding, ProctoringLog } = db;
+const { Test, Block, Question, Attempt, AttemptBlock, AttemptAnswer, ProctoringLog } = db;
 const logger = createModuleLogger('attemptController');
-
-// Helper to check device binding
-const checkDeviceBinding = async (userId, fingerprint, userAgent) => {
-    let binding = await DeviceBinding.findOne({ where: { user_id: userId } });
-
-    if (!binding) {
-        // First time, bind device
-        binding = await DeviceBinding.create({
-            user_id: userId,
-            device_fingerprint: fingerprint,
-            user_agent: userAgent
-        });
-        return true;
-    }
-
-    // Check if matches
-    if (binding.device_fingerprint !== fingerprint) {
-        return false;
-    }
-
-    // Update last login
-    binding.last_login = new Date();
-    await binding.save();
-    return true;
-};
 
 export const startAttempt = async (req, res) => {
     try {
         const { test_id } = req.body;
         const userId = req.user.user.id;
-        const fingerprint = req.headers['x-device-fingerprint'];
-        const userAgent = req.headers['user-agent'];
 
-        if (!fingerprint) {
-            return res.status(400).json({ message: 'Device fingerprint required' });
-        }
-
-        // 1. Check Device Binding
-        const isDeviceValid = await checkDeviceBinding(userId, fingerprint, userAgent);
-        if (!isDeviceValid) {
-            return res.status(403).json({ message: 'Device mismatch. You can only take tests from your registered device.' });
-        }
-
-        // 2. Fetch Test
+        // 1. Fetch Test
         const test = await Test.findByPk(test_id);
         if (!test) return res.status(404).json({ message: 'Test not found' });
 
@@ -67,7 +30,6 @@ export const startAttempt = async (req, res) => {
         const attempt = await Attempt.create({
             test_id,
             user_id: userId,
-            device_fingerprint: fingerprint,
             ip_address: req.ip,
             status: 'ongoing'
         });
